@@ -1,0 +1,97 @@
+{
+  "_doc": "Schema for feature atlas records. Read by wbsd/atlas.py validate(). `required` = facts about the module; `judgement` = optional comparisons against a target module (enum-checked when present). See docs/ATLAS.md.",
+  "required": [
+    "id",
+    "name",
+    "category",
+    "summary",
+    "mechanics",
+    "hooks",
+    "scripts",
+    "slots",
+    "globals",
+    "native_relation",
+    "confidence",
+    "evidence"
+  ],
+  "judgement": [
+    "target_status",
+    "target_evidence",
+    "conflicts",
+    "difficulty",
+    "risk",
+    "value",
+    "recommendation"
+  ],
+  "categories": [
+    "campaign-ai",
+    "kingdom-management",
+    "diplomacy-politics",
+    "lord-behavior",
+    "party-ai",
+    "economy-trade",
+    "settlements-villages",
+    "recruitment-troops",
+    "companions-heroes",
+    "character-progression",
+    "prisoners",
+    "bandits-outlaws",
+    "mercenaries",
+    "caravans-patrols",
+    "armies-campaigns",
+    "sieges",
+    "battle-ai-formations",
+    "combat-mechanics",
+    "morale",
+    "deployment",
+    "tournaments",
+    "quests",
+    "reputation-relations",
+    "law-governance",
+    "religion-culture",
+    "dynamic-world-events",
+    "map-travel",
+    "naval",
+    "qol-ui",
+    "reports-info",
+    "automation",
+    "performance-bugfix",
+    "other"
+  ],
+  "enums": {
+    "native_relation": [
+      "new",
+      "modifies-native",
+      "replaces-native",
+      "native-identical"
+    ],
+    "target_status": [
+      "absent",
+      "partial",
+      "present",
+      "different-implementation"
+    ],
+    "difficulty": [
+      "low",
+      "medium",
+      "high",
+      "very-high"
+    ],
+    "risk": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "recommendation": [
+      "adopt",
+      "adapt",
+      "reference",
+      "skip"
+    ],
+    "confidence": [
+      "confirmed",
+      "strongly-inferred",
+      "speculative"
+    ]
+  }
+}

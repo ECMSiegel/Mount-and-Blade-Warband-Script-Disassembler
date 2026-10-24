@@ -1,0 +1,1739 @@
+{
+  "module": "be",
+  "features": [
+    {
+      "id": "be.field_artillery_batteries",
+      "name": "Crewed field-gun and howitzer batteries (Yuri cannon system)",
+      "category": "combat-mechanics",
+      "summary": "Artillery-officer troops in a party turn into a fully animated gun battery when they spawn in battle: the officer brings three gunners and a multi-part gun (body, wheels, barrel, ropes, ramrods, shell). The crew walks to stations, swabs, loads, aims, fires; shells fly in an arc and explode with radial damage, craters and morale shock. Field guns fire flat at the officer's AI target; howitzers fire at 45 degrees.",
+      "mechanics": "Spawn: every mission template's ti_on_agent_spawn trigger (e.g. mst:lead_charge/t98) calls cf_YuriSpawnCannon(agent). If the agent is a cannoneer-officer troop (trp_factionplayer_fieldgun_cannoneer_officer..trp_factionplayer_fieldgun_cannoneer) and the team's battery counter team slot 178 (+ allied team's) is below 5 (10 with technology faction slot 416), it spawns 3 crew agents from the faction's crew troop (faction slot 403/404), spawns rope/ramrod/cannonball props, wheels and barrel, then the body last; the body's own ti_on_scene_prop_init (spr_*_body/t0 -> cannon_body_spawn) copies the just-set globals $g_cannoneer_officer/$g_cannoneer1-3/$g_rope1.../$g_barrel into scene_prop slots 192-206 and sets per-model geometry/reload slots 189-191, 209, 210, 213 (0=gun,1=howitzer), 214. Excess officers fade out. Gun model tier (1/2/3) is chosen by technology slots 415/416. Loop: mst:lead_charge/t95 (every 0.033 s) iterates every spr_fieldgun_1_body..spr_fieldgun_1_wheels instance and runs cannon_reassign_cannoneers, cannon_tick_timer, cannon_process_moving, cannon_process_reloading, cannon_process_aiming; scene_prop slot 197 is the state machine (2 arrive ->3 load ->4 aim ->5..7 ready -> 8 fired), slot 196 the countdown timer. cannon_fire plays crew Yuri_* animations, sets the shell prop's flight slots (167 in-flight, 177 projectile type from get_cannoneer_officer_faction_cannon_projectile_type, 178 calibre), animates the shell with prop_instance_animate_to_position (time = distance/150) at a randomised point near agent_ai_get_look_target (howitzer: rotate 45 deg, store target in slots 220-223), bursts psys_cannon_smoke/psys_musket_flash, plays near/far sounds. mst:lead_charge/t96 (every 0.01 s) detects arrival -> shell_hits_pos: 65-95% chance explode_at_pos (radial agent_deliver_damage_to_agent scaled by distance, /10 in trench, /2 prone, knock-down animation, adds suppression to team slot 52+division) else a bounce/crater prop (max 400 craters); gas shells spawn spr_gas_shell. YuriBatteryHoldPosition answers player orders (t97), cf_YuriCannonCanoneersRetreat (t59) handles crew rout.",
+      "hooks": [
+        "mst:lead_charge/t98:conseq",
+        "mst:lead_charge/t95:conseq",
+        "mst:lead_charge/t96:conseq",
+        "mst:lead_charge/t97:conseq",
+        "mst:lead_charge/t59:cond",
+        "spr:spr_fieldgun_1_body/t0",
+        "spr:spr_howitzer_1_body/t0",
+        "spr:spr_heavyhowitzer_3_body/t0"
+      ],
+      "scripts": [
+        "cf_YuriSpawnCannon",
+        "cannon_body_spawn",
+        "cannon_reassign_cannoneers",
+        "cannon_tick_timer",
+        "cannon_process_moving",
+        "cannon_process_reloading",
+        "cannon_process_aiming",
+        "cannon_fire",
+        "cannon_cancel_cannoneers_animations",
+        "shell_hits_pos",
+        "explode_at_pos",
+        "YuriBatteryHoldPosition",
+        "cf_YuriCannonCanoneersRetreat",
+        "cf_Yuri_DidCannoneerArriveAtHisPosition",
+        "cf_Yuri_IsAgentAlive",
+        "Yuri_PosAllignToGroundLevel",
+        "Yuri_PosAllignToTerrainLevel",
+        "get_cannoneer_officer_faction_cannon_projectile_type",
+        "play_distant_sound_at_pos_based_on_distance",
+        "turn_pos_towards_pos",
+        "get_modulus_of_value",
+        "YuriGetAngleForHowitzerAiming",
+        "Yuri_CannoneerApplyRamrodStance"
+      ],
+      "menus": [
+        "menu_cannoneers_store"
+      ],
+      "presentations": [
+        "prsnt_pbs"
+      ],
+      "mission_templates": [
+        "all 25 (lead_charge, castle_attack_walls_*, besiege_inner_battle_*, town/arena/training templates too)"
+      ],
+      "dialogs": [],
+      "slots": [
+        "scene_prop:167",
+        "scene_prop:177",
+        "scene_prop:178",
+        "scene_prop:189",
+        "scene_prop:190",
+        "scene_prop:191",
+        "scene_prop:192",
+        "scene_prop:193",
+        "scene_prop:194",
+        "scene_prop:195",
+        "scene_prop:196",
+        "scene_prop:197",
+        "scene_prop:200",
+        "scene_prop:201",
+        "scene_prop:202",
+        "scene_prop:203",
+        "scene_prop:204",
+        "scene_prop:205",
+        "scene_prop:206",
+        "scene_prop:209",
+        "scene_prop:210",
+        "scene_prop:213",
+        "scene_prop:214",
+        "scene_prop:216",
+        "scene_prop:220",
+        "scene_prop:221",
+        "scene_prop:222",
+        "scene_prop:223",
+        "team:178",
+        "agent:38",
+        "agent:61",
+        "faction:403",
+        "faction:404",
+        "faction:415",
+        "faction:416"
+      ],
+      "globals": [
+        "g_cannoneer_officer",
+        "g_cannoneer1",
+        "g_cannoneer2",
+        "g_cannoneer3",
+        "g_rope1",
+        "g_rope2",
+        "g_ramrod1",
+        "g_ramrod2",
+        "g_shell",
+        "g_wheels",
+        "g_barrel",
+        "number_of_craters",
+        "battle_timer",
+        "g_battle_type"
+      ],
+      "resources": {
+        "spr": [
+          "spr_fieldgun_1/2/3_body|wheels|barrel",
+          "spr_howitzer_1/2/3_*",
+          "spr_heavyhowitzer_3_*",
+          "spr_YuriCannon1_Rope1/2",
+          "spr_YuriCannon1_Ramrod1/2",
+          "spr_YuriCannon1_Cannonball",
+          "spr_YuriCannonballCrater",
+          "spr_YuriShellCrater",
+          "spr_gas_shell",
+          "spr_pai_artillery_position"
+        ],
+        "anim": [
+          "Yuri_CannonAiming",
+          "Yuri_CannonLighting(_Shot)",
+          "Yuri_CannonEarsPlugging_Left/Right(_Shot)",
+          "Yuri_CannonRamrod*",
+          "Yuri_CannonBarrelCleaning*",
+          "Yuri_CannonCartridgeInserting(Breech)",
+          "Yuri_CannonRopePulling_Left/Right",
+          "YuriCancelAnimation"
+        ],
+        "sound": [
+          "snd_Yuri_Cannon_Fire1",
+          "snd_Yuri_Cannon_Fire_Far1",
+          "snd_Yuri_CannonballHit_Ground"
+        ],
+        "psys": [
+          "psys_cannon_smoke",
+          "psys_musket_flash",
+          "psys_cannon_ball_hit",
+          "psys_explosion_smoke_*"
+        ],
+        "troop": [
+          "trp_factionplayer_fieldgun_cannoneer_officer",
+          "trp_factionplayer_howitzer_cannoneer_officer",
+          "trp_factionplayer_heavyhowitzer_cannoneer_officer",
+          "trp_factionplayer_fieldgun_cannoneer",
+          "trp_cannoneers_end"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be cf_YuriSpawnCannon (168 stmts): officer->3 crew + 7 props, cap team slot 178 <5/<10 (tech 416)",
+        "callers be cannon_body_spawn: 7 spr *_body ti_on_scene_prop_init triggers copy $g_cannoneer*/$g_* into prop slots 192-206",
+        "dis be mst:lead_charge/t95:conseq: per-prop state machine slot 197, every 0.033 s",
+        "dis be cannon_fire / shell_hits_pos / explode_at_pos: animate_to_position flight, 45-deg howitzer branch, radial damage with trench/prone divisors and team 52+div suppression"
+      ],
+      "notes": "Oddity: the artillery triggers are injected into all 25 templates including arena and tavern ones (cf_YuriSpawnCannon only gates on $g_battle_type != 5).",
+      "overlaps": [
+        "acw.field_artillery",
+        "laigle.artillery_park",
+        "laigle.field_artillery",
+        "nw.crewed_artillery",
+        "oa1860.scripted_ballistic_hand_cannon"
+      ]
+    },
+    {
+      "id": "be.company_discipline_rout",
+      "name": "Company discipline, suppression and rout",
+      "category": "morale",
+      "summary": "Every company (division) in battle has a live discipline score. Taking fire, artillery near-misses and casualties drain it; strength ratio, the faction's army morale, and the player's Captain skill (when the player is near the company) shore it up. Low discipline makes soldiers less accurate and slower, makes them break formation to crouch, and below a threshold the whole company sounds the retreat bugle and runs, rallying once a timer expires.",
+      "mechanics": "Per team (0-3) x division (0-7) team-slot arrays. Writers of penalties: mst:lead_charge/t104 (ti_on_agent_killed_or_wounded) adds 6000/quality(34+div) x formation multiplier to casualty slot 187+div; add_penaltytodiscipline_fromfire_to_target_of_agent (from mg_decide_fire) and explode_at_pos add distance-scaled suppression to slot 52+div; get_company_foramtion_discipline_penalty_multiplier scales by formation type (205+div: 40/90/100/110/120 %); technology 420 reduces penalties 20-25 %. mst:lead_charge/t84 (every 0.2 s) decays suppression by 25 and recomputes discipline 197+div = 9000 - suppression(52) - slot 60 - casualties(187) + 1000 x alive/initial(68/34) - (100 - faction slot 834)/5, -1500 if the player has fallen, + Captain skill (skl_reserved_1, id 3) x 100 if the player is within 20+3xskill m of the company's order point (team 100+div / 108+div); clamp 100..10000. mst:lead_charge/t82 (0.5 s) turns discipline (and fatigue 18+div, stance, gas masks, skirmish mode 263+div, tech 408) into agent_set_accuracy_modifier/speed/damage and stores company accuracy in 179+div. mst:lead_charge/t85 (1 s): at <=80 % discipline soldiers randomly take scripted cover and crouch for 6 s. mst:lead_charge/t86 (1 s): discipline < 1500 + Inspirer skill (id 5) x 100 -> company_retreat + snd_bugle_retreat + message; t87 counts down retreat timer 84+div and calls company_stop_retreat + snd_bugle_stop_retreat. Native decide_run_away_or_not is emptied (0/50 stmts) so this replaces Native's per-agent courage rout.",
+      "hooks": [
+        "mst:lead_charge/t84:cond",
+        "mst:lead_charge/t82:cond",
+        "mst:lead_charge/t85:cond",
+        "mst:lead_charge/t86:cond",
+        "mst:lead_charge/t87:cond",
+        "mst:lead_charge/t104:cond",
+        "mst:lead_charge/t105:cond"
+      ],
+      "scripts": [
+        "get_company_foramtion_discipline_penalty_multiplier",
+        "add_penaltytodiscipline_fromfire_to_target_of_agent",
+        "explode_at_pos",
+        "company_retreat",
+        "company_stop_retreat",
+        "company_play_bugle",
+        "reset_companies_accuracy",
+        "cf_if_company_has_soldiers",
+        "cf_if_team_faction_invented_technology",
+        "cf_if_agent_faction_invented_technology",
+        "cf_random"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_pbs (shows company discipline/accuracy/energy)"
+      ],
+      "mission_templates": [
+        "all 25 BE templates (same trigger block injected)"
+      ],
+      "dialogs": [],
+      "slots": [
+        "team:52-59",
+        "team:60-67",
+        "team:68-75",
+        "team:34-41",
+        "team:76-83",
+        "team:84-91",
+        "team:100-115",
+        "team:179-186",
+        "team:187-194",
+        "team:197-204",
+        "team:205-212",
+        "team:263-270",
+        "agent:29",
+        "agent:30",
+        "agent:46",
+        "agent:63",
+        "faction:834"
+      ],
+      "globals": [
+        "g_player_team",
+        "battle_timer",
+        "bugle_cooldown"
+      ],
+      "resources": {
+        "skill": [
+          "skl_reserved_1 renamed Captain",
+          "skl_reserved_2 Desperate Stand (NOEFFECT)",
+          "skl_reserved_3 Inspirer"
+        ],
+        "sound": [
+          "snd_bugle_retreat",
+          "snd_bugle_stop_retreat"
+        ],
+        "item": [
+          "itm_gasmask_* (accuracy factor)"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be mst:lead_charge/t84:cond: the discipline formula",
+        "dis be mst:lead_charge/t86:cond: retreat below 1500 + skill 5 x100, bugle + message",
+        "dis be add_penaltytodiscipline_fromfire_to_target_of_agent and explode_at_pos: writers to team slot 52+div",
+        "be skills.txt: skl_reserved_1 'Captain - Increases discipline level of all companies...', skl_reserved_3 'Inspirer - Decreases retreat limit'",
+        "auto report: decide_run_away_or_not modified 0/50 (emptied)"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "acw.bury_the_dead",
+        "bi.courage_update_staggering",
+        "nw.morale_rout_rally",
+        "tld.battle_coherence_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "be.firearm_hit_damage_model",
+      "name": "Firearm range falloff, headshots and cover in one hit trigger",
+      "category": "combat-mechanics",
+      "summary": "Every rifle/carbine/LMG hit is recomputed: full damage up to 50 m, sliding down to 75 % at 175 m and beyond, doubled on a head hit, scaled by the player's friendly-fire and damage-to-player difficulty options, and cut to a third for siege defenders shot from 10 m or more (they are behind walls).",
+      "mechanics": "mst:lead_charge/t101 (ti_on_agent_hit, present in all 25 templates). Reads the attacking item from reg0; if it is itm_damage_pure, passes damage through. For listed firearm ranges (is_between blocks of rifle families + explicit items) it takes item_get_thrust_damage as base, gets distance in metres between attacker and victim: 50-175 m -> base x (100 - (d-50)/5) %; >=175 m -> 75 %. store_trigger_param 4 (hit bone) == 9 (head) -> x2. If the victim (trigger param 1) belongs to p_main_party and is not the player, options_get_damage_to_friends 0/1 -> /2 or x3/4; if the victim is the player, options_get_damage_to_player 0/1 -> /4 or /2. Siege ($g_battle_type 2) defender hit by non-player at >=10 m -> /3. set_trigger_result.",
+      "hooks": [
+        "mst:lead_charge/t101:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "all 25 BE templates"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_battle_type"
+      ],
+      "resources": {
+        "item": [
+          "itm_rifle_* families (italian/british/french/winchester/swiss/dutch/papal ranges)",
+          "itm_lmg_lewis..itm_lmg_hotchkiss1909_m",
+          "itm_damage_pure"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be mst:lead_charge/t101:conseq lines 91-145: falloff, bone 9 x2, difficulty options, siege /3",
+        "all operations vanilla (no WSE)"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "be.missile_launch_firing_effects",
+      "name": "Central per-weapon firing effects via engine hook game_missile_launch",
+      "category": "combat-mechanics",
+      "summary": "One engine callback decides, for every shot fired by anyone, which gunshot sound to play (near, or a distance-attenuated far sound beyond 55 m from the camera), how much muzzle smoke and flash to burst, whether to play a bolt-action/lever/pump cycling animation, and halves smoke once the faction has smokeless powder.",
+      "mechanics": "script game_missile_launch(agent, item) is called by the engine on missile launch (no script callers; same script name exists in nw, vc, acw, awoiaf). Skips when $ignore_script_game_missile_launch == 1 (set by shotgun_shot to avoid recursion). Big if-chain per weapon family sets locals: sound id, far sounds, smoke count, flash count, offsets, pan flash/pan smoke for flintlocks; sets agent_set_animation bolt_action_shot / bolt_shot_straightpull / lever_action_shot / spencer_shot / shotgun_shot; AI in skirmish mode (team 263+div == 1) gets bolt_action_shot_fast. mission_cam distance >= 5500 -> play_distant_sound_at_pos_based_on_distance else agent_play_sound; particle_system_burst_no_sync psys_musket_smoke (or psys_musket_smoke_smokelesspowder x0.3 if technology 408) and psys_musket_flash. Related: mst:lead_charge/t34 (every frame) enforces a per-weapon rate of fire from item slot 2006 using agent slots 52/53/59 (strongly-inferred).",
+      "hooks": [
+        "script:game_missile_launch (engine)",
+        "mst:lead_charge/t34:conseq"
+      ],
+      "scripts": [
+        "game_missile_launch",
+        "play_distant_sound_at_pos_based_on_distance",
+        "cf_if_agent_faction_invented_technology"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "engine-wide"
+      ],
+      "dialogs": [],
+      "slots": [
+        "team:263-270",
+        "item:2006",
+        "agent:52",
+        "agent:53",
+        "agent:59"
+      ],
+      "globals": [
+        "ignore_script_game_missile_launch"
+      ],
+      "resources": {
+        "sound": [
+          "snd_shot_pistol1",
+          "snd_shot_boltaction1",
+          "snd_shot_boltaction_straightpull1",
+          "snd_winch_shot",
+          "snd_shot_lmg1/2",
+          "snd_rifle_shot_far3",
+          "snd_rifle_shot_reflection_small",
+          "(~140 firearm sounds)"
+        ],
+        "psys": [
+          "psys_musket_smoke",
+          "psys_musket_smoke_smokelesspowder",
+          "psys_musket_flash",
+          "psys_pan_flash",
+          "psys_pan_smoke"
+        ],
+        "anim": [
+          "bolt_action_shot",
+          "bolt_shot_straightpull",
+          "lever_action_shot",
+          "spencer_shot",
+          "shotgun_shot",
+          "bolt_action_shot_fast"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be game_missile_launch (546 stmts): per-family sound/smoke/flash/animation table",
+        "callers be game_missile_launch: 0 call sites -> engine-called; name shared with vc/nw/acw/awoiaf (all vanilla-engine modules)",
+        "shotgun_shot sets $ignore_script_game_missile_launch around add_missile -> confirms it fires on add_missile too"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "be.shotgun_pellet_spread",
+      "name": "Shotgun / scatter-gun pellet spread",
+      "category": "combat-mechanics",
+      "summary": "Shotguns fire several pellets in a random cone instead of one bullet.",
+      "mechanics": "itm:itm_shotgun_*/t0 (ti_on_weapon_attack, 7 items) call shotgun_shot(count, spread, pos, speed?, agent): sets $ignore_script_game_missile_launch = 1, loops count times copying the muzzle position, rotating it by random +-spread on x and z (fixed point 100) and add_missile with itm_ammo_rifle at speed 5500, then clears the flag.",
+      "hooks": [
+        "itm:itm_shotgun_caplock/t0",
+        "itm:itm_shotgun_doublebarrel/t0",
+        "itm:itm_shotgun_greener/t0",
+        "itm:itm_shotgun_winchester_m1897/t0"
+      ],
+      "scripts": [
+        "shotgun_shot"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "ignore_script_game_missile_launch"
+      ],
+      "resources": {
+        "item": [
+          "itm_ammo_rifle",
+          "7 itm_shotgun_*"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be shotgun_shot (18 stmts)",
+        "callers be shotgun_shot: 7 shotgun ti_on_weapon_attack triggers"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "be.ironsight_aiming",
+      "name": "First-person iron-sight camera when aiming firearms",
+      "category": "qol-ui",
+      "summary": "In first-person view, raising a musket or rifle moves the camera to the gun's sight line; after a bolt-action shot the camera stays down the sights for the cycling animation, then returns.",
+      "mechanics": "mst:lead_charge/t42 (every frame), gated by $ironsight_enabled. If the player's upper-body animation is ready_musket/release_musket/ready_crossbow/release_crossbow/bolt_action_shot/bolt_shot_straightpull, camera is first person and game key 21 not clicked: enter ironsight mode with a short delay ($ironsight_timer), then mission_cam_set_mode 1 and mission_cam_set_position at the right-hand bone (19) or, during bolt cycling, the head/hand bone (14) offset -10/-44 y and +9 z, rotated -90 deg. Leaves mode (mission_cam_set_mode 0) when the animation ends.",
+      "hooks": [
+        "mst:lead_charge/t42:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "all 25 BE templates"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "ironsight_enabled",
+        "ironsight_mode",
+        "ironsight_timer",
+        "ironsight_timer2",
+        "ironsight_aux",
+        "ironsight_aux2"
+      ],
+      "resources": {
+        "anim": [
+          "ready_musket",
+          "release_musket",
+          "ready_crossbow",
+          "release_crossbow",
+          "bolt_action_shot",
+          "bolt_shot_straightpull",
+          "lever_action_shot"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be mst:lead_charge/t42:conseq (77 stmts)",
+        "no option toggle located (where $ironsight_enabled is set was not traced)"
+      ],
+      "overlaps": [
+        "acw.rifle_iron_sight_zoom",
+        "sw.scope_and_visor_overlays"
+      ]
+    },
+    {
+      "id": "be.async_round_robin_campaign_ai",
+      "name": "Round-robin ('async') campaign processing instead of hourly bulk loops",
+      "category": "performance-bugfix",
+      "summary": "Heavy campaign-map jobs that Native runs for every lord/centre at once on an hourly tick are spread out: near-every-frame triggers each process ONE lord, centre or faction and advance a cursor, so the map does not hitch on the hour even with many lords.",
+      "mechanics": "Pattern: a simple trigger with interval 0.001 h or 0 clamps a cursor global into [first,last), increments it, wraps, and calls the worker for that one entity. strig:35 -> async_process_alarms (one centre: Native process_alarms logic, slots party 55/66/67), async_allow_vassals_to_join_indoor_battle (one lord), async_process_kingdom_parties_ai (one lord; body now empty because PAS took over). strig:29 -> async_init_ai_calculation (party_calculate_strength / party_calculate_and_set_nearby_friend_enemy_follower_strengths for one lord, one centre, main party). strig:22 (0.01 h) one lord's centre-related income/AI (honours game_get_reduce_campaign_ai). strig:116 one faction pair for create_random_war_peace + provocation/relation/alliance rolls. strig:124 one faction per tick through pps_faction_iteration; strig:126 one centre through pes_center_iteration; strig:128 machine-gun top-up; strig:130 two lords per tick through pas_ai_lord_decide; strig:123 one faction's uniform update. Native process_alarms, process_kingdom_parties_ai, allow_vassals_to_join_indoor_battle are absent; create_village_farmer_party, calculate_castle_prosperities_by_using_its_villages emptied.",
+      "hooks": [
+        "strig:35",
+        "strig:29",
+        "strig:22",
+        "strig:116",
+        "strig:123",
+        "strig:124",
+        "strig:126",
+        "strig:128",
+        "strig:130"
+      ],
+      "scripts": [
+        "async_process_alarms",
+        "async_allow_vassals_to_join_indoor_battle",
+        "async_process_kingdom_parties_ai",
+        "async_init_ai_calculation",
+        "async_recalculate_ais",
+        "async_randomly_start_war_peace_new",
+        "async_calculate_castle_prosperities_by_using_its_villages"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:55",
+        "party:66",
+        "party:67",
+        "troop:2",
+        "troop:8",
+        "troop:10"
+      ],
+      "globals": [
+        "async_process_alarms_1",
+        "async_process_alarms_2",
+        "async_allow_vassals_to_join_indoor_battle",
+        "async_process_kingdom_parties_ai",
+        "async_init_ai_calculation_1",
+        "async_init_ai_calculation_2",
+        "async_init_ai_calculation_3",
+        "async_init_ai_calculation_4",
+        "async_simple_trigger5",
+        "async_simple_trigger10",
+        "async_simple_trigger26",
+        "async_simple_trigger31",
+        "async_simple_trigger32",
+        "async_simple_trigger33",
+        "async_simple_trigger34",
+        "async_simple_trigger35",
+        "async_randomly_start_war_peace_new_cur_kingdom",
+        "async_randomly_start_war_peace_new_cur_kingdom_2"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be strig:35, strig:29, strig:130, strig:124, strig:126: cursor-clamp-increment-wrap pattern",
+        "dis be async_process_alarms (161 stmts) vs Native process_alarms (157)",
+        "auto report: Native scripts absent here: allow_vassals_to_join_indoor_battle, process_alarms, process_kingdom_parties_ai"
+      ],
+      "overlaps": [
+        "ad457.per_faction_ai_recalculation",
+        "bi.courage_update_staggering"
+      ]
+    },
+    {
+      "id": "be.infamy_casus_belli_alliances",
+      "name": "Infamy, casus belli and alliance call-to-arms diplomacy",
+      "category": "diplomacy-politics",
+      "summary": "Each nation has Infamy (0-150, 'badboy'): declaring war without a claim, breaking alliances or going bankrupt raises it; it decays by 1 every 3 days. Neighbouring nations randomly fabricate casus belli against each other (more readily against infamous targets). Allies are asked to join wars; an ally that refuses breaks the alliance and gains infamy; the player gets a menu to accept or decline. High infamy triggers a world-weariness notification.",
+      "mechanics": "faction slot 450 = infamy, changed only through faction_change_infamy (clamp 0..150, message for player nation). strig:118 (72 h) -1 to all. strig:136 (24 h) +1 to the player's nation while treasury slot 802 < 0. diplomacy_start_war_between_kingdoms (modified Native, 131 vs 86 stmts) adds +20/+30 infamy depending on the controversial-policy branch (no casus belli). strig:116 (async) calls create_random_provocation: random land-bordering pair at peace, chance (target infamy+30) x aggressor slot 499 /1400 -> casus belli stored in faction slot 160+target (10-20 days), relations reset to 0, aggressor +10-infamy, player gets menu_provocation_created1-4. strig:120 (0.1 h, one faction per tick): for each ally at war, cf_if_faction_decides_to_support_ally_against_enemy (base 125 +- power difference/3 + relation terms + infamy terms) x faction slot 500 >= 100 -> join war (casus belli slot 160+enemy set, war flag 455+enemy=500) else break_alliance_between_factions and infamy 15 - (ally infamy/2); for the player -> menu_alliance_support_ally_in_war. create_random_alliance / create_alliance_between_factions / break_alliance_between_factions; cf_if_faction_is_in_alliance_with_faction.",
+      "hooks": [
+        "strig:116",
+        "strig:118",
+        "strig:120",
+        "strig:136",
+        "menu:alliance_support_ally_in_war",
+        "menu:provocation_created1",
+        "menu:high_infamy_notification",
+        "menu:create_alliance"
+      ],
+      "scripts": [
+        "faction_change_infamy",
+        "create_random_provocation",
+        "create_random_alliance",
+        "create_alliance_between_factions",
+        "break_alliance_between_factions",
+        "cf_if_faction_decides_to_support_ally_against_enemy",
+        "cf_if_faction_is_in_alliance_with_faction",
+        "create_random_war_peace",
+        "create_random_relation_increasing",
+        "faction_calculate_power",
+        "cf_if_faction_borders_a_faction_by_land",
+        "diplomacy_start_war_between_kingdoms"
+      ],
+      "menus": [
+        "menu_alliance_support_ally_in_war",
+        "menu_provocation_created1",
+        "menu_provocation_created2",
+        "menu_provocation_created3",
+        "menu_provocation_created4",
+        "menu_high_infamy_notification",
+        "menu_long_war_notification",
+        "menu_create_alliance",
+        "menu_create_alliance2"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:450",
+        "faction:499",
+        "faction:500",
+        "faction:160+N (casus belli vs faction N)",
+        "faction:455+N (war-support flag)",
+        "faction:802"
+      ],
+      "globals": [
+        "war_supports_allies",
+        "create_alliance_chosen_faction",
+        "break_alliance_choosen_faction",
+        "create_casus_belli_chosen_faction",
+        "declare_war_chosen_faction",
+        "improve_relations_chosen_faction"
+      ],
+      "resources": {
+        "quest": [
+          "qst_cause_provocation"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be faction_change_infamy, strig:118, strig:120, strig:136, create_random_provocation, cf_if_faction_decides_to_support_ally_against_enemy",
+        "text be 'infamy': faction note, peace negotiations, alliance menus, high-infamy menu"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "be.peace_negotiations_victory_points",
+      "name": "Peace conference with victory points, territory and reparations",
+      "category": "diplomacy-politics",
+      "summary": "Instead of a yes/no peace offer, the player opens a peace conference screen: battles and captures during the war accumulate victory points per side (including allies); the player ticks which towns/castles change hands and sets reparations, the infamy cost of the demands is shown, and the enemy's diplomats accept or refuse ('cannot agree with terms') depending on whether the VP balance covers the demands.",
+      "mechanics": "prsnt_peace_negotiations (t0 load 184 stmts, t1 events): peace_negotiations_detect_allies_and_enemies fills trp_temp_array_c/d; peace_negotiations_calculate_victory_points sums faction slot 200+opponent for each side and allies (halved for Prussian unification quest targets); centres listed through cf_peace_negotiations_if_center_can_appear_in_the_list / _is_of_allies / _is_of_enemies and peace_negotiations_add_center (checkboxes); peace_negotiations_calculate_infamy_cost; peace_negotiations_enemy_rethink; on Make Peace, peace_negotiations_set_center_owners_to_official_for_factions transfers centres (party slot 144 = official owner) and applies reparations. Opened from menus 'menu_peace_negotiations_initial'.",
+      "hooks": [
+        "prsnt:peace_negotiations/t0",
+        "prsnt:peace_negotiations/t1",
+        "menu:peace_negotiations_initial"
+      ],
+      "scripts": [
+        "peace_negotiations_detect_allies_and_enemies",
+        "peace_negotiations_calculate_victory_points",
+        "peace_negotiations_calculate_infamy_cost",
+        "peace_negotiations_add_center",
+        "peace_negotiations_enemy_rethink",
+        "peace_negotiations_set_center_owners_to_official_for_factions",
+        "cf_peace_negotiations_if_center_can_appear_in_the_list",
+        "cf_peace_negotiations_if_center_is_of_allies",
+        "cf_peace_negotiations_if_center_is_of_enemies",
+        "cf_peace_negotiations_if_faction_is_ally",
+        "cf_peace_negotiations_if_faction_is_enemy",
+        "faction_calculate_victory_points_against_faction",
+        "faction_calculate_victory_points_against_itself"
+      ],
+      "menus": [
+        "menu_peace_negotiations_initial"
+      ],
+      "presentations": [
+        "prsnt_peace_negotiations"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:200+N (victory points vs N)",
+        "faction:447",
+        "party:144",
+        "party:145",
+        "party:147"
+      ],
+      "globals": [
+        "peace_negotiations_enemy_faction",
+        "peace_negotiations_ai_offer",
+        "number_of_allies",
+        "number_of_enemies",
+        "peace_negotiations_infamy_cost"
+      ],
+      "resources": {
+        "mesh": [
+          "mesh_checkbox_on",
+          "mesh_checkbox_off",
+          "mesh_menu_flag1",
+          "mesh_menu_flag2"
+        ],
+        "quest": [
+          "qst_prussia_unification_defeat_austria",
+          "qst_prussia_unification_defeat_france"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain be prsnt:peace_negotiations/t0: texts 'Victory_Points:_{reg20}/{reg10}', 'War_reparations_amount', 'Opposite_side_diplomats cannot agree with terms', 'Infamy_penalty'",
+        "dis be peace_negotiations_calculate_victory_points",
+        "writers of faction 200+N (battle results) not traced"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "be.land_border_graph",
+      "name": "Land-border graph between centres and factions",
+      "category": "campaign-ai",
+      "summary": "At game start every town/castle records its three nearest neighbouring centres (with hand-fixed exceptions across water) and whether it is coastal; the game then knows which nations actually share a land border. Provocations, war declarations, notifications and AI targets use it so nations only fight neighbours, and overseas nations need sea access.",
+      "mechanics": "walled_centers_assign_closest_centers (173 stmts, from game_start): for each centre p_town_1..p_village_1 store the three closest other centres in party slots 140/141/142 (excluding already chosen), manual overrides for strait pairs (p_castle_44<->p_town_20, ...), party slot 143 = 1 for listed coastal towns. cf_if_center_borders_a_faction_by_land(center, faction): true if any centre of that faction lists this one or is listed by it. cf_if_faction_borders_a_faction_by_land, cf_if_center_borders_any_enemy_faction_by_land, cf_if_center_borders_any_faction_by_land, cf_if_faction_has_access_to_sea (slot 143). Used by create_random_provocation, diplomacy_start_war_between_kingdoms (war notification only for neighbours), pas_get_random_border_center_for_faction, PES trade.",
+      "hooks": [
+        "script:game_start (walled_centers_assign_closest_centers)"
+      ],
+      "scripts": [
+        "walled_centers_assign_closest_centers",
+        "cf_if_center_borders_a_faction_by_land",
+        "cf_if_faction_borders_a_faction_by_land",
+        "cf_if_center_borders_any_enemy_faction_by_land",
+        "cf_if_center_borders_any_faction_by_land",
+        "cf_if_center_borders_a_faction",
+        "cf_if_faction_borders_a_faction",
+        "cf_if_faction_has_access_to_sea",
+        "pas_get_random_border_center_for_faction",
+        "pas_get_random_war_border_center_for_faction"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:140",
+        "party:141",
+        "party:142",
+        "party:143"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be walled_centers_assign_closest_centers",
+        "dis be cf_if_center_borders_a_faction_by_land",
+        "callers: create_random_provocation, diplomacy_start_war_between_kingdoms, pas_* use it"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "be.aerial_command_view",
+      "name": "Aerial command camera with mouse-placed company positions (PBS)",
+      "category": "qol-ui",
+      "summary": "Pressing U in battle lifts the camera 10 m above the player, tilted down, freezes the player's body, and opens a company panel (type, strength, discipline, accuracy, energy, special abilities). Right-click-drag on the ground places the selected companies' hold position and facing; with several companies selected they are laid out side by side.",
+      "mechanics": "mst:lead_charge/t71 (key_u, 0.3 s delay): toggles $aerial_view_state, mission_cam_set_mode 1 + mission_cam_animate_to_position (+1000 z, -25 deg pitch), agent_set_no_dynamics on player and horse. mst:lead_charge/t70 (every frame while $aerial_view_state == 2): starts prsnt_pbs, uses store_mouse_projection_to_pos3 to project the cursor onto terrain into marker prop $pbs_point1; on release with the order timer free, for listening classes (class_is_listening_order, not retreating 76+div != 4, non-empty) calls company_hold_pos30 for one company, or spreads several along the drag line with rotate_pos31_towards_pos30, plays company_play_vo. prsnt_pbs (545 stmts) shows per-company info and ability buttons (covering fire, dig-in, gas, gas masks, grenades, merge, prone, square) whose availability depends on technology slots 417-422.",
+      "hooks": [
+        "mst:lead_charge/t71:cond",
+        "mst:lead_charge/t70:conseq",
+        "prsnt:pbs/t0",
+        "prsnt:pbs/t2",
+        "mst:lead_charge/t73:conseq"
+      ],
+      "scripts": [
+        "store_mouse_projection_to_pos3",
+        "company_hold_pos30",
+        "rotate_pos31_towards_pos30",
+        "get_company_soldiers_number",
+        "company_play_vo",
+        "company_get_name_pbs_menu",
+        "store_company_average_position_to_pos30",
+        "if_coveringfire_is_on_for_selected_companies",
+        "if_pronemode_is_on_for_selected_companies",
+        "if_gasmasks_is_on_for_selected_companies"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_pbs"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "team:76-83",
+        "team:205-212",
+        "faction:417",
+        "faction:418",
+        "faction:419",
+        "faction:420",
+        "faction:422"
+      ],
+      "globals": [
+        "aerial_view_state",
+        "aerial_view_hol_pos_order_timer",
+        "pbs_point1",
+        "player_company1_type..player_company8_type",
+        "menu_pbs_*"
+      ],
+      "resources": {
+        "mesh": [
+          "mesh_pbs_company_info",
+          "mesh_pbs_activeability"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be mst:lead_charge/t71:cond (camera lift, no_dynamics)",
+        "dis be mst:lead_charge/t70:conseq (mouse projection, hold-position per company)",
+        "explain be prsnt:pbs/t0 (company info and ability globals)"
+      ],
+      "overlaps": [
+        "acw.command_all_allies",
+        "acw.death_camera"
+      ]
+    },
+    {
+      "id": "be.ai_battle_tactics_presets",
+      "name": "AI battle plans: attack groups, leapfrog advance, counter-attack swap, defensive lines",
+      "category": "battle-ai-formations",
+      "summary": "AI armies fight with a plan. The attacker splits companies into attack groups that advance on preset formations with timers, charge when close, and a beaten attacker becomes the defender: if after ~400 s the attacking side has fallen below 35 % of the defenders' strength, roles swap and the former defender counter-attacks. Defenders man scene-placed defensive-line markers; siege defenders take cover behind walls.",
+      "mechanics": "mst:lead_charge/t109 (1 s, 255 stmts): counts humans per side, swaps $ai_attacker_team/$ai_defender_team (and the allied 'nai' teams) when ratio <= 35 % after $battle_timer >= 400; pai_set_up_attack_according_to_preset(team, preset 1 or 2 if technology 419, ...); pai_team_set_global_tactic / pai_set_team_timer / pai_tick_team_timer state machine (tactic values 3,4,15,16); pai_find_teams_company_closest_to_pos targets the nearest enemy company; pai_attack_group_set_position / pai_attack_group_charge move groups via company_hold_pos30 / company_charge. mst:lead_charge/t108 (9 s): defender logic incl. pai_siege_defender_take_cover (prop instances), company_hold_pos30_defensive_line over spr_pai_defensive_line instances. Native battle_tactic_init/_apply(_aux) emptied (0 stmts).",
+      "hooks": [
+        "mst:lead_charge/t109:cond",
+        "mst:lead_charge/t108:cond",
+        "mst:lead_charge/t30:conseq"
+      ],
+      "scripts": [
+        "pai_set_up_attack_according_to_preset",
+        "pai_team_set_global_tactic",
+        "pai_set_team_timer",
+        "pai_tick_team_timer",
+        "cf_pai_if_team_timer_is_zero",
+        "cf_pai_if_team_timer_is_more_than_zero",
+        "cf_pai_if_team_global_tactic_is_value",
+        "pai_find_teams_company_closest_to_pos",
+        "pai_attack_group_set_position",
+        "pai_attack_group_charge",
+        "cf_pai_attack_group_get_lead_company",
+        "pai_siege_defender_take_cover",
+        "company_hold_pos30",
+        "company_hold_pos30_defensive_line",
+        "company_charge",
+        "team_create_infantry_formation_on_pos1"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "team:148",
+        "team:149",
+        "team:150",
+        "team:195",
+        "team:196",
+        "team:252",
+        "team:253"
+      ],
+      "globals": [
+        "ai_attacker_team",
+        "ai_defender_team",
+        "nai_attacker_team",
+        "nai_defender_team",
+        "battle_timer"
+      ],
+      "resources": {
+        "spr": [
+          "spr_pai_defensive_line",
+          "spr_pai_artillery_position"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be mst:lead_charge/t109:cond (role swap and preset calls)",
+        "dis be pai_set_up_attack_according_to_preset, pai_siege_defender_take_cover",
+        "auto report: battle_tactic_* modified 0/N (emptied)"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "be.infantry_square_and_field_works",
+      "name": "Infantry square, prone/crouch fire and dig-in trenches",
+      "category": "battle-ai-formations",
+      "summary": "Player can order an infantry company of 25+ men into a hollow square against cavalry; companies under fire automatically crouch or (later tech) go prone, which halves explosion damage; a dig-in order makes soldiers play a digging animation and spawns trench and sandbag props that cut artillery damage tenfold.",
+      "mechanics": "player_team_form_square (165 stmts, from prsnt:battle/t1 and prsnt:pbs/t2): needs >= 25 soldiers ('Cannot form square: too few soldiers'), takes the company centre (store_company_average_position_to_pos30) and assigns each agent a scripted destination on four faces (agent slots 30-32, 34). copmany_decide_prone_or_crouch (103 stmts, per frame via t90 when formation type 205+div in 3..5): for firearm users (item_get_accuracy != 0) toggles crouch/prone per agent (agent slot 46 = prone, used by explode_at_pos /2 and t82 accuracy). company_digin (83 stmts): once per company (team 235+div), spawns spr_pbs_trench2a/2b and spr_sandbags1/2 along the line and plays 'digging'; cf_if_agent_is_in_trench is checked in explode_at_pos (/10 damage).",
+      "hooks": [
+        "prsnt:battle/t1",
+        "prsnt:pbs/t2",
+        "mst:lead_charge/t90:conseq"
+      ],
+      "scripts": [
+        "player_team_form_square",
+        "copmany_decide_prone_or_crouch",
+        "company_digin",
+        "cf_if_agent_is_in_trench",
+        "calculate_company_average_coordinates",
+        "store_company_average_position_to_pos30"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "agent:30",
+        "agent:31",
+        "agent:32",
+        "agent:34",
+        "agent:46",
+        "team:205-212",
+        "team:235-242",
+        "team:287-294",
+        "team:140-147"
+      ],
+      "globals": [
+        "menu_pbs_activeability_square",
+        "menu_pbs_activeability_digin",
+        "menu_pbs_activeability_pronemode"
+      ],
+      "resources": {
+        "spr": [
+          "spr_pbs_trench2a",
+          "spr_pbs_trench2b",
+          "spr_sandbags1",
+          "spr_sandbags2"
+        ],
+        "anim": [
+          "prone_rifle_idle",
+          "prone_rifle_shoot",
+          "prone_rifle_reload",
+          "digging"
+        ],
+        "item": [
+          "itm_shovel1"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain be player_team_form_square (message text, callers)",
+        "dis be company_digin (spawn_scene_prop trench/sandbags, digging anim)",
+        "dis be copmany_decide_prone_or_crouch (crouch per firearm user)",
+        "explode_at_pos: /10 in trench, /2 if agent slot 46"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "be.ww1_weapons_mg_gas_grenades",
+      "name": "Machine-gun teams, gas attacks, gas masks and grenades",
+      "category": "combat-mechanics",
+      "summary": "Late-game (WW1-era) battle content: MG operator troops deploy a tripod machine gun prop that fires bursts at targets in line of sight and suppresses them; companies can launch gas (gas shells/clouds) and wear gas masks (accuracy penalty); grenade attacks thrown by companies; campaign trigger tops up parties' machine guns once the tech is researched.",
+      "mechanics": "mg_spawn / mg_deploy / mg_undeploy / mg_decide_fire / mg_fire (agent + spawned spr_mg* props; mg_decide_fire calls add_penaltytodiscipline_fromfire_to_target_of_agent). mst:lead_charge/t44 (1 s) deploy/undeploy by line of sight, t45 every frame fire. company_launch_gas_attack, company_decide_wear_gasmasks, agent_faction_get_gasmask, spr_gas_shell slots 187/188 (cloud lifetime/owner). company_launch_grenade_attack, grenade_hit (item trigger), spr_grenade_timer. strig:128 (async) faction_get_machineguns: if technology 413 invented, add the faction's MG troop (faction slot 780) to lord parties/centres with cf_if_party_has_low_mg_amount.",
+      "hooks": [
+        "mst:lead_charge/t44:conseq",
+        "mst:lead_charge/t45:conseq",
+        "mst:lead_charge/t32:conseq",
+        "strig:128",
+        "itm:itm_grenade_*/t0"
+      ],
+      "scripts": [
+        "mg_spawn",
+        "mg_deploy",
+        "mg_undeploy",
+        "mg_decide_fire",
+        "mg_fire",
+        "get_mg_limit_for_party",
+        "faction_get_machineguns",
+        "cf_if_party_has_low_mg_amount",
+        "company_launch_gas_attack",
+        "company_decide_wear_gasmasks",
+        "agent_faction_get_gasmask",
+        "company_launch_grenade_attack",
+        "grenade_hit",
+        "agent_faction_get_lmg",
+        "agent_faction_get_smg",
+        "agent_faction_get_mg"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:413",
+        "faction:780",
+        "scene_prop:187",
+        "scene_prop:188"
+      ],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_mg1",
+          "itm_mg2_russian",
+          "itm_gasmask_*",
+          "itm_grenade_m15",
+          "itm_grenade_rg_12",
+          "itm_grenade_mills"
+        ],
+        "spr": [
+          "spr_mg3_german_barrel",
+          "spr_mg5_austrian_barrel",
+          "spr_mg7_american",
+          "spr_gas_shell",
+          "spr_grenade_timer"
+        ],
+        "anim": [
+          "mg_shooting1",
+          "mg_shooting2",
+          "grenade_throw"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "callers be add_penaltytodiscipline_fromfire_to_target_of_agent: mg_decide_fire",
+        "dis be strig:128, faction_get_machineguns",
+        "hooks be mst:lead_charge t32/t44/t45"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "awoiaf.fire_arrows_destructible_props",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_and_destructible_props",
+        "oa1860.explosive_thrown_weapons",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "be.campaign_weather_battle_atmosphere",
+      "name": "Regional weather report and battle sky, rain, fog and ambience",
+      "category": "other",
+      "summary": "The campaign tracks weather for northern, middle and southern Europe (temperature, pressure, humidity, wind, clouds, precipitation) shown in a weather report menu; battles pick a matching sky, rain intensity and fog, and play layered positional ambience (rain left/right, birds, wind, terrain- and time-specific loops, tavern ambience).",
+      "mechanics": "pws_* globals per region (pws_n_/pws_m_/pws_s_ temperature, pressure, humidity, wind, clouds, precipitation) displayed by menu_weather_report. In battle: mst:lead_charge/t64 (ti_before_mission_start, 276 stmts) randomises ambience seeds, set_rain 0, set_fog_distance, picks $current_sky; t60 (156 stmts, once) if cf_current_sky_can_rain and seed <= $current_precipitation sets rain intensity and spawns invisible spr_ambience_prop emitters (rain left/right, front/back/left/right, sky) playing looped sounds chosen by terrain and time of day; t61-t63 move the emitters with the camera and fire random one-shot ambience. cf_current_sky_has_no_direct_sunlight used by a prop trigger.",
+      "hooks": [
+        "mst:lead_charge/t64:cond",
+        "mst:lead_charge/t60:cond",
+        "mst:lead_charge/t61:cond",
+        "mst:lead_charge/t62:cond",
+        "mst:lead_charge/t63:cond",
+        "menu:weather_report"
+      ],
+      "scripts": [
+        "cf_current_sky_can_rain",
+        "cf_current_sky_has_no_direct_sunlight"
+      ],
+      "menus": [
+        "menu_weather_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "pws_n_temperature",
+        "pws_m_precipitation",
+        "pws_s_wind",
+        "current_sky",
+        "current_precipitation",
+        "g_rain_intensity",
+        "g_rain_state",
+        "current_fog_distance",
+        "ambience_sound_type",
+        "ambience_prop_rain_left",
+        "ambience_prop_rain_right"
+      ],
+      "resources": {
+        "spr": [
+          "spr_ambience_prop"
+        ],
+        "sound": [
+          "snd_ambience_rain1_left",
+          "snd_ambience_rain1_right",
+          "(ambience loops)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain be menu:weather_report (pws_* globals, text 'Temperature ... Pressure ... Humidity ... Wind')",
+        "dis be mst:lead_charge/t60:cond, t64:cond"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "laigle.weather_seasons",
+        "nw.battle_weather_generator",
+        "tld.battle_condition_modifiers",
+        "tld.day_night_proficiency_shift",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "be.manpower_conscription_dynamic_lords",
+      "name": "National manpower pool, conscription policy and population-scaled lord count",
+      "category": "kingdom-management",
+      "summary": "Each nation has a manpower pool that refills from its population according to its conscription policy (volunteer 3 %, limited 10 %, extended 20 %, wide 25 %). Lords and garrisons refill only by drawing from that pool, so long wars exhaust a country. The number of lords a nation fields and their party size scale with population and army-size policy; lords are drawn from (or returned to) a shared pool of lord troops as nations grow, shrink or are annexed.",
+      "mechanics": "faction slots: 769 population, 876 manpower, 877 manpower cap, 878 policy, 879 reinforcement chance %, 825 army-size %, 828 military spending counter. pas_faction_set_conscription_policy(f, 1..4): cap = population/11000 (min 50) x 30/100/200/250 %, re-bases pool, chance = pool x100/800 clamped 5..100. pas_faction_calculate_manpower (per PPS iteration): pool += sqrt(population)/2500 (12..500) x policy factor, clamp -2000..cap. cf_pas_faction_reinforcement_required(f, cost): roll chance (slot 879) then subtract cost from pool. pas_reinforce_party(party): if below party_get_ideal_size and the roll passes (cost 3 for centres, 7 for lords) adds 3+3+1 (or 2+3+1+1 for lords) of the faction's four troop types (faction 809-812), adds 20 to 828, trims excess; adds artillery officers if tech 424 and few guns. pas_get_faction_ideal_lord_number = population/2,000,000 x 825/100 + 3 (3..50). party_get_ideal_size (modified Native) = $preferred_ai_party_size (+25 for the faction leader) or for lords preferred-30 + 4 x ideal lords, clamp 50..200. pas_faction_manage_lord_number (per iteration, max 2 changes): too few -> pas_init_lord takes a factionless lord from trp_knight_1_1..trp_kingdom_1_pretender; too many -> remove_lord_from_game. strig:50 (24 h) respawns defeated lords only if cf_pas_faction_reinforcement_required(f, 0) succeeds. prsnt_pas_menu shows army size, policy slider and penalties to satisfaction/workers.",
+      "hooks": [
+        "strig:124 (pps_faction_iteration -> pas_*)",
+        "strig:50",
+        "prsnt:pas_menu/t0",
+        "prsnt:pas_menu/t1"
+      ],
+      "scripts": [
+        "pas_faction_set_conscription_policy",
+        "pas_faction_calculate_manpower",
+        "pas_faction_get_manpower_growth_rate",
+        "cf_pas_faction_reinforcement_required",
+        "pas_reinforce_party",
+        "pas_get_faction_ideal_lord_number",
+        "pas_faction_manage_lord_number",
+        "pas_init_lord",
+        "remove_lord_from_game",
+        "party_get_ideal_size",
+        "pas_get_conscription_policy_name",
+        "pas_faction_buy_military_resources"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_pas_menu"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:769",
+        "faction:825",
+        "faction:828",
+        "faction:809-812",
+        "faction:876",
+        "faction:877",
+        "faction:878",
+        "faction:879",
+        "party:580"
+      ],
+      "globals": [
+        "preferred_ai_party_size"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be pas_faction_set_conscription_policy / pas_faction_calculate_manpower / cf_pas_faction_reinforcement_required / pas_reinforce_party",
+        "explain be prsnt:pas_menu/t0 texts 'Volunteer army (3% of the population)' ... 'Wide conscription (25%)'",
+        "dis be pas_get_faction_ideal_lord_number, party_get_ideal_size",
+        "BUG: pas_faction_manage_lord_number stmt 24 '(eq, :l5, :l5, :l0)' - three operands, compares l5 with itself, so the 'too many lords' branch removes lords of ANY faction"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "be.pas_marshal_campaign_ai",
+      "name": "PAS lord and marshal AI (direct campaign control)",
+      "category": "armies-campaigns",
+      "summary": "Replaces Native's lord decision-making with a simpler, direct controller: the marshal starts a campaign when at war, half of the lords follow him, the marshal patrols a threatened home centre or a random border centre of the enemy, attacks targets chosen by faction-level scripts, and ends the campaign when the target is invalid or peace is made. Lords not on campaign patrol near home and keep themselves topped up from manpower.",
+      "mechanics": "strig:130 (0.001 h) calls pas_ai_lord_decide for two lords per tick (cursor $async_simple_trigger35 over trp_npc1..trp_knight_1_1_wife). pas_ai_lord_decide (322 stmts): detaches lords sitting in foreign centres, pas_reinforce_party x2 (x5 for marshal), records nearest own centre (party 600); marshal: if at war and pas_faction_get_center_to_defend finds a threatened centre -> 50 % start campaign + patrol it; else start campaign 80 %; campaign states in party slot 581 (0 idle, 3 following marshal, 5/6/7/8 marshal modes) with target party 582 and cooldown 583; faction slot 815 = campaign active. pas_faction_start_campaign: marshal state 8, each idle lord 50 % -> pas_lord_follow_marshall; marshal patrols pas_get_random_war_border_center_for_faction_universal. pas_lord_patrol_center sets party_set_ai_behavior 3 (patrol) with aggressiveness/courage 15, initiative 100, helpfulness 200. pas_faction_end_campaign resets everyone to hold (behavior 2) at current position. Native process_kingdom_parties_ai is gone (async stub empty); npc_decision_checklist_party_ai is still present (99 % Native).",
+      "hooks": [
+        "strig:130",
+        "strig:124 (iteration)"
+      ],
+      "scripts": [
+        "pas_ai_lord_decide",
+        "pas_faction_start_campaign",
+        "pas_faction_end_campaign",
+        "pas_lord_follow_marshall",
+        "pas_lord_patrol_center",
+        "pas_faction_get_center_to_attack",
+        "pas_faction_get_center_to_defend",
+        "pas_get_random_border_center_for_faction",
+        "pas_get_random_war_border_center_for_faction",
+        "pas_get_random_war_border_center_for_faction_universal",
+        "cf_pas_if_faction_is_at_war_with_anyone",
+        "pas_reinforce_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:581",
+        "party:582",
+        "party:583",
+        "party:600",
+        "faction:8",
+        "faction:815",
+        "troop:10"
+      ],
+      "globals": [
+        "async_simple_trigger35",
+        "g_display_pas_debug_messages"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be strig:130, pas_ai_lord_decide (first 150 stmts), pas_faction_start_campaign, pas_faction_end_campaign, pas_lord_patrol_center",
+        "async_process_kingdom_parties_ai body empty (dis)"
+      ],
+      "overlaps": [
+        "tld.faction_strength_war_progression",
+        "tld.war_theaters_advance_camps",
+        "vc.marshal_election"
+      ]
+    },
+    {
+      "id": "be.enlistment_service_ranks",
+      "name": "Enlistment office and rank promotion service",
+      "category": "recruitment-troops",
+      "summary": "In a town's enlistment office the player can enlist as a soldier or officer of that nation; the player then rides with an assigned lord, fights his battles, wears the issued uniform and rifle, earns service points over time, and is promoted through ranks - NCO at rank 2, independent high-command officer with 40 men at rank 5, and finally marshal at rank 9.",
+      "mechanics": "menu_enlistment_office / _select_class / _enlisted(_officer/_soldier). strig:131 (0.1 h): while $pas_enlistment_lord > 0, camera follows and main party is relocated next to the lord's party; if the lord fights, jump to menu_pas_enlistment_menu; if the lord is gone, menu_pas_enlistment_reassign; equipment is overwritten every tick from the rank troop (or, at rank >= 4, the lord) with the faction's current rifle (item slot 1999+rifle type). strig:133 (0.1 h): +1 point, pas_enlistment_get_promotion thresholds 8000/18000/40000/70000/80000/160000/260000/380000/800000; rank 5 detaches the player with 40 troops; rank 9 sets the player as faction marshal (faction slot 8). pas_enlistment_retire, pas_enlistment_get_lord_to_enlist_for_faction.",
+      "hooks": [
+        "strig:131",
+        "strig:133",
+        "menu:enlistment_office",
+        "menu:pas_enlistment_menu",
+        "menu:pas_enlistment_reassign",
+        "menu:pas_enlistment_promoted"
+      ],
+      "scripts": [
+        "pas_enlistment_get_promotion",
+        "pas_enlistment_get_rank_from_renown",
+        "pas_enlistment_get_rank_name",
+        "pas_enlistment_get_lord_to_enlist_for_faction",
+        "pas_enlistment_retire",
+        "cf_get_faction_rifle_type"
+      ],
+      "menus": [
+        "menu_enlistment_office",
+        "menu_enlistment_office_select_class",
+        "menu_enlistment_office_enlisted",
+        "menu_pas_enlistment_menu",
+        "menu_pas_enlistment_reassign",
+        "menu_pas_enlistment_end_service_no_lords",
+        "menu_pas_enlistment_promoted"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:10",
+        "faction:8",
+        "faction:817",
+        "faction:818",
+        "item:2000-2006"
+      ],
+      "globals": [
+        "pas_enlistment_lord",
+        "pas_enlistment_rank",
+        "pas_enlistment_points",
+        "pas_enlistment_player_troop",
+        "pas_enlistment_player_troop_is_cav",
+        "pas_enlistment_opponent_to_ignore",
+        "pas_enlistment_opponent_to_ignore_timer"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be strig:131, strig:133, pas_enlistment_get_promotion",
+        "explain be menu:pas_enlistment_menu texts 'You became a non-commissioned officer', 'high command officer', 'marshall of {s10}'"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "be.faction_technology_tree",
+      "name": "National military technology tree with dated inventions",
+      "category": "kingdom-management",
+      "summary": "Each nation researches about 19 military technologies (rifled muskets, breech-loaders, smokeless powder, modern artillery, skirmish-line and modern attack tactics, machine guns, gas...). Each has an historical year; once that year is reached a nation may invent it at random (faster at higher game speed or for rich nations), and the player can fund research from the budget. Technologies switch what the battle systems allow: gun models, formations, abilities, rifle issued to troops, uniforms.",
+      "mechanics": "faction slots 406-424 hold state (10000 = invented); 425-443 the year each becomes available (slot+19); 768 national budget. strig:113 (24 h): for each live kingdom and tech not invented with year <= $g_current_year, chance 1000/$g_game_speed (halved if budget <= 1000) out of 3000 -> invented, message 'The {s1} has finished researching technology {s2}'. prsnt_faction_technologies shows the tree (pts_create_tech_button, pts_create_selected_tech_name/description, cf_pts_check_tech_availability) with a Research button ('Country does not have enough budget to start research'). Gate predicates cf_if_party_/team_/agent_faction_invented_technology are called from ~250 sites (formation changes: '{s1} cannot change formation - you need to research Skirmish Line Tactics'). strig:123 swaps uniforms when uniform techs land.",
+      "hooks": [
+        "strig:113",
+        "prsnt:faction_technologies/t0",
+        "prsnt:faction_technologies/t1",
+        "menu:tech_invented",
+        "strig:123"
+      ],
+      "scripts": [
+        "cf_if_party_faction_invented_technology",
+        "cf_if_team_faction_invented_technology",
+        "cf_if_agent_faction_invented_technology",
+        "cf_pts_check_tech_availability",
+        "pts_create_tech_button",
+        "pts_create_selected_tech_name",
+        "pts_create_selected_tech_description",
+        "initialize_factions_technology_and_presets",
+        "get_strength_modifier_for_faction_by_technologies",
+        "uniform_progression_change_officer_clothes"
+      ],
+      "menus": [
+        "menu_tech_invented",
+        "menu_start_game_choose_date"
+      ],
+      "presentations": [
+        "prsnt_faction_technologies"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:406-424",
+        "faction:425-443",
+        "faction:768"
+      ],
+      "globals": [
+        "g_current_year",
+        "g_game_speed",
+        "g_faction_technologies_*"
+      ],
+      "resources": {
+        "mesh": [
+          "mesh_faction_technologies_*"
+        ],
+        "string": [
+          "str_faction_technology_*_name",
+          "str_faction_technology_*_description"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be strig:113 (dated random invention)",
+        "dis be cf_if_party_faction_invented_technology (slot == 10000)",
+        "explain be prsnt:faction_technologies/t0 (tech names, Research button)",
+        "text be: research messages and formation-gate messages"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "be.pps_political_simulation",
+      "name": "Political simulation: classes, parties, parliament, laws, unrest and civil war",
+      "category": "law-governance",
+      "summary": "Every nation simulates five social classes (aristocracy, bourgeoisie, ... workers, peasants) with wealth, satisfaction and political activity, four political parties with influence and class support, a government type (monarchy to republic), parliament and executive elections, laws enforced by the ruling party, a budget and corruption, and popular movements (liberal and socialist) that escalate from demonstrations to riots to rebellions; a winning rebellion changes the government and may split the country in civil war. Battle casualties reduce town populations.",
+      "mechanics": "strig:124 (every tick, one faction) -> pps_faction_iteration: faction_calculate_pps_pes_slots, pps_calculate_faction_classes_wealth, pps_calculate_faction_classes_satisfaction (353 stmts), per-class political activity, per-party influence and class support, pps_ai_faction_manage_budget, republic/parliament/executive elections, pps_faction_calculate_budget, corruption, pps_faction_process_movements (245), propaganda/repression, pps_faction_random_event (364: anti-war protests if war weariness slot 841 > 2000, etc.), then PAS lord count, military resources, manpower, faction_remove_if_no_towns. Events -> menus menu_socialism_demonstration/riot/rebellion(_won), menu_liberal_*; pps_faction_process_event_effect_*_rebellion spawn rebel parties (pt_pps_rebels) using center_get_rebel_troop; pps_init_civil_war. pps_faction_inflict_battle_casualty (from every mission's ti_on_agent_killed_or_wounded, mst:lead_charge/t25) subtracts 600 x casualties from random towns' population (party slot 401). prsnt_pps_menu (1012 stmts) visualises it. Faction slots 501-520 (parties/classes), 839-843 (movements, war weariness).",
+      "hooks": [
+        "strig:124",
+        "strig:137",
+        "strig:138",
+        "strig:139",
+        "strig:140",
+        "mst:lead_charge/t25:conseq",
+        "prsnt:pps_menu/t0"
+      ],
+      "scripts": [
+        "pps_faction_iteration",
+        "pps_calculate_faction_classes_wealth",
+        "pps_calculate_faction_classes_satisfaction",
+        "pps_calculate_faction_class_political_activity",
+        "pps_calculate_faction_party_influence",
+        "pps_calculate_faction_class_support_of_party",
+        "pps_faction_parliament_election",
+        "pps_faction_executivebranch_election",
+        "pps_faction_republic_election",
+        "pps_faction_calculate_budget",
+        "pps_faction_calculate_corruption_level",
+        "pps_faction_process_movements",
+        "pps_faction_random_event",
+        "pps_faction_apply_law",
+        "pps_faction_change_government_type",
+        "pps_init_civil_war",
+        "pps_faction_inflict_battle_casualty",
+        "pps_init",
+        "pps_menu_display_faction",
+        "center_get_rebel_troop"
+      ],
+      "menus": [
+        "menu_socialism_demonstration",
+        "menu_socialism_riot",
+        "menu_socialism_rebellion",
+        "menu_socialism_rebellion_won",
+        "menu_liberal_demonstration",
+        "menu_liberal_riot",
+        "menu_liberal_rebellion",
+        "menu_pas_civil_war_side_choose"
+      ],
+      "presentations": [
+        "prsnt_pps_menu",
+        "prsnt_custom_faction_settings"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:501-520",
+        "faction:539-552",
+        "faction:802",
+        "faction:839-843",
+        "party:401"
+      ],
+      "globals": [
+        "pps_start_new_iteration_cycle",
+        "pps_ruling_party_change_cooldown"
+      ],
+      "resources": {
+        "pt": [
+          "pt_pps_rebels"
+        ],
+        "troop": [
+          "trp_rebel_european1",
+          "trp_rebel_balkan1",
+          "trp_rebel_turkish1",
+          "..."
+        ],
+        "mesh": [
+          "mesh_pps_*"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be pps_faction_iteration (call list)",
+        "explain be prsnt:pps_menu/t0 (class/party/parliament texts)",
+        "dis be pps_faction_inflict_battle_casualty",
+        "auto report: 40+ pps_* scripts, menus socialism/liberal *"
+      ],
+      "overlaps": [
+        "acan.imperial_treasury_budget",
+        "acan.senate_influence_edicts",
+        "acan.town_decrees",
+        "ad457.dplmc4_tax_inefficiency_and_extras"
+      ]
+    },
+    {
+      "id": "be.pes_regional_economy",
+      "name": "Regional economy: population, resources, factories and supply",
+      "category": "economy-trade",
+      "summary": "Towns have population, literacy, urbanisation and infrastructure; villages produce raw resources; towns build and staff factories that consume and produce resources, buy what they need from other centres (or overseas), raise prices, strike, fire workers or close. Nations tax and fund from it. Region and resource screens show production and demand.",
+      "mechanics": "strig:126 (every tick, one centre via trp_pes_centers list) -> pes_center_iteration: rolls per-iteration counters (party 561/562, 576-579), center_fix_owner, pes_center_change_population_literacy_urbanization, pes_center_calculate_infrastructure, pes_center_decide_build_factory, pes_center_villages_iteration, pes_employ_workers, pes_center_build_factories, per-factory pes_center_factory_iteration (355 stmts; 6 factory slots party 405-410), pes_center_population_buy_resources -> pes_find_and_buy_resource (183), then tops the garrison up with pas_reinforce_party. pes_iteration_start (taxes, oversea supply, price change, reshuffle). prsnt_pes_region / prsnt_pes_resource / prsnt_pes_region_build_factory; cf_if_player_is_allowed_to_manage_factory_in_center. Native process_player_enterprise emptied.",
+      "hooks": [
+        "strig:126",
+        "prsnt:pes_region/t0",
+        "prsnt:pes_resource/t0",
+        "prsnt:pes_region_build_factory/t0"
+      ],
+      "scripts": [
+        "pes_center_iteration",
+        "pes_center_factory_iteration",
+        "pes_find_and_buy_resource",
+        "pes_center_villages_iteration",
+        "pes_center_decide_build_factory",
+        "pes_create_factory_in_center",
+        "pes_employ_workers",
+        "pes_resource_bought",
+        "pes_resource_is_produced_by_center",
+        "pes_iteration_start",
+        "pes_init",
+        "pes_region_menu_display_region",
+        "pes_resource_menu_display_resource"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_pes_region",
+        "prsnt_pes_resource",
+        "prsnt_pes_region_build_factory"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:401-410",
+        "party:441-447",
+        "party:559-562",
+        "party:575-585"
+      ],
+      "globals": [
+        "pes_start_new_iteration_cycle",
+        "pes_region_selected_center",
+        "pes_resource_menu_return_to_region"
+      ],
+      "resources": {
+        "troop": [
+          "trp_pes_centers"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be strig:126, pes_center_iteration (call list)",
+        "explain be prsnt:pes_region/t0",
+        "auto report: process_player_enterprise 0/53 (emptied)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "be.faction_troop_tree_viewer",
+      "name": "In-game faction troop-tree viewer",
+      "category": "reports-info",
+      "summary": "A presentation that draws any faction's full upgrade tree (troop portraits on tableau, connecting lines, tiers, pages), toggled between factions, outlaws and mercenaries; clicking a troop shows level, health, attributes, key skills and equipment.",
+      "mechanics": "prsnt_faction_troop_trees (t0 279 stmts): troop_tree_recursive_detect_max_tier and troop_tree_recursive_backtracking walk troop_get_upgrade_troop recursively from each faction's base troop, laying out nodes; get_page_no_of_troop_tree_for_troop_on paginates; prsnt_upgrade_tree_troop_and_name / prsnt_upgrade_tree_troop_cost / prsnt_line(s) draw nodes and lines; tab_game_party_window tableau for portraits; skill refs ironflesh..horse_archery for the info box. cf_get_faction_rifle_type swaps the shown rifle by technology.",
+      "hooks": [
+        "prsnt:faction_troop_trees/t0",
+        "prsnt:faction_troop_trees/t1"
+      ],
+      "scripts": [
+        "troop_tree_recursive_backtracking",
+        "troop_tree_recursive_detect_max_tier",
+        "get_page_no_of_troop_tree_for_troop_on",
+        "prsnt_upgrade_tree_troop_and_name",
+        "prsnt_upgrade_tree_troop_cost",
+        "prsnt_line",
+        "prsnt_lines"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_faction_troop_trees"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:163",
+        "troop:313"
+      ],
+      "globals": [
+        "g_selected_page",
+        "g_selected_troop",
+        "g_cur_slot_no"
+      ],
+      "resources": {
+        "mesh": [
+          "mesh_white_plane",
+          "mesh_inv_slot"
+        ],
+        "tableau": [
+          "tab_game_party_window"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain be prsnt:faction_troop_trees/t0"
+      ],
+      "overlaps": [
+        "acan.troop_detail_and_upgrade_trees",
+        "bi.world_map_presentation",
+        "vc.camp_and_report_screens"
+      ]
+    },
+    {
+      "id": "be.custom_kingdom_troop_editor",
+      "name": "Custom kingdom troop designer",
+      "category": "recruitment-troops",
+      "summary": "When the player founds a nation, a presentation lets them design its troop line: spend attribute, skill and weapon-proficiency points on each troop and pick equipment from an allowed list, with running price and weight totals.",
+      "mechanics": "prsnt_custom_kingdom_troop / prsnt_custom_troop (t0 235 stmts) / prsnt_custom_troop_item: custom_troop_button_action (726 stmts) applies +/- on attributes, skills and proficiencies against $attribute_points/$skill_points/$weapon_points; get_custom_troop_info / store_custom_troop_info_to_slot stage values in trp_array_a slots 0-34; custom_troop_inventory_* (initialization, change, reset, total_price, total_weight), custom_troop_item_judge and cf_item_can_be_used_by_custom_troop (135) filter items; set_custom_troop_pionts_initialization at game start; set_player_kingdom_init (67 callers) applies the result.",
+      "hooks": [
+        "prsnt:custom_troop/t0",
+        "prsnt:custom_troop/t2",
+        "prsnt:custom_kingdom_troop/t0",
+        "prsnt:custom_troop_item/t1"
+      ],
+      "scripts": [
+        "custom_troop_button_action",
+        "get_custom_troop_info",
+        "store_custom_troop_info_to_slot",
+        "custom_troop_inventory_initialization",
+        "custom_troop_inventory_change",
+        "custom_troop_inventory_reset",
+        "custom_troop_inventory_total_price",
+        "custom_troop_inventory_total_weight",
+        "custom_troop_item_judge",
+        "cf_item_can_be_used_by_custom_troop",
+        "set_custom_troop_pionts_initialization",
+        "set_player_kingdom_init"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_custom_troop",
+        "prsnt_custom_troop_item",
+        "prsnt_custom_kingdom_troop"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:0-34 on trp_array_a (scratch array)",
+        "troop:162",
+        "troop:313-317"
+      ],
+      "globals": [
+        "attribute_points",
+        "skill_points",
+        "weapon_points",
+        "temp_troop",
+        "current_item"
+      ],
+      "resources": {
+        "troop": [
+          "trp_array_a",
+          "trp_player_company_types"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain be custom_troop_button_action (troop_progression 97 %)",
+        "explain be prsnt:custom_troop/t0 texts 'Attribute_points', 'Skill_points', 'Weapon_points'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "be.firearm_item_info_text",
+      "name": "Firearm descriptions in item tooltips",
+      "category": "qol-ui",
+      "summary": "Weapon tooltips gain coloured extra lines describing each gun: smoothbore vs rifled, cartridge type, second barrel, repeating action, era - generated from item slots filled once at game start.",
+      "mechanics": "game_get_item_extra_text (engine script, modified Native 331 vs 54 stmts): for extra-text line 0/1 sets a colour with set_trigger_result and a qstr per weapon family ('Has second barrel', 'Uses pistol cartridges', ...). Item slots 2000-2006 (rifle-family links, fire rate in 2006 used by mst:lead_charge/t34) are written by item_detial (5907 stmts, from game_start); 101/102/450 are touched on ~every item.",
+      "hooks": [
+        "script:game_get_item_extra_text (engine)",
+        "script:game_start (item_detial)"
+      ],
+      "scripts": [
+        "game_get_item_extra_text",
+        "item_detial",
+        "initialize_item_info"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "item:2000-2006",
+        "item:101",
+        "item:102",
+        "item:450"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis be game_get_item_extra_text (first 32 stmts)",
+        "auto report: game_get_item_extra_text 331/54, initialize_item_info 603/264, item slots 2000-2006 accesses"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "be.native_campaign_rule_changes",
+      "name": "Modified-Native campaign rules (recruitment, autocalc, lords, bandits)",
+      "category": "recruitment-troops",
+      "summary": "Several Native scripts are rewritten to fit the nation simulation: foreign villages no longer give you regular enemy troops - only your own nation's villages do; elsewhere you get regional irregulars/partisans. Auto-resolved battles and captured centres feed the PAS manpower/reinforcement system; lord party size follows the nation's lord count; bandit spawning is regional; volunteers only refresh from the national pool.",
+      "mechanics": "update_volunteer_troops_in_village (44 vs 35 stmts): if the village belongs to the player's kingdom, volunteers are the faction's base troop with random upgrades by relation; otherwise center_get_rebel_troop picks a regional rebel troop (trp_rebel_european1, _balkan1, _turkish1, _indian1, _arab1, _redshirt1 ...) by village culture/position. game_event_simulate_battle (528 vs 396): after a centre falls it calls pas_reinforce_party x3 on the new garrison and pas_faction_end_campaign when a marshal is defeated; recognises pt_pps_rebels. party_get_ideal_size (30 vs 34): from $preferred_ai_party_size and pas_get_faction_ideal_lord_number. create_kingdom_hero_party (22 vs 62): stripped to a plain spawn with generic party name. spawn_bandits (109 vs 178): regional bandit templates (turkish/indian/middleasia/persian/balkan) capped at 150 total. diplomacy_start_war_between_kingdoms (131 vs 86): infamy for wars without casus belli, notifications only for land neighbours. Emptied Native scripts: decide_run_away_or_not, battle_tactic_*, process_player_enterprise, create_village_farmer_party, calculate_castle_prosperities_by_using_its_villages.",
+      "hooks": [
+        "script:game_event_simulate_battle (engine)",
+        "script:update_volunteer_troops_in_village (Native callers)",
+        "strig:50"
+      ],
+      "scripts": [
+        "update_volunteer_troops_in_village",
+        "center_get_rebel_troop",
+        "game_event_simulate_battle",
+        "party_get_ideal_size",
+        "create_kingdom_hero_party",
+        "spawn_bandits",
+        "diplomacy_start_war_between_kingdoms"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:92",
+        "party:93",
+        "party:26",
+        "party:580"
+      ],
+      "globals": [
+        "preferred_ai_party_size"
+      ],
+      "resources": {
+        "troop": [
+          "trp_rebel_european1",
+          "trp_rebel_polish1",
+          "trp_rebel_balkan1",
+          "trp_rebel_persian1",
+          "trp_rebel_turkish1",
+          "trp_rebel_indian1",
+          "trp_rebel_redshirt1",
+          "trp_rebel_middleasia1",
+          "trp_rebel_arab1"
+        ],
+        "pt": [
+          "pt_turkish_bandits",
+          "pt_indian_bandits",
+          "pt_middleasia_bandits",
+          "pt_persian_bandits",
+          "pt_balkan_bandits",
+          "pt_pps_rebels"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis be update_volunteer_troops_in_village (own-kingdom vs rebel branch)",
+        "dis be game_event_simulate_battle grep: pas_reinforce_party x3, pas_faction_end_campaign, pt_pps_rebels",
+        "dis be party_get_ideal_size, create_kingdom_hero_party, spawn_bandits",
+        "BUG: spawn_bandits stmt 23-24 store pt_persian_bandits and pt_balkan_bandits into the same local :l5, so Persian bandits are not counted toward the 150 cap"
+      ],
+      "overlaps": []
+    }
+  ]
+}

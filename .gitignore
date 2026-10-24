@@ -1,0 +1,17 @@
+.cache/
+out/
+__pycache__/
+.DS_Store
+/modules.json
+tests/test_*_modspecific.py
+golden/*/
+golden/*.out
+golden/commands.txt
+docs/COPY_MANIFEST.txt
+docs/COPY_SOURCE.txt
+# Generated from the user's own Module System headers (docs/PROVENANCE.md): never commit
+wbsd/opref_data.py
+wbsd/header_tables.py
+wbsd/*.tmp
+ports.log.jsonl
+*.bak_before_*

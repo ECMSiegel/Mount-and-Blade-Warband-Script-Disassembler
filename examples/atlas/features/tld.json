@@ -1,0 +1,1320 @@
+{
+  "module": "tld",
+  "features": [
+    {
+      "id": "tld.exchange_screen_hotkeys",
+      "name": "Party-exchange screen hotkeys (take/give all, reorder stacks)",
+      "category": "qol-ui",
+      "summary": "On the loot screen and the garrison/reserve exchange screen the player can press Ctrl+A to take all prisoners, Ctrl+S to take all rescued troops, Up/Down/PgUp/PgDn while hovering a troop to move that stack in the other party's roster, Right-Ctrl+Right to take every troop, Right-Ctrl+Left to hand over every non-hero troop, and Ctrl+A / Ctrl+D to take or give all non-hero prisoners.",
+      "mechanics": "The engine calls game_get_troop_wage for every troop row it draws while a party screen is open, so TLD calls initialize_exchange_screen_extensions(troop) at the top of game_get_troop_wage and polls key_is_down there. trp_globals_troop (troop 1032) slot 12 holds a 'screen mode' set by the dialog/menu that opened the screen (10 = loot, 12 = garrison exchange), slot 10 holds the other party, slot 11 remembers the last hovered troop. The script then rebuilds the other party's roster (via party_add_party_companions into temp party 1) to reorder stacks, or moves whole stacks/prisoners between party 0 and the other party, respecting free capacity and keeping wounded counts.",
+      "hooks": [
+        "script:game_get_troop_wage"
+      ],
+      "scripts": [
+        "initialize_exchange_screen_extensions",
+        "game_get_troop_wage",
+        "party_add_party_companions"
+      ],
+      "menus": [
+        "menu:upkeep_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:261:dlga_player_hire_troop:player_hire_troop_take:conseq",
+        "dlg:262:dlga_player_hire_troop:player_hire_troop_give:conseq",
+        "dlg:545:dlga_lord_give_troops:lord_give_troops_check:conseq",
+        "dlg:241:dlga_companion_give_troops:companion_give_troops_check:conseq"
+      ],
+      "slots": [
+        "troop:10 (on trp_globals_troop)",
+        "troop:11 (on trp_globals_troop)",
+        "troop:12 (on trp_globals_troop)"
+      ],
+      "globals": [
+        "g_move_heroes"
+      ],
+      "resources": {
+        "troop": [
+          "trp_globals_troop (1032)"
+        ],
+        "party": [
+          "temp party 1"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld initialize_exchange_screen_extensions: key_is_down key_left_control+key_a/key_s (mode 10), key_up/down/page_up/page_down, key_right_control+key_right/left, key_left_control+key_a/key_d (mode 12)",
+        "dis tld game_get_troop_wage stmt 0 calls initialize_exchange_screen_extensions"
+      ],
+      "overlaps": [
+        "awoiaf.party_screen_hotkeys",
+        "pop.party_screen_hotkeys"
+      ]
+    },
+    {
+      "id": "tld.faction_resource_points_upkeep",
+      "name": "Per-faction Resource Points purse with faction-paid troop upkeep",
+      "category": "economy-trade",
+      "summary": "Instead of one gold purse, the player holds a separate pool of Resource Points (RP) with every faction. Gold shown on screen is just the RP of the faction whose territory you are in; troops are paid from the RP of their own faction, and if that pool runs dry the faction recalls (removes) its unpaid soldiers.",
+      "mechanics": "Faction slot 72 stores the player's RP with that faction. set_ambient_faction swaps the displayed troop gold to the new 'ambient' faction's RP when the player changes region/town (saving the old value back); update_respoint copies current gold back into slot 72. add_faction_rps(faction, amount) adjusts slot 72 (and the visible gold if it is the ambient faction) and prints 'You gained/lost N Resource Points of X' -- 41 callers (quest rewards, selling prisoners, gifts, disbanding troops). strig:7 (every 96.4 h) make_player_pay_upkeep loops factions 3-20, charges each faction's troops in the main party (inventory-management skill discounts 3%/level) plus half-wage for the player's reserve parties (troop 0 slots 50/309) against that faction's RP; troops it cannot pay are flagged (troop slot 48). strig:9 (every 4.15 h) make_unpaid_troop_go removes flagged troops ('Superior orders from X...'), refunding a disband value. menu:upkeep_report shows RP/party/reserve upkeep per faction. Mordor (6) and Dol Guldur (17) share one pool.",
+      "hooks": [
+        "strig:7",
+        "strig:9",
+        "menu:upkeep_report",
+        "menu:town/opt:town_leave:conseq"
+      ],
+      "scripts": [
+        "add_faction_rps",
+        "set_ambient_faction",
+        "update_respoint",
+        "make_player_pay_upkeep",
+        "make_unpaid_troop_go",
+        "compute_wage_per_faction",
+        "game_get_troop_wage",
+        "get_troop_disband_cost",
+        "get_party_disband_cost"
+      ],
+      "menus": [
+        "menu:upkeep_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:285:dlga_player_hire_troop:tld_sell_prisoners_all:conseq",
+        "dlg:1298:dlga_disband_regular_member_confirm_yn:close_window:conseq",
+        "dlg:583:dlga_send_gift_1:lord_pretalk.1:cond"
+      ],
+      "slots": [
+        "faction:72",
+        "troop:48",
+        "troop:50 (player)",
+        "troop:309 (player)"
+      ],
+      "globals": [
+        "ambient_faction",
+        "g_player_troop",
+        "g_cur_week_half_daily_wage_payments",
+        "g_fast_mode"
+      ],
+      "resources": {
+        "string": [
+          "qstr_You_gained_{reg0}_Re",
+          "qstr_Short_of_Resource_Po"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld add_faction_rps / set_ambient_faction / update_respoint (faction slot 72 <-> troop gold)",
+        "dis tld make_player_pay_upkeep: per-faction loop, troop slot 48 unpaid flag, display 'Short of Resource Points'",
+        "dis tld make_unpaid_troop_go: party_remove_members on flagged troops",
+        "explain tld add_faction_rps: 41 direct callers, 90 entry points"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "tld.faction_rank_influence",
+      "name": "Rank and Influence per faction",
+      "category": "reputation-relations",
+      "summary": "Every faction tracks the player's rank points and a spendable Influence currency separately. Deeds for a faction raise its rank (named titles per faction), which pays a daily RP stipend, enlarges the party limit, and unlocks special services; Influence is spent on things money cannot buy -- special reward items, trolls/captains, healing, commanding allied armies, convincing a marshal.",
+      "mechanics": "Faction slot 71 = rank points, slot 70 = Influence. get_faction_rank turns points into a rank with a quadratic curve (points = 10r^2 + 40r; get_rank_points_for_rank is the inverse). increase_rank(faction, pts) (54 callers: quests, battles, dialogs) scales the gain by Charisma, player's own faction (+20%), option $tld_option_rank_gain_rate, halves gains before the war starts, and adds Influence = (pts+4)/8 with a carry-over remainder ($tld_influence_rest) and trait modifiers (Oathkeeper +, Oathbreaker -); on a rank change new_rank_attained plays a sound and announces the title. strig:8 rank_income_to_player pays 5r^2+10r RP per day per faction. spend_influence_of deducts slot 70 with a message. game_get_party_companion_limit adds the rank of every faction (double for the player's own). Titles come from get_*_rank_title_to_s24 (faction-specific strings). menu:rank_report lists all.",
+      "hooks": [
+        "strig:8",
+        "menu:rank_report",
+        "script:game_get_party_companion_limit"
+      ],
+      "scripts": [
+        "get_faction_rank",
+        "get_rank_points_for_rank",
+        "increase_rank",
+        "new_rank_attained",
+        "rank_income_to_player",
+        "spend_influence_of",
+        "get_rank_title_to_s24",
+        "get_own_rank_title_to_s24",
+        "get_allied_rank_title_to_s24",
+        "get_any_rank_title_to_s24",
+        "calculate_rank_gain_new",
+        "game_get_party_companion_limit"
+      ],
+      "menus": [
+        "menu:rank_report",
+        "menu:reports/opt:view_rank_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:552:dlga_lord_talk:lord_get_reward_item_ask:cond",
+        "dlg:555:dlga_lord_get_reward_item:lord_get_reward_item_answer:conseq",
+        "dlg:274:dlga_player_hire_trolls_take:player_hire_trolls_how_many:cond",
+        "dlg:265:dlga_player_hire_captain_1:player_hire_captain_2:cond",
+        "dlg:578:dlga_marshall_answer:close_window:conseq"
+      ],
+      "slots": [
+        "faction:70",
+        "faction:71",
+        "troop:9 (trp_traits)",
+        "troop:10 (trp_traits)"
+      ],
+      "globals": [
+        "tld_option_rank_gain_rate",
+        "tld_option_influence_gain_rate",
+        "tld_influence_rest",
+        "tld_war_began",
+        "players_kingdom"
+      ],
+      "resources": {
+        "string": [
+          "rank title strings per faction",
+          "qstr_You_spent_{reg10}_of"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld get_faction_rank (sqrt of 4*10*pts + 40^2)",
+        "dis tld increase_rank: slots 70/71, option multipliers, trait 9/10 on trp_traits",
+        "dis tld rank_income_to_player called from strig:8",
+        "dis tld game_get_party_companion_limit loop 3..21 get_faction_rank",
+        "explain tld get_faction_rank: 60 callers incl. dlg154, menu47"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership"
+      ]
+    },
+    {
+      "id": "tld.faction_strength_war_progression",
+      "name": "Faction Strength economy driving the war (and gating sieges)",
+      "category": "campaign-ai",
+      "summary": "Each faction has a single Strength number that rises daily from its towns and falls whenever one of its parties is destroyed; the winner (or the player's allied theatre factions, if the player won) gains what the loser lost. Strength is announced in words ('The forces of Rohan are now ...'), and a faction's towns can only be besieged once its Strength drops below a threshold that relaxes as the player levels up.",
+      "mechanics": "Faction slot 153 = live strength (capped 8000), slot 150 = displayed strength synced every 5 h by strig:56 with a colour-coded message when the thousands-band changes (faction_strength_string_to_s23 maps /1000 to 'crushed'..'unrivalled' strings). Slot 148/149 = cumulative gains/losses. strig:20 (daily) adds each center's party slot 256 income (halved under options, before the war, or when the faction is below $tld_option_regen_limit; ally multiplier $tld_ally_str_income_multi) and raises $g_fac_str_siegable = 3000 + (player level - war level) * relax-rate ('The war expands'). clear_party_group (called when a party is wiped) subtracts the party's value (party slot 1, scaled by $tld_victory_str_multi if the player won) from its faction and adds it to the victor, or splits it among player-allied factions in the player's theatre. decide_faction_ai, kingdom_hero_decide_next_ai_state, the marshal dialog and the player's own 'Attack the town' menu option all compare enemy strength against $g_fac_str_siegable (capital needs siegable-2000).",
+      "hooks": [
+        "strig:20",
+        "strig:56",
+        "script:clear_party_group",
+        "menu:town/opt:player_initiate_siege:cond",
+        "menu:castle_outside/opt:player_castle_initiate_siege:cond",
+        "menu:faction_strengths_report"
+      ],
+      "scripts": [
+        "faction_recalculate_strength",
+        "faction_strength_string_to_s23",
+        "clear_party_group",
+        "decide_faction_ai",
+        "kingdom_hero_decide_next_ai_state",
+        "store_average_center_value_per_faction"
+      ],
+      "menus": [
+        "menu:faction_strengths_report",
+        "menu:camp_strat_tweaks"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:565:dlga_marshall_suggest:marshall_answer:cond",
+        "dlg:627:dlga_lord_talk_ask_about_war_details:lord_talk_ask_about_war_2:conseq"
+      ],
+      "slots": [
+        "faction:148",
+        "faction:149",
+        "faction:150",
+        "faction:153",
+        "party:1",
+        "party:256",
+        "party:260"
+      ],
+      "globals": [
+        "g_fac_str_siegable",
+        "tld_war_began",
+        "tld_option_regen_rate",
+        "tld_option_regen_limit",
+        "tld_option_siege_relax_rate",
+        "tld_victory_str_multi",
+        "tld_ally_str_income_multi",
+        "tld_player_level_to_begin_war",
+        "player_won_last_battle"
+      ],
+      "resources": {
+        "string": [
+          "str_faction_strength_crushed .. str_faction_strength_last"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld strig:20 (center income loop, $g_fac_str_siegable update)",
+        "dis tld strig:56 (150<-153 sync, messages)",
+        "dis tld clear_party_group (153 -= party slot 1; winner/theatre allies +)",
+        "global tld g_fac_str_siegable: readers decide_faction_ai, marshall dialog, town/castle siege conds",
+        "slot tld faction 153: 123 accesses / 37 blocks incl. quest reward dialogs"
+      ],
+      "overlaps": [
+        "be.pas_marshal_campaign_ai",
+        "tld.war_theaters_advance_camps",
+        "vc.marshal_election"
+      ]
+    },
+    {
+      "id": "tld.faction_defeat_redistribution_last_stand",
+      "name": "Faction defeat, territory redistribution, lord defection and last stand",
+      "category": "dynamic-world-events",
+      "summary": "When a faction's capital falls or its Strength hits zero it is destroyed: all its parties disband, its towns are handed to whichever enemy is strongest relative to distance (or to an active besieger), and each lord may escape to the nearest friendly faction of a compatible race, bringing +500 Strength with him. Shortly before, a dying faction calls every lord home to defend the capital. Side-wide victory is detected when only one alignment remains.",
+      "mechanics": "strig:55 (12 h): for each live faction, if capital (faction slot 154) is no longer its own or is flagged, set slot 21 = 1 (dead) and: detach/remove its parties; for each center, give to besieger (party slot 54) or to the enemy faction maximising min(strength,7000)*1000/distance (get_tld_distance), then cf_reinforce_party x5; 30% of its lords pick the closest allied faction by capital distance with race rules (troop_set_faction, +500 to that faction's slot 153, 'X managed to escape...'); free the player's hero prisoners of that faction; notification menu; update theatres. When strength < 1 it first sets slot 183, and strig:60 (3 h) runs last_faction_stand which orders every lord party (ai state 7) back to the capital. At the end strig:55 checks whether all live factions share one side (faction slot 158) and fires the ending conversation missions.",
+      "hooks": [
+        "strig:55",
+        "strig:60"
+      ],
+      "scripts": [
+        "give_center_to_faction",
+        "destroy_center",
+        "delete_volunteers_party",
+        "lift_siege",
+        "cf_reinforce_party",
+        "get_tld_distance",
+        "last_faction_stand",
+        "last_faction_stand_aux",
+        "last_faction_stand_aux_ai",
+        "update_active_theaters",
+        "cf_reinforce_next_theater",
+        "add_notification_menu",
+        "send_on_conversation_mission"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:239:dlga_companion_faction_dying:close_window:conseq"
+      ],
+      "slots": [
+        "faction:21",
+        "faction:154",
+        "faction:158",
+        "faction:183",
+        "faction:153",
+        "party:54",
+        "party:258",
+        "troop:2",
+        "troop:10"
+      ],
+      "globals": [
+        "g_recalculate_ais",
+        "g_tld_conversations_done",
+        "g_tld_convo_subject"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld strig:55 (335 stmts) shown above: give_center_to_faction weighting, troop_set_faction + 153 += 500, display_log_message '{s2} was defeated!'",
+        "dis tld strig:60 + last_faction_stand_aux_ai (party_set_ai_state 7 to capital)",
+        "slot tld faction 183 writers strig:55/60"
+      ],
+      "overlaps": [
+        "acan.civil_war_usurpation_restoration",
+        "ad457.landless_faction_cleanup",
+        "ad457.town_rebellions_secession",
+        "vc.faction_restoration_and_adventurers"
+      ]
+    },
+    {
+      "id": "tld.persistent_injuries_permadeath",
+      "name": "Persistent battle injuries, healing and optional hero permadeath",
+      "category": "companions-heroes",
+      "summary": "When the player or a companion is knocked out there is a chance of a lasting wound -- maimed leg (-athletics/riding/agility), arm (-20 weapon skills, -2 STR), head (-INT skills), cracked ribs -- that persists until it heals over days (faster with Wound Treatment, healers, or Athelas). Each existing wound raises the chance that the next knockout is fatal if the permadeath options are on; dead companions get a burial mound or pyre on the world map.",
+      "mechanics": "Mission triggers on main_hero_fallen / hero wounded (e.g. mst:lead_charge/t195, 1-in-5 with $tld_option_injuries) call injury_routine(troop): random roll over $wound_setting picks a body part; troop slot 1 holds a bitmask (arm 1, leg 2, head 4, chest 8; 16 = dead); the penalty is applied with troop_raise_attribute / troop_raise_proficiency_linear and reversed by healing_routine. Death roll = 10% per existing wound: NPCs (if $tld_option_death_npc) are removed and build_mound_for_dead_hero spawns a map prop near the faction capital; the player (if $tld_option_death_player) goes to menu_death. strig:61 (10 h) heals each companion with chance 15+wound-treatment and the player 30+wound-treatment; town/lord healers (dlg:504-509, 931-936) heal for RP/Influence; Athelas camp item boosts. $trait_check_battle_scarred counts player wounds for the Battle-scarred trait.",
+      "hooks": [
+        "mst:lead_charge/t195:conseq",
+        "strig:61",
+        "menu:total_defeat",
+        "menu:total_victory"
+      ],
+      "scripts": [
+        "injury_routine",
+        "healing_routine",
+        "healing_routine_full",
+        "build_mound_for_dead_hero",
+        "battle_health_management",
+        "wounded_hero_cap_mission_health",
+        "cf_is_troop_in_party_wounded"
+      ],
+      "menus": [
+        "menu:death",
+        "menu:camp_action/opt:camp_use_athelas"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_besiege_inner_battle_castle",
+        "mst_castle_attack_walls_defenders_sally"
+      ],
+      "dialogs": [
+        "dlg:504:dlga_lord_healers_injured_check:lord_healers_injured_heal:cond",
+        "dlg:505:dlga_lord_healers_wound_check:lord_healers_wound_heal:cond",
+        "dlg:931:dlga_healers_injured_check:healers_injured_heal:cond",
+        "dlg:936:dlga_healers_wound_heal:healers_wound_done:conseq"
+      ],
+      "slots": [
+        "troop:1",
+        "troop:15"
+      ],
+      "globals": [
+        "wound_setting",
+        "healing_setting",
+        "tld_option_injuries",
+        "tld_option_death_npc",
+        "tld_option_death_player",
+        "trait_check_battle_scarred"
+      ],
+      "resources": {
+        "item": [
+          "itm_athelas_reward"
+        ],
+        "menu": [
+          "menu_death"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld injury_routine (bitmask, attribute/proficiency penalties, 10%/wound death, build_mound_for_dead_hero)",
+        "dis tld healing_routine (inverse bonuses, +10 HP)",
+        "dis tld strig:61 (healing chances with skl_wound_treatment)",
+        "explain tld injury_routine: 27 callers, 23 entry points"
+      ],
+      "overlaps": [
+        "acan.player_health_mortality",
+        "vc.player_persistent_injuries"
+      ]
+    },
+    {
+      "id": "tld.battle_coherence_rout_rally",
+      "name": "Side-wide battle morale (coherence), routs and player rallies",
+      "category": "morale",
+      "summary": "Each side has a coherence score built from troop levels, casualty ratio, leaders' Leadership, banner-bearers, party morale, kills and special presences (e.g. Nazgul). When one side's coherence falls far below the other, a share of its troops breaks and flees, with messages like 'Many of your enemies flee in terror!'. The player can press V to rally (a limited number of times per battle set by Charisma, Leadership and certain horn/whip items), boosting coherence.",
+      "mechanics": "coherence (mst triggers every 2 s, every frame and every 30 s across 22 battle templates) loops agents: cf_agent_get_morale per agent, sums ally/enemy level*4, counts routed (agent slot 21) and wounded (agent slot 19), adds hero Leadership (doubled for lords/companions) and fixed bonuses for standard-bearer troops, scales by force ratio, adds party morale, $new_kills, battle-effect bonuses (party slot 308) and persistent modifiers; stores $allies_coh / $enemies_coh. rout_check: gap >= 40 routs a fraction of the weaker side (rout_allies/rout_enemies) and shifts modifiers; morale_check: when a side is below 75 there is an (80-coh)% chance of a smaller rout. Rally: key_clicked key_v (cond $tld_option_morale) after 30 s and if allies_coh <= 80; rallies allowed = 1 + CHA/5 (+Leadership/3 with itm_angmar_whip_reward / itm_horn_gondor_reward), each adds (CHA/5*2 + Leadership*2) to $allies_coh_modifier, plays a cheer and an animation, and re-forms nearby fleeing allies. prsnt:show_num_rallies shows the counter. Routed parties can be spawned on the map afterwards (cf_spawn_routed_parties).",
+      "hooks": [
+        "mst:bandit_lair/t88:conseq",
+        "mst:bandit_lair/t92:conseq",
+        "mst:bandit_lair/t93:conseq",
+        "mst:bandit_lair/t90:cond",
+        "mst:bandit_lair/t90:conseq"
+      ],
+      "scripts": [
+        "coherence",
+        "cf_agent_get_morale",
+        "cf_agent_get_tier_morale",
+        "rout_check",
+        "morale_check",
+        "rout_allies",
+        "rout_enemies",
+        "healthbars",
+        "count_ally_agents_around_agent",
+        "cf_spawn_routed_parties",
+        "troop_get_cheer_sound"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt:show_num_rallies"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_bandit_lair",
+        "mst_custom_battle",
+        "mst_town_brawl",
+        "mst_tld_caravan_help"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:19",
+        "agent:21",
+        "agent:22",
+        "party:308"
+      ],
+      "globals": [
+        "allies_coh",
+        "enemies_coh",
+        "allies_coh_modifier",
+        "enemies_coh_modifier",
+        "allies_leadership",
+        "new_kills",
+        "nazgul_in_battle",
+        "nazgul_team",
+        "tld_option_morale"
+      ],
+      "resources": {
+        "item": [
+          "itm_angmar_whip_reward",
+          "itm_horn_gondor_reward"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld coherence (207 stmts, writes $allies_coh/$enemies_coh)",
+        "dis tld rout_check / morale_check",
+        "dis tld mst:bandit_lair/t90 cond+conseq (key_v, rally count formula, horn items 857/858)",
+        "text tld 'You_rally_{reg10}_troops!', 'Rallies:'"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "acw.bury_the_dead",
+        "be.company_discipline_rout",
+        "bi.courage_update_staggering",
+        "nw.morale_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "tld.player_traits",
+      "name": "Earned character traits (Oathkeeper, Berserker, Battle-scarred, ...)",
+      "category": "character-progression",
+      "summary": "The player earns named traits from how they play -- keeping or breaking oaths, giving many battle orders, stealth successes, fighting unarmoured, repeated wounds, killing enemy captains, visiting landmarks, arena wins, despoiling villages. Each trait gives a permanent effect: attribute/skill changes, cheaper recruiting from a people, weekly morale or influence ticks, fewer animal ambushes, and so on, and is announced with a log message and sound.",
+      "mechanics": "trp_traits (troop 872) slots 1-26 are 0/1 flags. gain_trait(n) sets the flag, prints 'New trait gained: <title>' (str_trait_title_*) and plays a sound; ~25 cf_gain_trait_* wrappers apply one-off stat changes (e.g. Command Voice +2 CHA, Berserker +2 STR, Battle-scarred -1 CHA +1 Ironflesh). trig:20 (rearms every 90 h) applies periodic effects (Oathkeeper/Reverent/Merciful/Despoiler +2 Influence with the player's faction, Oathbreaker -2; Foe-hammer, Battle-scarred/Fell-beast, Orc-pit champion and Bravery +11% party morale, Accursed/Merciful -10%) and rolls acquisition chances from counters gathered during play ($trait_check_commands_issued x7%, $trait_check_stealth_success x10%, $trait_check_battle_scarred x3% over 15, landmarks visited party slot 300 >= 3 -> Well-travelled). Other traits are granted directly from dialogs/menus (Elf-friend, King's man, Orc-pit champion, Despoiler, Accursed, Blessed). Trait flags are read elsewhere: game_get_join_cost (-25% recruit cost for friend traits), increase_rank (Influence +/-), strig:66 (Animal-fighter avoids ambushes).",
+      "hooks": [
+        "trig:20:conseq",
+        "script:game_get_join_cost"
+      ],
+      "scripts": [
+        "gain_trait",
+        "gain_trait_well_travelled",
+        "cf_gain_trait_command_voice",
+        "cf_gain_trait_stealthy",
+        "cf_gain_trait_berserker",
+        "cf_gain_trait_battle_scarred",
+        "cf_gain_trait_fell_beast",
+        "cf_gain_trait_foe_hammer",
+        "cf_gain_trait_oathkeeper",
+        "cf_gain_trait_oathbreaker",
+        "cf_gain_trait_despoiler",
+        "cf_gain_trait_blessed",
+        "cf_gain_trait_elf_friend",
+        "cf_gain_trait_kings_man"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1235:dlga_player_upgrade_troll_buy_done:close_window:conseq"
+      ],
+      "slots": [
+        "troop:1..26 (on trp_traits)",
+        "party:300 (landmarks)"
+      ],
+      "globals": [
+        "trait_check_commands_issued",
+        "trait_check_stealth_success",
+        "trait_check_unarmored_berserker",
+        "trait_check_battle_scarred"
+      ],
+      "resources": {
+        "troop": [
+          "trp_traits"
+        ],
+        "string": [
+          "str_trait_title_*",
+          "str_trait_desc_*"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld gain_trait (troop_set_slot 872, n, 1; display 'New trait gained')",
+        "dis tld trig:20:conseq (periodic effects + acquisition rolls)",
+        "dis tld game_get_join_cost (troop_slot_eq 872 1..4 -> x3/4 cost)",
+        "texts tld str_trait_desc_* (26 descriptions)"
+      ],
+      "overlaps": [
+        "vc.player_goals"
+      ]
+    },
+    {
+      "id": "tld.town_volunteers_and_reserves",
+      "name": "Growing town volunteer pools, troop hand-over to towns, and stationed reserves",
+      "category": "recruitment-troops",
+      "summary": "Each friendly town keeps its own pool of volunteers that refills daily and slowly gains experience while it waits, so the longer you leave a town alone the more veteran its recruits. The garrison commander lets you hire from it (paying RP), hand surplus soldiers to the town ('strengthen defences') for a refund and rank, and park troops as personal Reserves at your faction's capital or an advance camp and pick them up later.",
+      "mechanics": "strig:14 (daily) calls refresh_volunteers_in_town per center: the volunteers party (party slot 66, attached to the town, created by create_volunteers_party, named Volunteers/Reserves by alignment) grows by garrison/10 + 5*player rank with that faction + 10*Leadership, scaled by town slot 26 and per-faction temperament and $tld_volunteers_multi, and receives party_upgrade_with_xp so stacks upgrade over time. Hiring: dlg:261 sets set_mercenary_source_party to that pool; game_get_join_cost prices recruits by level*wage, town slot 26 and friend traits. Giving: dlg:262 opens an exchange with temp party 9 and pays get_party_disband_cost. Reserves: dlg:263 creates/opens the player's reserve party at the capital (troop 0 slot 50) or at the current advance camp (troop 0 slot 309), attached to the center; upkeep for reserves is half wage (make_player_pay_upkeep); when the faction's advance camp moves, strig:58 folds slot-309 reserves back into the capital reserve.",
+      "hooks": [
+        "strig:14",
+        "dlg:261:dlga_player_hire_troop:player_hire_troop_take:conseq",
+        "dlg:262:dlga_player_hire_troop:player_hire_troop_give:conseq",
+        "dlg:263:dlga_player_hire_troop:close_window:cond"
+      ],
+      "scripts": [
+        "refresh_volunteers_in_town",
+        "create_volunteers_party",
+        "delete_volunteers_party",
+        "game_get_join_cost",
+        "get_party_min_join_cost",
+        "get_party_disband_cost",
+        "get_troop_disband_cost",
+        "party_split_by_faction",
+        "party_eject_nonfaction"
+      ],
+      "menus": [
+        "menu:auto_player_garrison",
+        "menu:upkeep_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:260:dlga_start:player_hire_troop:cond",
+        "dlg:263:dlga_player_hire_troop:close_window:cond",
+        "dlg:294:dlga_player_hire_troop_give:player_hire_troop_reunite:cond"
+      ],
+      "slots": [
+        "party:66",
+        "party:26",
+        "party:257",
+        "troop:50 (player)",
+        "troop:309 (player)"
+      ],
+      "globals": [
+        "hiring_from",
+        "num_hirable",
+        "cheapest_join",
+        "tld_volunteers_multi",
+        "initial_party_value"
+      ],
+      "resources": {
+        "party": [
+          "temp party 9"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld refresh_volunteers_in_town (growth formula, party_upgrade_with_xp)",
+        "dis tld create_volunteers_party (spawn 255, attach, slot 66, name Volunteers/Reserves)",
+        "dis tld dlg:261 conseq (set_mercenary_source_party $hiring_from)",
+        "dis tld dlg:263 cond (troop 0 slot 50 / 309 reserve party)"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool"
+      ]
+    },
+    {
+      "id": "tld.war_theaters_advance_camps",
+      "name": "War theatres with moving advance camps",
+      "category": "armies-campaigns",
+      "summary": "The map is split into four theatres. Each faction fights in one theatre at a time; when no enemy factions or enemy camps remain there it marches on to the next theatre and, after a delay, sets up an Advance Camp (a temporary fortified center) that acts as its forward base, wiping out any enemy camp in that theatre. The player's reserves and some quests follow the camp.",
+      "mechanics": "Faction slots: 159 home theatre, 160 active theatre (bit flags 1/2/4/8), 161 its advance-camp party, 162 time of last move, 181 pending move. find_next_theater walks a fixed per-home-theatre order; check_active_factions_in_theater / check_active_advance_camps decide if enemies remain. strig:67 (daily) and update_active_theaters move factions on, log 'The forces of X have moved to Y', disable the old camp and its volunteers. strig:58 (6 h): if a faction is away from home, strength > 3000, a week has passed and a strength-weighted roll succeeds, it spends 1000 strength, positions its camp with get_advcamp_pos_predefined, enables it, destroys enemy camps in that theatre, and refills the camp garrison. Lord AI targets (cf_get_random_center_in_theater, cf_find_target_patrolling_enemy_lord_in_theater) and quest generation are restricted to the active theatre.",
+      "hooks": [
+        "strig:67",
+        "strig:58",
+        "strig:65",
+        "strig:69"
+      ],
+      "scripts": [
+        "find_theater",
+        "find_next_theater",
+        "update_active_theaters",
+        "check_active_factions_in_theater",
+        "wott_check_active_factions_in_theater",
+        "check_active_advance_camps",
+        "get_advcamp_pos_predefined",
+        "theater_name_to_s15",
+        "cf_reinforce_next_theater",
+        "reinforce_next_theater_aux",
+        "cf_get_random_center_in_theater"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:159",
+        "faction:160",
+        "faction:161",
+        "faction:162",
+        "faction:181",
+        "party:259",
+        "party:4"
+      ],
+      "globals": [
+        "tld_war_began"
+      ],
+      "resources": {
+        "party": [
+          "advance camp parties 78-95"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld find_next_theater (bit-flag chain by slot 159)",
+        "dis tld strig:67 / update_active_theaters (slot 160 moves, log messages)",
+        "dis tld strig:58 (advance camp spawn, -1000 strength, destroy enemy camps)"
+      ],
+      "overlaps": [
+        "be.pas_marshal_campaign_ai",
+        "tld.faction_strength_war_progression",
+        "vc.marshal_election"
+      ]
+    },
+    {
+      "id": "tld.battle_condition_modifiers",
+      "name": "Per-agent battle modifiers from terrain, night, race and faction weather auras",
+      "category": "combat-mechanics",
+      "summary": "When each soldier spawns, the game adjusts his movement speed, horse speed, damage, accuracy and reload speed for the battle's terrain (forest/snow/marsh), time of day (orcs fight better at night, men worse), his race, and any supernatural weather in force (mists, storms or darkness raised near the strongholds of Lothlorien, Mordor, Isengard and Dol Guldur) -- heavy armour also slows hero agents more in difficult terrain.",
+      "mechanics": "Every field-battle template has a ti_on_agent_spawn trigger (e.g. mst:bandit_lair/t43, 162 stmts) that starts each modifier at 100 and subtracts by: party 0 slot 308 battle effect (1/4/5/6 set by strig:70) against the agent's alignment (faction slot 158), $terrain_condition (from store_terrain_condition_to_s17_s18 before the battle), is_currently_night with troop_get_type race classes and cf_is_a_night_troop, and encumbrance (ce_get_troop_encumbrance for heroes, Athletics for regulars). Results go to agent_set_horse_speed_factor, agent_set_damage_modifier, agent_set_accuracy_modifier, agent_set_speed_modifier, agent_set_reload_speed_modifier, agent_set_ranged_damage_modifier. strig:70 (5 h, option $battle_encounter_effects) checks whether the player is within 12-60 map units of the strongholds of Lothlorien (fac 8, effect 1), Mordor (fac 6, effect 4), Isengard (fac 7, effect 5) or Dol Guldur (fac 17, effect 6) and, with probability proportional to that faction's strength, sets the effect and map haze/cloud; the coherence script also gives +-10 coherence for the effect.",
+      "hooks": [
+        "mst:bandit_lair/t43:conseq",
+        "strig:70"
+      ],
+      "scripts": [
+        "ce_get_troop_encumbrance",
+        "cf_is_a_night_troop",
+        "store_terrain_condition_to_s17_s18",
+        "coherence"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_bandit_lair",
+        "mst_custom_battle",
+        "mst_tld_caravan_help",
+        "mst_village_attack_bandits"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:308",
+        "agent:32",
+        "faction:158"
+      ],
+      "globals": [
+        "terrain_condition",
+        "battle_encounter_effects"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld mst:bandit_lair/t43:conseq (modifier arithmetic and agent_set_* calls)",
+        "dis tld strig:70 (distance-to-stronghold weather roll, party 0 slot 308 values 1/4/5/6)",
+        "slot tld party 308: read in ~100 mission blocks"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "be.campaign_weather_battle_atmosphere",
+        "laigle.weather_seasons",
+        "nw.battle_weather_generator",
+        "tld.day_night_proficiency_shift",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "tld.encumbrance_and_fall_damage",
+      "name": "Armour encumbrance penalties and fall damage when a horse dies",
+      "category": "combat-mechanics",
+      "summary": "Hero agents carry an encumbrance value from the weight of their equipment. It reduces their speed in rough terrain and, when their horse is killed under them, they take fall damage scaled by encumbrance and horse speed (reduced by Riding skill) -- possibly being knocked out and credited as a kill to the attacker. Item tooltips show the skill penalty heavy gear imposes.",
+      "mechanics": "ce_get_troop_encumbrance(troop) sums item_get_weight of equipment slots in fixed-point and returns encumbrance in reg1 (used by 49 mission blocks). ti_on_agent_killed_or_wounded triggers (e.g. mst:bandit_lair/t109) fire when a non-human (horse) agent dies: rider = agent slot 304; damage = random 1-5 + encumbrance*speed/125, minus Riding*8% of that; applied via agent_set_hit_points / agent_deliver_damage_to_agent_advanced so the killer gets credit. game_get_item_extra_text (781 stmts) prints per-item penalties such as 'Athletics -N', 'Riding -N', 'Power Draw -N' or 'No skill penalty'.",
+      "hooks": [
+        "mst:bandit_lair/t109:conseq",
+        "mst:bandit_lair/t43:conseq",
+        "script:game_get_item_extra_text"
+      ],
+      "scripts": [
+        "ce_get_troop_encumbrance",
+        "game_get_item_extra_text",
+        "check_agent_armor"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "agent:304"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld ce_get_troop_encumbrance (item_get_weight over inventory slots 0-8)",
+        "dis tld mst:bandit_lair/t109:conseq (fall damage formula, agent_deliver_damage_to_agent_advanced)",
+        "qstr tld 'Athletics___{reg31}', 'No_Skill_Penalty'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "tld.day_night_proficiency_shift",
+      "name": "Day/night combat proficiency shift by race",
+      "category": "combat-mechanics",
+      "summary": "At every sunrise and sunset the game rewrites weapon proficiencies for whole troop races: troops not flagged sun-immune (troop slot 169) lose a stored percentage of their proficiencies at daybreak (race-specific, e.g. 40% archery, 30% throwing) and get it back at nightfall -- i.e. orc-type creatures fight worse in daylight. No reverse (night) penalty for day-folk was seen in the code examined.",
+      "mechanics": "strig:53 (hourly, 1722 stmts) detects a day/night transition via $prev_day, then loops all 1033 troops; for each troop_get_type (race 0-15) and cf_is_a_night_troop (troop slot 169 not set) it either computes and stores a percentage of each proficiency in troop slots 41-42 (likely more per proficiency) (e.g. 40% archery, 30% throwing) and lowers it with troop_raise_proficiency_linear, or adds the stored amount back. trig:14 (once, $prev_day == 4) initialises the stored values for old saves. game_get_skill_modifier_for_troop also reads $prev_day.",
+      "hooks": [
+        "strig:53",
+        "trig:14:conseq"
+      ],
+      "scripts": [
+        "cf_is_a_night_troop"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:41",
+        "troop:42",
+        "troop:169"
+      ],
+      "globals": [
+        "prev_day"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld strig:53 (is_currently_night edge, loop 0..1033, troop_get_type branches 0-15, troop_raise_proficiency_linear)",
+        "dis tld trig:14:conseq (initial store into troop slots 41/42)",
+        "dis tld cf_is_a_night_troop (troop slot 169)"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "be.campaign_weather_battle_atmosphere",
+        "laigle.weather_seasons",
+        "nw.battle_weather_generator",
+        "tld.battle_condition_modifiers",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "tld.formations_motomataru_pop_lineage",
+      "name": "Formations and battle AI (PoP-lineage set plus Motomataru '_moto' set, weapon-type orders)",
+      "category": "battle-ai-formations",
+      "summary": "TLD ships two complete formation/battle-AI packages side by side: the older formations kit it shares with Prophesy of Pendor (ranks, shieldwall, wedge, square via J/K/L keys; AI field tactics) and a newer Motomataru '_moto' kit with division placement, battlegroup data and improved melee/ranged tactics, plus a large 'order weapon type switch' command set (switch division to ranged/melee/polearm/shields).",
+      "mechanics": "PoP-lineage: cf_formation, form_infantry/form_archers/form_cavalry, player_order_formations, store_battlegroup_data, team_field_melee_tactics (1048 stmts) and team_field_ranged_tactics, called from mission templates and prsnt:formation_mod_option / prsnt:show_key_binds. Motomataru set: every name with _moto suffix (form_infantry_moto 708, store_battlegroup_data_moto 486, team_field_melee_tactics_moto 684, player_order_formations_moto 378, process_player_division_positioning_moto, memorize/default_division_placements_moto). order_weapon_type_switch (400 stmts) iterates agents of selected divisions and equips the matching weapon class. Options in menu:camp_field_ai toggle lord/horse-archer AI and archer aim vs orcs.",
+      "hooks": [
+        "mst:lead_charge (formation triggers)",
+        "prsnt:formation_mod_option/t0",
+        "prsnt:show_key_binds/t0",
+        "menu:camp_field_ai"
+      ],
+      "scripts": [
+        "cf_formation",
+        "form_infantry",
+        "form_archers",
+        "form_cavalry",
+        "player_order_formations",
+        "store_battlegroup_data",
+        "team_field_melee_tactics",
+        "team_field_ranged_tactics",
+        "form_infantry_moto",
+        "player_order_formations_moto",
+        "store_battlegroup_data_moto",
+        "team_field_melee_tactics_moto",
+        "order_weapon_type_switch",
+        "equip_best_melee_weapon_moto",
+        "get_item_modifier_effects_moto"
+      ],
+      "menus": [
+        "menu:camp_field_ai"
+      ],
+      "presentations": [
+        "prsnt:formation_mod_option",
+        "prsnt:show_key_binds",
+        "prsnt:order_display"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "agent:12",
+        "agent:13",
+        "agent:14",
+        "agent:17",
+        "agent:24",
+        "agent:25",
+        "agent:28",
+        "team:1..13"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "auto report: _moto scripts all NEW with mst/prsnt entry points"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "tld.lord_friendship_gifts",
+      "name": "Friendly lords periodically offer troops or equipment",
+      "category": "lord-behavior",
+      "summary": "Lords who like the player (relation 20+) slowly build up goodwill and, when it is ready, offer a gift when the player next talks to them -- either a group of their troops or a piece of equipment matched to the player, with quality scaled by the friendship.",
+      "mechanics": "strig:8 (daily) loops kingdom heroes (troop slot 2 == 2) and calls lord_friendship_reward_progress(lord, relation/20); the script adds to troop slot 167 (progress) and, if no offer is pending (slot 166 < 1), randomly picks troops (lord_reward_troops_type: chooses a troop type and count from the lord's party/faction) or equipment (lord_reward_equipment_type, item type by player's equipment, lord_reward_equipment_modifier for quality), storing the offer in slots 166/168. Dialogs dlg:811 (lord_offer_troops: 'I have N X who are prepared...') and dlg:814 (lord_offer_item) present the offer once progress reaches 100 and reset it. change_player_relation_with_troop also feeds progress.",
+      "hooks": [
+        "strig:8",
+        "dlg:811:dlga_lord_leave:lord_offer_troops:cond",
+        "dlg:814:dlga_lord_leave:lord_offer_item:cond"
+      ],
+      "scripts": [
+        "lord_friendship_reward_progress",
+        "lord_reward_troops_type",
+        "lord_reward_troops_count",
+        "lord_reward_equipment_type",
+        "lord_reward_equipment_modifier",
+        "troop_get_player_relation",
+        "change_player_relation_with_troop"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:811:dlga_lord_leave:lord_offer_troops:cond",
+        "dlg:814:dlga_lord_leave:lord_offer_item:cond",
+        "dlg:459:dlga_lord_talk:lord_pretalk.1:cond"
+      ],
+      "slots": [
+        "troop:166",
+        "troop:167",
+        "troop:168",
+        "troop:165"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld lord_friendship_reward_progress (slots 166/167/168; random troops vs equipment)",
+        "dis tld strig:8 (relation >= 20 -> progress)",
+        "slot tld troop 167: readers dlg:811 / dlg:814 (const 100 threshold)"
+      ],
+      "overlaps": [
+        "awoiaf.commoner_trust",
+        "bi.triumphus",
+        "pop.post_battle_lord_relation_gain"
+      ]
+    },
+    {
+      "id": "tld.gift_bribe_courier_quest",
+      "name": "Send gifts or bribes to another faction's ruler (RP courier quest)",
+      "category": "diplomacy-politics",
+      "summary": "A lord can be asked to send a gift (good factions) or bribe (evil ones) to another faction's leader. The player pays Resource Points up front, carries the gift personally, and on delivery the recipient faction credits the same RP to the player's account there and its ruler's relation with the player rises -- effectively a way to move wealth between factions while building friendships.",
+      "mechanics": "dlg:581-592: choose recipient faction and one of five gift tiers (cost 1000 + 1000*tier^2 RP, text str_<faction>_gift0..4); conseq deducts with add_faction_rps and starts quest 39 storing giver, recipient faction, value and gift string. dlg:579/580 at the recipient's ruler: finish_quest, add_faction_rps(recipient, value), change_player_relation_with_troop(ruler, value/2000 + 2).",
+      "hooks": [
+        "dlg:581:dlga_lord_talk:send_gift_1:cond",
+        "dlg:579:dlga_lord_talk:deliver_gift_1:cond"
+      ],
+      "scripts": [
+        "add_faction_rps",
+        "update_respoint",
+        "start_quest",
+        "finish_quest",
+        "change_player_relation_with_troop"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:581:dlga_lord_talk:send_gift_1:cond",
+        "dlg:590:dlga_send_gift_4:send_gift_5:cond",
+        "dlg:592:dlga_send_gift_5:lord_pretalk:conseq",
+        "dlg:580:dlga_deliver_gift_1:lord_pretalk:cond"
+      ],
+      "slots": [
+        "quest:3",
+        "quest:6",
+        "quest:10",
+        "quest:14",
+        "quest:15",
+        "quest:22",
+        "faction:72"
+      ],
+      "globals": [
+        "temp",
+        "temp_2"
+      ],
+      "resources": {
+        "quest": [
+          "quest 39 (gift)"
+        ],
+        "string": [
+          "str_gondor_gift0 .. per-faction gift names"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld dlg:592 conseq (cost formula, quest 39 slots, add_faction_rps negative)",
+        "dis tld dlg:580 cond (finish_quest, add_faction_rps recipient, relation +value/2000+2)"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite"
+      ]
+    },
+    {
+      "id": "tld.companion_catchup_and_promotion",
+      "name": "Companion catch-up XP and promotion of companions to lords",
+      "category": "companions-heroes",
+      "summary": "Companions who are not in the player's party keep pace by earning XP toward the player's level, so a recruited or rejoining companion is not hopelessly behind. When a faction is losing (low strength and has lost lords), one of its eligible companions may be raised to lordship, getting his own party -- announced by a 'A new hero' event -- and the player can also ask a companion to leave and become a lord.",
+      "mechanics": "strig:64 (every 22 h, after the war starts): for companion troops (512-528 and 940-949) not in the party, not dead (troop slot 1 != 16) and not already lords, if level < player level: add_xp_to_troop(level*playerlevel*2/3). Then per faction with displayed strength <= 3500 (enemy) / 2000 (friendly) that has a dead lord, with chance (6000-strength)/6000 one such companion with Leadership >= 1 gets +1 Leadership and promote_companion_to_lord (sets occupation slot 2 = 2, creates a party, equipment, notes) and menu_companion_promoted_event is shown. Dialogs dlg:141-157 (member_promote_lord) and dlg:239-253 (companion_faction_dying) let the player trigger promotion.",
+      "hooks": [
+        "strig:64",
+        "dlg:157:dlga_member_talk:close_window.1:conseq",
+        "dlg:239:dlga_companion_faction_dying:close_window:conseq"
+      ],
+      "scripts": [
+        "promote_companion_to_lord",
+        "create_kingdom_hero_party",
+        "update_troop_notes"
+      ],
+      "menus": [
+        "menu:companion_promoted_event"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:141:dlga_member_promote_lord:member_talk.3:cond",
+        "dlg:144:dlga_member_promote_lord_leaving:close_window:conseq",
+        "dlg:234:dlga_event_triggered:companion_faction_demolished:cond"
+      ],
+      "slots": [
+        "troop:1",
+        "troop:2",
+        "troop:59",
+        "faction:150",
+        "faction:153"
+      ],
+      "globals": [
+        "besieged_center_for_menu",
+        "besieged_by_troop_for_menu",
+        "besieged_by_faction_for_menu"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld strig:64 (catch-up loop add_xp_to_troop; promotion roll, jump_to_menu companion_promoted_event)",
+        "explain tld promote_companion_to_lord (82 stmts, 6 callers)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "tld.camp_menu_actions",
+      "name": "Camp menu: walk the camp, review troops in a scene, timed consumables, dynamic party icon",
+      "category": "qol-ui",
+      "summary": "A camp menu on the world map lets the player walk around a terrain-appropriate camp scene, review their troops and prisoners standing in it, use camp consumables with timed effects (Orc brew, Athelas for wound treatment, pipe-weed for a short rest, Ent-water, Miruvor, drums of the deep), rest, or open mod options. The party's map icon also changes automatically between mounted, foot-archer, foot-melee and camping figures.",
+      "mechanics": "menu:camp options: camp_troop -> jump_to_random_scene(region, terrain, landmark) + mission 4 (mst_review_troops, troops spawned as visitors); camp_action menu consumes items by setting item slot 13 = active and slot 14 = expiry hour; strig:34 (3 h) decrements the stack and announces expiry; effects are read by game_get_skill_modifier_for_troop (item slot 13 tests) and morale scripts. strig:37 (every frame) inspects the player's equipment (horse slot 8, ranged weapon types) and $g_player_icon_state to call party_set_icon with mounted/archer/melee/camp icons.",
+      "hooks": [
+        "menu:camp",
+        "strig:34",
+        "strig:37"
+      ],
+      "scripts": [
+        "jump_to_random_scene",
+        "game_get_skill_modifier_for_troop",
+        "cf_correct_party_icon",
+        "determine_what_player_looks_like"
+      ],
+      "menus": [
+        "menu:camp",
+        "menu:camp_action"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_review_troops"
+      ],
+      "dialogs": [],
+      "slots": [
+        "item:13",
+        "item:14"
+      ],
+      "globals": [
+        "g_camp_mode",
+        "g_player_icon_state",
+        "g_player_party_icon",
+        "g_player_icon_mounted",
+        "g_player_icon_foot_archer",
+        "g_player_icon_foot_melee",
+        "g_ent_water_taking_effect"
+      ],
+      "resources": {
+        "item": [
+          "itm_orc_brew",
+          "itm_athelas_reward",
+          "itm_pipeweed_reward",
+          "itm_ent_water"
+        ],
+        "mt": [
+          "mst_review_troops"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld menu:camp/opt:camp_troop:conseq (set_jump_mission 4)",
+        "dis tld menu:camp_action options (item_set_slot 13/14)",
+        "dis tld strig:34 (expiry)",
+        "dis tld strig:37 (party_set_icon)"
+      ],
+      "overlaps": [
+        "acan.player_permanent_camps",
+        "acw.walkable_party_camp",
+        "pop.camp_troop_review_drill"
+      ]
+    },
+    {
+      "id": "tld.wilderness_encounters_hide_animal_ambush",
+      "name": "Hide from enemies and wilderness animal ambushes",
+      "category": "map-travel",
+      "summary": "When a hostile party forces an encounter, a small party (8 or fewer) or one with good Persuasion-renamed stealth skill can choose to hide and slip away. While travelling through wild regions the party may be ambushed by animals: a scout with high Spotting or Persuasion-type skill may avoid it (earning XP), otherwise the player and companions fight the beasts in a small separate battle.",
+      "mechanics": "menu:simple_encounter/opt:encounter_hide appears for non-friendly, no-escape encounters when cf_can_hide_from_enemy passes (party size <= 8, or <= 10 + 4*skill 7) and leads to menu_hide. trig:23 (8 h, $tld_option_animal_ambushes, player level >= 7) in listed wild regions, away from centers: roll 0-200 (0-400 with the Animal-fighter trait); avoided if roll <= party size*3 + 2*spotting(skill 13) [+3*skill 7], giving XP to the best scout; else jump_to_menu menu_animal_ambush (once per counter) -> mission 52 mst_animal_ambush with only heroes; success/fail menus.",
+      "hooks": [
+        "trig:23:conseq",
+        "menu:simple_encounter/opt:encounter_hide:cond"
+      ],
+      "scripts": [
+        "cf_can_hide_from_enemy",
+        "get_max_skill_of_player_party",
+        "jump_to_random_scene"
+      ],
+      "menus": [
+        "menu:hide",
+        "menu:animal_ambush",
+        "menu:animal_ambush_success",
+        "menu:animal_ambush_fail"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_animal_ambush"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:26 (trp_traits)"
+      ],
+      "globals": [
+        "tld_option_animal_ambushes",
+        "creature_ambush_counter",
+        "current_player_region"
+      ],
+      "resources": {
+        "mt": [
+          "mst_animal_ambush"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld cf_can_hide_from_enemy / menu:hide (party size <= 8, skl_persuasion*4+10)",
+        "dis tld trig:23:conseq (region list, avoidance roll, jump_to_menu menu_animal_ambush)",
+        "text tld 'Avoided_animal_ambush_via_Wildcraft.'"
+      ],
+      "overlaps": [
+        "acw.hunting",
+        "awoiaf.hunting_herds"
+      ]
+    },
+    {
+      "id": "tld.region_tracking_and_battle_scenes",
+      "name": "Named map regions: entry messages, region-picked battle scenes and landmarks",
+      "category": "map-travel",
+      "summary": "The world map is divided into named regions; crossing a border prints 'You are entering X, territory of Y'. The current region, terrain and nearby landmark decide which hand-made battle scene a field battle uses and which faction's 'ambient' purse is active; visiting landmarks counts toward the Well-travelled trait.",
+      "mechanics": "get_region_of_pos1 (354 stmts) tests the party position against hard-coded coordinate boxes and returns a region id; strig:12 (every 0.5 h) compares it with $current_player_region and logs entry/exit (region names are strings 2014+ / 2712+); region_get_faction resolves the holder. jump_to_random_scene(region, terrain, landmark) (357 stmts) picks a scene for battles, camp and ambushes; cf_store_landmark_description_in_s17 / get_close_landmark describe the spot.",
+      "hooks": [
+        "strig:12",
+        "script:start_current_battle"
+      ],
+      "scripts": [
+        "get_region_of_party",
+        "get_region_of_pos1",
+        "region_get_faction",
+        "jump_to_random_scene",
+        "get_close_landmark",
+        "cf_store_landmark_description_in_s17",
+        "store_terrain_condition_to_s17_s18"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:300"
+      ],
+      "globals": [
+        "current_player_region",
+        "current_player_terrain",
+        "current_player_landmark"
+      ],
+      "resources": {
+        "string": [
+          "region name strings 2014+, 2712+"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis tld strig:12 (region change messages)",
+        "explain tld jump_to_random_scene (7 callers incl. start_current_battle, camp, ambush)",
+        "auto report: get_region_of_pos1 354 stmts positions 95%"
+      ],
+      "overlaps": [
+        "acw.custom_battle_historical_scenarios",
+        "cbl.custom_field_battle_scenes",
+        "laigle.size_aware_battlefields"
+      ]
+    },
+    {
+      "id": "tld.in_game_strategy_options",
+      "name": "In-game strategy, difficulty and AI tweak options",
+      "category": "qol-ui",
+      "summary": "A camp 'options' presentation and tweak menus let the player change campaign balance in-game: injuries and permadeath on/off, morale/rout system, animal ambushes, rank and influence gain rates, faction strength regeneration rate and limit, siege strength requirements and how fast they relax, maximum number of parties, and battlefield AI toggles (lord AI, horse-archer AI, archers aiming over orcs, slowing wounded agents, faction weather effects).",
+      "mechanics": "prsnt:tld_mod_options (256 stmts) and menus camp_tweaks / camp_strat_tweaks / camp_compat_tweaks / camp_field_ai write $tld_option_* globals (injuries, death_npc, death_player, morale, animal_ambushes, rank_gain_rate, influence_gain_rate, regen_rate, regen_limit, siege_reqs, siege_relax_rate) and $battle_encounter_effects; the systems above read them directly. Shift-click decrements numeric options. The presentation also calls update_savegame (inferred: save-version migration).",
+      "hooks": [
+        "menu:camp/opt:camp_options",
+        "prsnt:tld_mod_options/t0"
+      ],
+      "scripts": [
+        "update_savegame"
+      ],
+      "menus": [
+        "menu:camp_tweaks",
+        "menu:camp_strat_tweaks",
+        "menu:camp_compat_tweaks",
+        "menu:camp_field_ai"
+      ],
+      "presentations": [
+        "prsnt:tld_mod_options"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "tld_option_injuries",
+        "tld_option_death_npc",
+        "tld_option_death_player",
+        "tld_option_morale",
+        "tld_option_animal_ambushes",
+        "tld_option_rank_gain_rate",
+        "tld_option_influence_gain_rate",
+        "tld_option_regen_rate",
+        "tld_option_regen_limit",
+        "tld_option_siege_reqs",
+        "tld_option_siege_relax_rate",
+        "battle_encounter_effects"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "texts tld menu:camp_strat_tweaks options ('Siege strength requirements', 'Strength regen rate', 'Influence gain rate', 'Rank gain rate')",
+        "texts tld menu:camp_field_ai options",
+        "global readers of tld_option_* in injury/morale/strength features"
+      ],
+      "overlaps": [
+        "acw.play_as_ruler_start",
+        "ad457.royal_and_lord_sandbox_start",
+        "awoiaf.campaign_setup_options",
+        "cbl.invasion_date_options",
+        "laigle.story_start_missions"
+      ]
+    },
+    {
+      "id": "tld.strength_scaled_hosts_and_patrols",
+      "name": "Lords alternate between small patrols and full Hosts, with the number of Hosts set by faction strength",
+      "category": "lord-behavior",
+      "summary": "Idle lords do not all roam with full armies. Each faction may field only as many big 'Hosts' as its Strength allows (roughly one per 1000 strength, minus the marshal's own); other lords go out as small 'X's patrol' guarding their home or capital. When a lord switches role his party is renamed, refilled with recruits and upgraded according to his Trainer skill, so a strong faction visibly fields more and bigger armies than a weakened one.",
+      "mechanics": "decide_kingdom_party_ais (strig:21 every 3 h, and recalculate_ais) first applies the faction-wide AI state (faction slot 4: 1 gather at advance camp, 2 siege, 4/5 raid/attack) to the marshal (faction slot 7). It counts current hosts per faction in faction slot 152 (party slot 0 == 13 = host). For each lord whose party is in 'patrol' state (party slot 0 == 14) it computes allowed hosts = strength/1000 (or /700 for two factions under 4500) + 1, minus the marshal's host; if under the cap (or the lord is the marshal, on a personal oath quest, or flagged in troop slot 172) there is a 10% chance per run to become a host: party_set_name 'X's Host', party slot 0 = 13, slot 1 (strength value) = 80 or 160 for the marshal, 30-50 hire_men_to_kingdom_hero_party rounds and 2-8 + Trainer+5 upgrade_hero_party rounds; otherwise patrol: name 'X's patrol', slot 1 = 50, 15 hires, patrol radius 5 around its fief or capital. Then calculate_troop_ai / calculate_troop_ai_under_command for every lord.",
+      "hooks": [
+        "strig:21",
+        "script:recalculate_ais"
+      ],
+      "scripts": [
+        "decide_kingdom_party_ais",
+        "init_ai_calculation",
+        "calculate_troop_ai",
+        "calculate_troop_ai_under_command",
+        "kingdom_hero_decide_next_ai_state",
+        "hire_men_to_kingdom_hero_party",
+        "upgrade_hero_party",
+        "party_set_ai_state"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:4",
+        "faction:5",
+        "faction:7",
+        "faction:150",
+        "faction:152",
+        "party:0",
+        "party:1",
+        "party:4",
+        "party:123",
+        "troop:10",
+        "troop:59",
+        "troop:172"
+      ],
+      "globals": [
+        "tld_war_began",
+        "tld_host_size_multi",
+        "g_fac_str_siegable"
+      ],
+      "resources": {
+        "string": [
+          "str_s5_s_host",
+          "qstr_{s5}_s_patrol"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis tld decide_kingdom_party_ais stmts 39-151 (faction slot 152 host count, strength/1000 cap, renames to Host/patrol, hire/upgrade loops)",
+        "explain tld decide_kingdom_party_ais: callers strig:21, recalculate_ais"
+      ],
+      "overlaps": [
+        "pop.order_chapter_knight_patrols",
+        "pop.sheriff_militia_patrols",
+        "sw.faction_town_patrols"
+      ]
+    }
+  ]
+}

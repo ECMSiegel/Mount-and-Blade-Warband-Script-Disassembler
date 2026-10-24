@@ -1,0 +1,3 @@
+troopsfile version 2
+1
+trp_demo_hero Demo_Hero Demo_Heroes

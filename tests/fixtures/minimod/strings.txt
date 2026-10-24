@@ -1,0 +1,4 @@
+stringsfile version 1
+2
+str_demo_empty _
+str_demo_hello Hello_from_the_demo_module.

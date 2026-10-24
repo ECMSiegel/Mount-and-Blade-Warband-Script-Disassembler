@@ -1,0 +1,906 @@
+{
+  "module": "sw",
+  "features": [
+    {
+      "id": "sw.starship_upgrades",
+      "name": "Owned starship with buyable component upgrades that grant party bonuses",
+      "category": "map-travel",
+      "summary": "The player buys a ship at a shipyard (stock depends on which faction's yard), then upgrades seven systems - drive, scanner, combat computer, troop capacity, medical bay, prisoner capacity, trade computer. The drive level speeds up map travel; the other levels add directly to the matching party skills (tactics, spotting, surgery/wound treatment, prisoner management, trade, ...). Ships can be sold back.",
+      "mechanics": "menu:shipyard calls setup_spaceship_slots (651 stmts: 31 ship models stored as 'ship model' parties 248-278 with stats in party slots 250-271: name, description, price, base speed, max level per component) and rolls 7 offers from faction-specific ranges by $g_encountered_party. prsnt_starship buys a ship (reset_starship_slots_for_troop writes troop 0 slots 300 = ship model, 301-316 = current/max level per component). prsnt_ship_details shows current/max and get_component_upgrade_price per step; get_ship_sell_value prices a resale. Effects ride two engine callbacks: game_get_party_speed_multiplier (player party speed = ship base speed (party slot 255) x (100 + 10 x drive level)%, x3.33 at night / x2 by day, clamped 0-600; also patrols and fixed-speed templates) and game_get_skill_modifier_for_troop (adds component levels to skills 11, 15, 9, 0 ... for the ship owner).",
+      "hooks": [
+        "menu:shipyard",
+        "menu:shipyard/opt:shipyard_1:conseq",
+        "prsnt:starship/t0",
+        "prsnt:starship/t1",
+        "prsnt:ship_details/t0",
+        "prsnt:ship_details/t1",
+        "script:game_get_party_speed_multiplier",
+        "script:game_get_skill_modifier_for_troop"
+      ],
+      "scripts": [
+        "setup_spaceship_slots",
+        "reset_starship_slots_for_troop",
+        "get_component_upgrade_price",
+        "get_ship_sell_value",
+        "game_get_party_speed_multiplier",
+        "game_get_skill_modifier_for_troop"
+      ],
+      "menus": [
+        "menu_shipyard"
+      ],
+      "presentations": [
+        "prsnt_starship",
+        "prsnt_ship_details"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:250-271 (ship model stats)",
+        "troop:300-316 (owner's ship + component levels)"
+      ],
+      "globals": [
+        "g_ship_choice_1",
+        "g_ship_choice_2",
+        "g_ship_choice_3",
+        "g_ship_choice_4",
+        "g_ship_choice_5",
+        "g_ship_choice_6",
+        "g_ship_choice_7",
+        "g_ship_type",
+        "g_ship_icon",
+        "g_ship_price"
+      ],
+      "resources": {
+        "party": [
+          "p 248-278 (ship model dummy parties)"
+        ],
+        "mesh": [
+          "ship pictures/icons"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain sw setup_spaceship_slots: callers menu:shipyard, game_start; party slots 250-271",
+        "dis sw game_get_party_speed_multiplier: troop 0 slot 300/315, party slot 255",
+        "dis sw game_get_skill_modifier_for_troop: troop slots 301-313 added to skills",
+        "sqlite slots sw troop 300-316 -> reset_starship_slots_for_troop, prsnt ship_details, get_ship_sell_value",
+        "qstr 'Upgrade Details: Base Speed, Drive, Scanner, Combat Computer, Troop Capacity, Medical Bay, Prisoner Capacity, Trade Computer'"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "sw.bank_interest_loans_payday",
+      "name": "Bank account with interest, 30-day loans, weekly pay-day from cash or account",
+      "category": "economy-trade",
+      "summary": "The player keeps credits in a bank account that earns interest every six days; fief taxes are paid straight into the account; he can take one loan at a time (1000/2500/5000) repayable within 30 days at a fixed rate; on pay day he chooses to pay troop wages from cash, from the account, or a mix.",
+      "mechanics": "Balances live in faction slots of fac_trade_federation (faction 6, the in-setting banker): 86 debt, 87 deposit, 88 loan rate (12), 89 deposit rate (8), 90 loan due hour; strig:95 (1 h) sets rates. strig:96 (24 h, when $g_taxes_calculated) sums each owned center's party slots 47+48 (accumulated rents/tariffs), zeroes them and adds the total to the deposit with a 'Weekly Income' dialog box. strig:97 (144 h) adds deposit x rate/500 interest. menu:bank shows balance, due date / overdue; menu:take_out_loan options add principal+interest to debt and set due date; menu:bank give_loan / give_loan_all repay. menu:pay_day (calculate_player_faction_wage) offers pay_account / pay_both_1 / pay_both_2.",
+      "hooks": [
+        "strig:95",
+        "strig:96",
+        "strig:97",
+        "menu:bank",
+        "menu:take_out_loan",
+        "menu:pay_day"
+      ],
+      "scripts": [
+        "calculate_player_faction_wage"
+      ],
+      "menus": [
+        "menu_bank",
+        "menu_take_out_loan",
+        "menu_pay_day"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:86-90 (fac_trade_federation = bank state)",
+        "party:47-48 (center accumulated income)"
+      ],
+      "globals": [
+        "g_player_debt",
+        "g_player_deposit",
+        "g_cur_interest_debt",
+        "g_taxes_calculated"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw menu:bank (faction slots 86-90)",
+        "global sw g_player_debt writers: take_out_loan 1000/2500/5000, bank give_loan/_all",
+        "dis sw strig:96 / strig:97 (tax deposit, interest)",
+        "slot sw faction 87: writers pay_day options, strig:96, strig:97"
+      ],
+      "overlaps": [
+        "awoiaf.iron_bank"
+      ]
+    },
+    {
+      "id": "sw.recruit_unlock_buildings",
+      "name": "Buildings that unlock special recruits (clone chamber, droid foundry, force temple, rancor pit)",
+      "category": "settlements-villages",
+      "summary": "Besides the usual improvements, a player-owned minor planet (village) can build four special facilities; each one adds a recruitment option that sells a faction-appropriate elite or exotic troop (clone troopers, battle droids, force-sensitives, baby rancors) in limited numbers for a high price.",
+      "mechanics": "Improvements are the Native village-improvement mechanism (get_improvement_details, build menus, party slot per building) extended with four new slots (e.g. party slot 135 = cloning chamber). Menu options on the minor-planet menu are gated by cf_minorplanet_recruit_*_cond (planet not hostile/looted: slot 35 not 1/2, slot 39 < 1, building slot == 1). minorplanet_recruit_volunteers_* adds min(stock slot 93, free party room, gold/price) of the troop chosen by the planet's faction (e.g. faction 16 -> troop 135, 17 -> 162, else 133), charges 150-170 credits each and empties the stock slot (-1); refresh happens on the normal volunteer refresh.",
+      "hooks": [
+        "menu:recruit_clones",
+        "menu:recruit_force_sensitives",
+        "menu:recruit_droids",
+        "menu:recruit_rancors",
+        "script:get_improvement_details"
+      ],
+      "scripts": [
+        "cf_minorplanet_recruit_clones_cond",
+        "cf_minorplanet_recruit_droids_cond",
+        "cf_minorplanet_recruit_force_sensitives_cond",
+        "cf_minorplanet_recruit_rancors_cond",
+        "minorplanet_recruit_volunteers_clones",
+        "minorplanet_recruit_volunteers_droids",
+        "minorplanet_recruit_volunteers_force_sensitives",
+        "minorplanet_recruit_volunteers_rancors",
+        "get_improvement_details"
+      ],
+      "menus": [
+        "menu_recruit_clones",
+        "menu_recruit_force_sensitives",
+        "menu_recruit_droids_pre",
+        "menu_recruit_droids",
+        "menu_recruit_rancors"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:35",
+        "party:39",
+        "party:93 (special stock)",
+        "party:135+ (building flags)"
+      ],
+      "globals": [
+        "g_droid_foundry_type"
+      ],
+      "resources": {
+        "troop": [
+          "clone/droid/force-sensitive/rancor troop lines per faction"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw cf_minorplanet_recruit_clones_cond (party slots 35/39/135)",
+        "dis sw minorplanet_recruit_volunteers_force_sensitives (stock slot 93, faction-based troop, 150/170 credits)",
+        "qstr 'A cloning chamber gives you the chance to recruit clone troopers.' etc. via get_improvement_details"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "sw.faction_town_patrols",
+      "name": "Automatic faction patrols based at towns (levels 1-3)",
+      "category": "caravans-patrols",
+      "summary": "Selected towns and stations are patrol bases rated 1-3. Each base keeps two patrol parties of faction troops (15-50 men depending on level) that roam nearby, attack weaker enemies they meet, run home from much stronger ones, and never wander more than a day's ride from base.",
+      "mechanics": "strig:90 (once, $total_init_done) -> init_patrol_faction_settings + init_patrol_bases (party slot 800 = level per base via init_patrol_settings). strig:87 (8 h) for bases with level 1-3 and party slot 54 < 0 -> patrol_base_spawn_patrols: count existing pt 13 parties with party slot 123 == base; spawn up to 2 with troop types from faction slots 83/84/85 (15/5, 20/10/5 or 25/15/10 men), set icon by faction, then decide_next_patrol_location. strig:91 (0.5 h) -> process_patrol_ai: within 5 map units of a hostile party, attack if own strength >= 1.25x theirs, else retreat to base if outmatched by 100+; leash: beyond 24 drop the chase, beyond 20 return to a random point near base, under 5 pick a new waypoint. strig:92 (2 h) -> process_patrol_maintenance / patrol_unit_maintenance (top-up, prisoners). Patrol speed in game_get_party_speed_multiplier depends on base level (105/100/110).",
+      "hooks": [
+        "strig:87",
+        "strig:90",
+        "strig:91",
+        "strig:92",
+        "strig:93"
+      ],
+      "scripts": [
+        "init_patrol_bases",
+        "init_patrol_settings",
+        "init_patrol_faction_settings",
+        "patrol_base_spawn_patrols",
+        "decide_next_patrol_location",
+        "process_patrol_ai",
+        "process_patrol_maintenance",
+        "patrol_unit_maintenance",
+        "process_automated_attack_system"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:800 (base level)",
+        "party:123 (home base)",
+        "party:54",
+        "faction:83-85 (patrol troop types)"
+      ],
+      "globals": [
+        "total_init_done"
+      ],
+      "resources": {
+        "pt": [
+          "pt 13 (patrol)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain sw patrol_base_spawn_patrols / process_patrol_ai / process_patrol_maintenance (entry strig:87/91/92)",
+        "dis sw strig:90, strig:87",
+        "dis sw patrol_base_spawn_patrols (2 patrols per base, sizes by level)",
+        "dis sw process_patrol_ai (5/20/24 distance thresholds, 1.25x strength rule)"
+      ],
+      "overlaps": [
+        "pop.order_chapter_knight_patrols",
+        "pop.sheriff_militia_patrols",
+        "tld.strength_scaled_hosts_and_patrols"
+      ]
+    },
+    {
+      "id": "sw.support_unit_auras",
+      "name": "Support units that resupply ammo and heal nearby allies in battle",
+      "category": "combat-mechanics",
+      "summary": "Soldiers fielding a power droid refill the ammunition of every friendly within 4 m every 30 seconds; a medical droid heals nearby friends; the player gets a message when he is the one helped.",
+      "mechanics": "mst:lead_charge/t32 (every 30 s): for each living human agent wearing a power-droid 'armour' item (items 417-419) loop all same-team agents within 400 cm and agent_refill_ammo; for an agent wearing itm_fxseries_droid_armor (420) restore hit points to nearby friends; display 'A Power Droid refilled your ammo!' / 'A Medical Droid refilled some of your health!' when the player is a recipient. ti_on_agent_spawn (t33) gives droid-equipped agents a special walk animation (528).",
+      "hooks": [
+        "mst:lead_charge/t32:conseq",
+        "mst:lead_charge/t33:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_no_horse"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_power_droid_grey",
+          "itm_power_droid_snow",
+          "itm_power_droid_tan",
+          "itm_fxseries_droid_armor"
+        ],
+        "anim": [
+          "anim 528 (droid walk)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw mst:lead_charge/t32:conseq (agent_refill_ammo within 400, items 417-420)",
+        "explain sw mst:lead_charge/t32:conseq text 'A Power Droid refilled your ammo!'",
+        "sqlite names sw item 417-420"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.scripted_grenade_ballistics",
+      "name": "Thrown grenades simulated by script (arc, gravity, bounce, fuse, blast)",
+      "category": "combat-mechanics",
+      "summary": "Thermal detonators are not ordinary missiles: when thrown, a script spawns a simulated projectile that flies on a gravity arc, trails particles, bounces off the ground, and after its fuse explodes, damaging everyone in the blast radius with on-screen damage feedback.",
+      "mechanics": "itm_thermal_detonator1-3 ti_on_weapon_attack -> emit_projectile writes a free entry in a 256-row table kept on storage troops 975-991 (active flag, launch time, x/y/z, vx/vy/vz, particle system, owner). mst:lead_charge/t4 (every 0.05 s, condition block, 181 stmts) integrates every active row from $timer: position = p0 + v*t - g*t^2 (g = 981 units), bursts the row's particle system, tests ground contact against $ground_level / position_set_z_to_ground_level to bounce, checks agents in radius and calls agent_deliver_damage_to_agent ('Delivered {reg1} damage.' / 'Received %d damage.').",
+      "hooks": [
+        "itm:itm_thermal_detonator1/t0",
+        "itm:itm_thermal_detonator2/t0",
+        "itm:itm_thermal_detonator3/t0",
+        "mst:lead_charge/t4:cond",
+        "mst:lead_charge_no_horse/t7:cond"
+      ],
+      "scripts": [
+        "emit_projectile",
+        "agent_deliver_damage_to_agent",
+        "position_face_position"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_no_horse"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:0-255 on storage troops 975-982, 991 (projectile table)"
+      ],
+      "globals": [
+        "timer",
+        "timer_speed",
+        "ground_level"
+      ],
+      "resources": {
+        "item": [
+          "itm_thermal_detonator1",
+          "itm_thermal_detonator2",
+          "itm_thermal_detonator3"
+        ],
+        "psys": [
+          "detonator trail/blast particles"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain sw emit_projectile: callers itm_thermal_detonator1-3 [ti_on_weapon_attack]",
+        "dis sw mst:lead_charge/t4:cond stmts 0-38 (troop 975-982 slot table, gravity 981, particle burst)",
+        "roots sw agent_deliver_damage_to_agent: lead_charge/t4, lead_charge_no_horse/t7"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "awoiaf.fire_arrows_destructible_props",
+        "be.ww1_weapons_mg_gas_grenades",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_and_destructible_props",
+        "oa1860.explosive_thrown_weapons"
+      ]
+    },
+    {
+      "id": "sw.weapon_mode_toggle",
+      "name": "Hotkey weapon mode switch (swap a weapon for its alternate form in place)",
+      "category": "combat-mechanics",
+      "summary": "Pressing a (rebindable) key swaps the wielded weapon for its paired alternate version - e.g. a blaster between modes, a staff between forms - keeping its quality modifier, with a short message.",
+      "mechanics": "mst:lead_charge/t29 (on $toggle_weapon_key) reads the wielded item; if item slot 6 holds an alternate item id it finds that item in the player's equipment slots 0-3, replaces it with the alternate (troop_set_inventory_slot + same modifier) and starts a one-line mission conversation (start_mission_conversation) - a trick that forces the engine to re-equip the agent from the troop's inventory immediately.",
+      "hooks": [
+        "mst:lead_charge/t29:cond",
+        "mst:lead_charge/t29:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_no_horse"
+      ],
+      "dialogs": [],
+      "slots": [
+        "item:6 (alternate item id)"
+      ],
+      "globals": [
+        "toggle_weapon_key",
+        "show_switch_weapon_dialog",
+        "g_player_troop"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw mst:lead_charge/t29:conseq (item slot 6, troop_set_inventory_slot, start_mission_conversation)",
+        "global sw toggle_weapon_key used by 29 mission-template conditions"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.field_heal_consumable",
+      "name": "Field healing consumable (bacta injector + capsules) and other hotkey abilities",
+      "category": "combat-mechanics",
+      "summary": "In battle the player can press a key to heal 20 HP if he carries an injector and at least one capsule (each use consumes a capsule); other hotkeys give a jump-pack leap (animation, not usable mounted), crouch, and a death-camera after falling.",
+      "mechanics": "mst:lead_charge/t26 (on $bacta_injector_key): if HP < 100%, scan inventory for item 65 (injector) and count item 66 (capsules); heal +20 (agent_set_hit_points absolute), remove one capsule from inventory, play sound 195 and report remaining capsules. t28 ($jetpack_key): requires itm_jetpack or itm_force_jump and no horse -> agent_set_animation 530 (a jump animation from actions.txt). t34 crouch key toggles $crouch_key_down. All keys are user-assignable (see sw.rebindable_ability_keys).",
+      "hooks": [
+        "mst:lead_charge/t26:cond",
+        "mst:lead_charge/t26:conseq",
+        "mst:lead_charge/t28:conseq",
+        "mst:lead_charge/t34:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_no_horse"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "bacta_injector_key",
+        "jetpack_key",
+        "crouch_key",
+        "crouch_key_down",
+        "g_player_troop"
+      ],
+      "resources": {
+        "item": [
+          "itm 65 (bacta injector)",
+          "itm 66 (bacta capsule)",
+          "itm_jetpack",
+          "itm_force_jump"
+        ],
+        "anim": [
+          "anim 530 (jump)"
+        ],
+        "sound": [
+          "snd 195"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw mst:lead_charge/t26:conseq (items 65/66, +20 hp, capsule removal)",
+        "explain sw mst:lead_charge/t28:conseq texts 'Can't use while mounted!', 'You don't have a Jetpack or Force Jump'",
+        "sqlite names sw item 68 = itm_jetpack, 757 = itm_force_jump"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.rebindable_ability_keys",
+      "name": "In-game key assignment for mod abilities",
+      "category": "qol-ui",
+      "summary": "A camp menu lists every mod hotkey (bacta injector, crouch, jetpack, toggle weapon, helmet view, death-cam forward/back); choosing one opens a 'press a key' screen and the new key is stored and shown by name.",
+      "mechanics": "menu:setup_keys options start prsnt_key_assignment, whose run trigger waits for any key_clicked and stores it in the chosen global ($bacta_injector_key, $crouch_key, $jetpack_key, $toggle_weapon_key, $helmet_view_key, $deathcam_forward_key, $deathcam_backward_key). get_key (328 stmts) maps a key code to its printable name; get_all_binds builds the menu text. Mission triggers test key_clicked/key_is_down on the globals.",
+      "hooks": [
+        "menu:setup_keys",
+        "prsnt:key_assignment/t1"
+      ],
+      "scripts": [
+        "get_key",
+        "get_all_binds"
+      ],
+      "menus": [
+        "menu_setup_keys"
+      ],
+      "presentations": [
+        "prsnt_key_assignment"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "active_key",
+        "bacta_injector_key",
+        "crouch_key",
+        "jetpack_key",
+        "toggle_weapon_key",
+        "helmet_view_key",
+        "deathcam_forward_key",
+        "deathcam_backward_key"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain sw get_key: entry points menu:setup_keys, prsnt:key_assignment/t1; globals written bacta_injector_key ..."
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.scope_and_visor_overlays",
+      "name": "Scope zoom overlay and first-person helmet visor",
+      "category": "qol-ui",
+      "summary": "Holding the zoom key with a ranged weapon shows a weapon-appropriate scope/crosshair overlay (binoculars when unarmed); a helmet-view hotkey draws the inside of the worn helmet (stormtrooper, Mandalorian, ...) over the screen.",
+      "mechanics": "mst:lead_charge/t27 (game_key_is_down zoom) -> start prsnt_zoom_view: picks overlay by wielded item type (none/melee/shield = binocular style, firearm/crossbow types = scope) and closes when the key is released (t1). Helmet view: $helmet_view_key toggles prsnt_helmet_view (150 stmts) which reads the head-armour inventory slot and creates the matching full-screen visor mesh overlay (meshes 63-66...).",
+      "hooks": [
+        "mst:lead_charge/t27:cond",
+        "mst:lead_charge/t27:conseq",
+        "prsnt:zoom_view/t0",
+        "prsnt:zoom_view/t1",
+        "prsnt:helmet_view/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [
+        "prsnt_zoom_view",
+        "prsnt_helmet_view",
+        "prsnt_binocular_display"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_no_horse"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "helmet_view",
+        "helmet_view_key",
+        "binocular_magnification"
+      ],
+      "resources": {
+        "mesh": [
+          "scope/binocular overlays",
+          "helmet visor overlays"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw mst:lead_charge/t27 (game_key_is_down 19 -> start_presentation 3 = prsnt_zoom_view)",
+        "dis sw prsnt:zoom_view/t0 (item_get_type branches)",
+        "dis sw prsnt:helmet_view/t0 (head slot -> create_mesh_overlay)"
+      ],
+      "overlaps": [
+        "acw.rifle_iron_sight_zoom",
+        "be.ironsight_aiming"
+      ]
+    },
+    {
+      "id": "sw.ranged_backstep_ai",
+      "name": "Ranged troops step back from melee",
+      "category": "battle-ai-formations",
+      "summary": "Shooters (archer-class agents with ammo, not ordered to charge) try to keep their distance: they back off 3 m, and keep backing off while an enemy is within 3 m, releasing control once enemies are more than 10 m away.",
+      "mechanics": "Every 0.3 s in 12 battle templates ranged_avoid_melee loops class-1 agents holding a non-melee weapon (outside items 758-814) with ammo and team movement order not 'charge'. If agent slot 4 == 1 (in avoid mode): closest enemy (get_closest3_distance_of_enemies_at_pos1) > 10 m -> agent_clear_scripted_mode, slot 4 = 0; <= 3 m -> scripted destination 3 m backwards. Else (not in avoid mode) -> scripted destination 3 m backwards and slot 4 = 1.",
+      "hooks": [
+        "mst:custom_battle/t21:conseq",
+        "mst:lead_charge_no_horse/t50:conseq",
+        "mst:besiege_inner_battle_castle/t33:conseq",
+        "mst:minorplanet_raid/t34:conseq"
+      ],
+      "scripts": [
+        "ranged_avoid_melee",
+        "get_closest3_distance_of_enemies_at_pos1"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge_no_horse",
+        "mst_custom_battle",
+        "mst_custom_battle_2vs2",
+        "mst_custom_battle_standard",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center",
+        "mst_minorplanet_attack_bandits",
+        "mst_minorplanet_raid",
+        "mst_bandits_at_night",
+        "mst_back_alley_revolt",
+        "mst_sneak_caught_fight",
+        "mst_spacestation_attack_walls_defenders_sally"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:4 (avoid mode flag)"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw ranged_avoid_melee (41 stmts)",
+        "explain sw ranged_avoid_melee: 12 callers [every 0.3s]"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "sw.mass_upgrade_preview",
+      "name": "Upgrade-all with preview of who can be promoted",
+      "category": "qol-ui",
+      "summary": "A party menu option simulates upgrading the whole army with its current experience and shows a paged list of every stack that can upgrade and into what (including branching choices), so the player can promote everyone in one go.",
+      "mechanics": "menu:ready_upgrade -> calculate_upgrade_troops: copies the main party into scratch party 1 (party_copy), runs party_upgrade_with_xp(1, 1, 1) on the copy, strips prisoners/heroes, then compares stacks against a second copy (party 3) to fill troop 907/908/909 slot tables (troop, count, target) - up to 32 rows; prsnt_upgrade_troops pages through them ('{reg3} {s0} can upgrade', 'Upgrade to {s1}').",
+      "hooks": [
+        "menu:ready_upgrade",
+        "prsnt:upgrade_troops/t0",
+        "prsnt:upgrade_troops/t2"
+      ],
+      "scripts": [
+        "calculate_upgrade_troops",
+        "party_copy",
+        "party_has_troop",
+        "party_remove_heroes"
+      ],
+      "menus": [
+        "menu_ready_upgrade"
+      ],
+      "presentations": [
+        "prsnt_upgrade_troops"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:0-31 on storage troops 907-909",
+        "troop:166"
+      ],
+      "globals": [
+        "g_move_heroes"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw calculate_upgrade_troops (party_copy, party_upgrade_with_xp on copy)",
+        "dis sw menu:ready_upgrade (troop 907/908 tables)",
+        "explain sw prsnt:upgrade_troops/t0 texts"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.random_town_ambushes",
+      "name": "Configurable random ambushes and assassins on landing in towns",
+      "category": "dynamic-world-events",
+      "summary": "When the player walks into a town there is a chance (set in the camp configuration menu, in %) that an assassin spawns at a nearby entry point and attacks, or that an enemy-faction squad raids the town as you land, turning the visit into a street fight.",
+      "mechanics": "mst:town_center/t7 (cond, 1.5 s after entry, once) rolls d100 against $random_scene_assassination -> init_town_fight + cf_setup_random_scene_assassination (spawn_agent of a random assassin troop 328-333 at entry point 30-39 if >1 m from player, team 3 hostile to player team, charge order), or against $random_scene_battles -> cf_setup_random_scene_encounter (enemy-faction squad, 'As you land your ship...' alert dialog, battle music). Percentages are edited in menu:camp_configuration.",
+      "hooks": [
+        "mst:town_center/t7:cond",
+        "menu:camp_configuration"
+      ],
+      "scripts": [
+        "cf_setup_random_scene_assassination",
+        "cf_setup_random_scene_encounter",
+        "init_town_fight",
+        "start_town_fight"
+      ],
+      "menus": [
+        "menu_camp_configuration"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_town_center"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "random_scene_assassination",
+        "random_scene_battles",
+        "g_assassin",
+        "g_init_fight",
+        "g_started_battle_random_by_enemy_faction"
+      ],
+      "resources": {
+        "troop": [
+          "trp 328-333 (assassins)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw mst:town_center/t7:cond",
+        "dis sw cf_setup_random_scene_assassination",
+        "global sw random_scene_assassination: writer menu:camp_configuration"
+      ],
+      "overlaps": [
+        "acw.historical_event_calendar",
+        "ad457.travel_random_events",
+        "awoiaf.canon_story_event_timeline",
+        "awoiaf.random_travel_events",
+        "vc.random_events_and_judgments"
+      ]
+    },
+    {
+      "id": "sw.cantina_blackjack_and_brawls",
+      "name": "Cantina blackjack and tavern brawls",
+      "category": "other",
+      "summary": "The player can play blackjack for credits against companions or lords from dialogue (hit / stay / double, natural-21 bonus and dealer-perfect penalty), and provoke cantina brawls in which every patron fights on a random side.",
+      "mechanics": "Dialogue options (dlg member_question_2_blackjack_3, lord_blackjack_3) start prsnt_blackjack (t0 136 + t1 594 stmts: card deck in presentation state, betting overlay, 'You have a perfect hand! You win 50% more...'). setup_tavern_brawl (from cantina walker dialogs) assigns every non-player agent to a random team 3-5, clears scripted mode, sets $g_init_fight and switches music.",
+      "hooks": [
+        "dlg:193:dlga_member_question_2_blackjack_3:close_window:conseq",
+        "dlg:556:dlga_lord_blackjack_3:close_window:conseq",
+        "dlg:1269:dlga_cantina_walkers_pre_brawl_4:close_window:conseq",
+        "prsnt:blackjack/t0",
+        "prsnt:blackjack/t1"
+      ],
+      "scripts": [
+        "setup_tavern_brawl"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_blackjack"
+      ],
+      "mission_templates": [
+        "mst_cantina_default"
+      ],
+      "dialogs": [
+        "dlga_member_question_2_blackjack_3",
+        "dlga_lord_blackjack_3",
+        "dlga_cantina_walkers_pre_brawl_4"
+      ],
+      "slots": [],
+      "globals": [
+        "black_jack",
+        "tavern_brawl",
+        "g_init_fight"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep sw start_presentation 21 -> two dialog conseqs",
+        "explain sw prsnt:blackjack/t1 texts",
+        "dis sw setup_tavern_brawl"
+      ],
+      "overlaps": [
+        "laigle.faro_card_game"
+      ]
+    },
+    {
+      "id": "sw.space_battle_minigame",
+      "name": "Space dogfight minigame (training ground only)",
+      "category": "other",
+      "summary": "An experimental first-person fighter dogfight: the player flies a scene-prop ship with mouse/keys, shoots, and AI fighters chase and shoot back, with explosions and damage.",
+      "mechanics": "mst_space_battle (31 triggers): set_fighters, ai_viper_movements / ai_cylon_movements (scene-prop flight AI every 0.1 s), cf_ai_*_shot, calculate_fighter_damages, fighter_explosions; player input triggers move the camera-mounted prop. Reached only from menu:training_ground options space_entry / space_battle (set_jump_mission 43/44).",
+      "hooks": [
+        "menu:training_ground/opt:space_battle:conseq",
+        "mst:space_battle/t4:conseq",
+        "mst:space_battle/t25:conseq",
+        "mst:space_battle/t27:conseq"
+      ],
+      "scripts": [
+        "set_fighters",
+        "ai_viper_movements",
+        "ai_cylon_movements",
+        "cf_ai_viper_shot",
+        "cf_ai_cylon_shot",
+        "calculate_fighter_damages",
+        "fighter_explosions"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_space_battle",
+        "mst_space_battle_entry",
+        "mst_space_prop"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "player_ship",
+        "player_speed",
+        "player_max_speed",
+        "player_rotate_x",
+        "player_rotate_y",
+        "player_rotate_z",
+        "player_missiles",
+        "player_cannons",
+        "player_damage",
+        "cam_follow"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite names sw mt 43-45 = mst_space_battle_entry/mst_space_battle/mst_space_prop",
+        "grep sw set_jump_mission 43/44 -> only menu:training_ground",
+        "script names ai_viper_movements / ai_cylon_movements (Battlestar-Galactica placeholder names)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.player_faction_culture_switch",
+      "name": "Choose the culture (troop tree) of the player's own faction",
+      "category": "kingdom-management",
+      "summary": "A ruler can switch his faction's culture between Empire, Rebel, Hutt and Human (independent), which changes which troop tree his towns and minor planets recruit.",
+      "mechanics": "menu:change_culture options call change_culture_empire / _rebel / _hutt / _human, each rewriting the player faction's faction slots (culture and troop references: 9, 41-52, 77-79, 83-85 ...) and printing 'Player Faction culture is now ...'. Also offered at character start (menu:choose_skill begin_adventuring).",
+      "hooks": [
+        "menu:change_culture",
+        "menu:choose_skill/opt:begin_adventuring:conseq"
+      ],
+      "scripts": [
+        "change_culture_empire",
+        "change_culture_rebel",
+        "change_culture_hutt",
+        "change_culture_human"
+      ],
+      "menus": [
+        "menu_change_culture"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:9, 41-52, 77-79, 83-85"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain sw change_culture_empire: callers menu:change_culture, menu:choose_skill; faction slot writes",
+        "qstr 'Player Faction culture is now Galactic Empire.'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "sw.battle_start_speeches",
+      "name": "Faction battle-start speech and shouts",
+      "category": "other",
+      "summary": "At the start of field and custom battles a faction-specific speech/cheer plays (Empire, Rebel, Hutt, independent), with a second shout a few seconds later.",
+      "mechanics": "mst:lead_charge/t13 (1.39 s) and t40/t41 call battle_speech(type), which picks sound 288-312 by the player faction's culture (faction 15 slot 9) and play_sound.",
+      "hooks": [
+        "mst:lead_charge/t13:conseq",
+        "mst:lead_charge/t40:conseq",
+        "mst:custom_battle/t3:conseq"
+      ],
+      "scripts": [
+        "battle_speech"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_custom_battle",
+        "mst_custom_battle_2vs2",
+        "mst_custom_battle_standard"
+      ],
+      "dialogs": [],
+      "slots": [
+        "faction:9"
+      ],
+      "globals": [],
+      "resources": {
+        "sound": [
+          "snd 288-312 (speech banks)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis sw battle_speech (sound by culture)",
+        "explain sw battle_speech: 9 callers"
+      ],
+      "overlaps": [
+        "acw.order_voice_callouts",
+        "bi.battle_event_messages",
+        "nw.fkey_order_tree",
+        "nw.objective_markers_hud",
+        "nw.voice_commands"
+      ]
+    },
+    {
+      "id": "sw.old_faction_hero_campaign_ai",
+      "name": "SWC faction-hero campaign AI and politics (M&B 1.011 lineage)",
+      "category": "campaign-ai",
+      "summary": "SW's campaign runs on the older Mount&Blade 1.011-style faction model: faction heroes decide whether to follow the marshal or act alone, factions start war and peace on timers, captured centers are handed out by assign_lords_to_empty_centers, and the player's faction army is managed by an 'automated attack system'.",
+      "mechanics": "strig:24 (7 h) -> decide_faction_party_ais -> calculate_troop_ai -> faction_hero_decide_next_ai_state (470 stmts) / _follow_or_not (250); strig:39 randomly_start_war_peace; strig:54 assign_lords_to_empty_centers; strig:93 process_automated_attack_system; party_decide_next_ai_state_under_command for heroes following the player; diplomacy_start_war/peace_between_factions.",
+      "hooks": [
+        "strig:24",
+        "strig:39",
+        "strig:54",
+        "strig:93"
+      ],
+      "scripts": [
+        "decide_faction_party_ais",
+        "faction_hero_decide_next_ai_state",
+        "faction_hero_decide_next_ai_state_follow_or_not",
+        "randomly_start_war_peace",
+        "diplomacy_start_war_between_factions",
+        "diplomacy_start_peace_between_factions",
+        "process_automated_attack_system",
+        "party_decide_next_ai_state_under_command",
+        "calculate_troop_ai_under_command"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:4-63, 123, 800"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain sw faction_hero_decide_next_ai_state: caller calculate_troop_ai, entry strig/menu/dialog",
+        "sw hooks: strig:24, strig:39, strig:54, strig:93"
+      ],
+      "overlaps": []
+    }
+  ]
+}

@@ -1,0 +1,1370 @@
+{
+  "module": "ad457",
+  "features": [
+    {
+      "id": "ad457.center_buildings_management",
+      "name": "Large fief building system with two build queues and a management screen",
+      "category": "kingdom-management",
+      "summary": "Every town, castle and village can hold about 33 building types (mills, mines, quarries, fisheries, guard posts, watchtowers, messenger posts, prison tower, training ground, slave market, sewers, baths, a temple of the holder's faith, and very expensive prestige monuments up to 300,000 silver). Names and descriptions change with the settlement's culture. Two buildings can be under construction at once; finished buildings give prosperity, renown, relation and troop experience over time. The holder manages it all from a graphical management screen that also offers garrison exchange and a brutal 'repopulate' option.",
+      "mechanics": "Building ids are party slots 128-160 (value >=1 = built). get_improvement_details (1009 stmts, Native 32) maps id -> culture-specific name/description in s0/s1 and cost in reg0 (e.g. 141 guard posts 15000, 133 iron mine 80000, 156 150000, 160 300000; 142 = temple whose name follows the holder's religion, 8000). improve_center(center, builder, days) puts $g_improvement_type into the first free queue (slot 162 with finish-hour 163, else 164/165) and records the builder in 272/273; gives the builder +3 renown or the player 200 xp. strig:74 (every ~1.6 min game time) walks one centre per tick ($g_set_center_upgrades) and calls cf_check_building_finished for both queues: when the finish hour passes it sets the building slot, messages the holder and applies one-off effects (prosperity, honour, piety, relation, walker types). strig:141 (every 2.1h, random town/castle) applies recurring effects: 157/158/160 add prosperity and +5 owner renown and +1/+2 player relation, 149 (training ground) upgrades the garrison with 30-50k xp, 159 adds renown. The UI is prsnt_center_management started by mst:center_management (t0 every frame), reached from menu:center_manage_2 (town 'Manage this town/fortress', village 'Manage this village'); its event handler (prsnt:center_management/t2) sets $g_improvement_type and links to menu_garrison_management (swap troops with the garrison) and menu_repopulate (needs >=200 men and negative relation). Fire disasters (see ad457.settlement_disasters_epidemics) can destroy buildings.",
+      "hooks": [
+        "strig:74",
+        "strig:141",
+        "mst:center_management/t0:conseq",
+        "prsnt:center_management/t2",
+        "prsnt:center_management/t4",
+        "menu:town/opt:walled_center_manage:conseq",
+        "menu:village/opt:village_manage:conseq"
+      ],
+      "scripts": [
+        "get_improvement_details",
+        "improve_center",
+        "cf_check_building_finished",
+        "get_improvement_picture",
+        "center_get_capital",
+        "change_center_prosperity"
+      ],
+      "menus": [
+        "menu_center_manage_2",
+        "menu_garrison_management",
+        "menu_repopulate",
+        "menu_repopulate_complete"
+      ],
+      "presentations": [
+        "prsnt_center_management"
+      ],
+      "mission_templates": [
+        "mst_center_management"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:128-160 (building flags)",
+        "party:161",
+        "party:162",
+        "party:163",
+        "party:164",
+        "party:165",
+        "party:272",
+        "party:273",
+        "party:327"
+      ],
+      "globals": [
+        "g_improvement_type",
+        "g_set_center_upgrades",
+        "piety"
+      ],
+      "resources": {
+        "string": [
+          "*_name_rome / *_description_rome culture variants (e.g. str_guard_posts_name_rome, str_silvermine_name_rome)"
+        ],
+        "mesh": [
+          "building pictures chosen by get_improvement_picture (625 stmts)"
+        ],
+        "scene": [
+          "mst_center_management scene"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 improve_center: queue slots 162/163 and 164/165, builder 272/273, finish hour = now + days*24",
+        "dis ad457 strig:74: rotating centre index $g_set_center_upgrades, calls cf_check_building_finished(162,163) and (164,165)",
+        "dis ad457 strig:141: building slots 149/157/158/159/160 -> prosperity, renown, relation, party_upgrade_with_xp 30000-50000",
+        "dis ad457 get_improvement_details: 33 ids 128-160 with costs 10000-300000; 142 = religion-specific temple (Chalcedonian/Arian/Miaphysite/Nestorian/Donatist basilica, pagan shrine, Zoroastrian temple, synagogue)",
+        "refs ad457 prsnt prsnt_center_management: mst:center_management/t0 + its own event handlers; refs menu_garrison_management / menu_repopulate only from prsnt:center_management/t2",
+        "explain prsnt:center_management/t2 text: 'You need to be either the governor of the town or increase faction cen...', 'You need at least 200 men and a negative relation with the settlement'"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "ad457.lord_business_build_hire_upgrade",
+      "name": "AI lords spend their wealth: build in fiefs, hire mercenaries, upgrade their own gear",
+      "category": "lord-behavior",
+      "summary": "When a lord visits his own town or castle he collects its accumulated rents and tariffs, and if he is rich (over 10,000) he commissions a building there himself. In towns and castles he can also hire the local mercenary stack for cash, and he trades his weapons/armour for better-quality versions (better item modifiers) at the town armourer, capped by an equipment budget that depends on his personality and his kingdom's policy.",
+      "mechanics": "troop_does_business_in_center (323 stmts; Native 52) runs whenever a lord is in a centre. Owner visit: adds party slots 47+48 (accumulated rents/tariffs) to troop wealth slot 11 and zeroes them. If $g_dplmc_ai_changes>=1, wealth >10000 and a build queue (162 or 164) is free: picks a random building id (128-145 for villages, 140-156 for towns/castles), filters by preconditions (e.g. 146/134 need the lord's culture != centre culture, 128 silver mine needs party 241, 133/138 need party 239), prices it with get_improvement_details scaled by faction slot 303 and the lord's Engineer skill (and prisoners as labour), deducts gold and calls improve_center. Villages: adds the village's queued recruits (party 88/89) to his party. Towns/castles: may hire mercenaries from party slots 90/91 using game_get_join_cost, budget = wealth/(faction slot 304 + 10). Then calculate_equipment_limit (3000, halved for reputation types 1-2, -1000 for type 8, -100 x faction slot 302) caps spending while it swaps each equipped item for a better-modifier copy in the town's armourer/weaponsmith/horse-merchant (party 21/22/24) paying the value difference, and finally fixes troop class (horse -> cavalry, ranged weapon -> archer).",
+      "hooks": [
+        "script:troop_does_business_in_center"
+      ],
+      "scripts": [
+        "troop_does_business_in_center",
+        "calculate_equipment_limit",
+        "improve_center",
+        "get_improvement_details",
+        "game_get_join_cost",
+        "dplmc_get_item_value_with_imod",
+        "dplmc_troop_can_use_item"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:11",
+        "troop:52",
+        "party:47",
+        "party:48",
+        "party:88",
+        "party:89",
+        "party:90",
+        "party:91",
+        "party:162",
+        "party:164",
+        "faction:302",
+        "faction:303",
+        "faction:304"
+      ],
+      "globals": [
+        "g_dplmc_ai_changes",
+        "g_improvement_type",
+        "cheat_mode"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 troop_does_business_in_center stmts 31-130: rent collection, wealth>10000 build choice, improve_center call, log line '{s10} constructs a {...}'",
+        "dis ad457 troop_does_business_in_center stmts 169-215: mercenary hire from party 90/91, log '{s10} hires {reg2} {...}'",
+        "dis ad457 troop_does_business_in_center stmts 216-274 + dis calculate_equipment_limit: modifier swap with town merchants, log '{s10} upgrades {s3}{...}'"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "ad457.settlement_disasters_epidemics",
+      "name": "Seasonal disasters and epidemics in settlements",
+      "category": "dynamic-world-events",
+      "summary": "Towns and villages can be hit by epidemics, droughts, crop failures, fires and (rarely) earthquakes. Odds depend on the season and on buildings: sewers/baths and similar make plague less likely, while fires burn down several of the settlement's buildings. A hit costs prosperity and cuts the settlement's stored rents; the fief owner gets a notification menu describing what happened, and the event stays on the settlement (it shows in its management screen, rumours and ideal prosperity) until it expires.",
+      "mechanics": "Five random-centre triggers set an event code in party slot 800 (disaster) or 801 (epidemic) when that slot is 0: strig:142 (every 0.74h, towns/castles) epidemic: chance = season factor (1-3 by $g_cur_month) out of (180 - prosperity + 25, +100 if building 152, +50 if 145), severity 5-35 (-1 if both buildings), sets 801, notifies via menu_epidemic_outbreak; strig:143 (villages, code 120, odds out of 250-300, +200 with building 139, -50 with 135); strig:144 (villages, code 130, odds out of 350-400); strig:145 (all centres, code 100, 1/700, rents x0.25 - the earthquake-class event); strig:146 (towns, code 110 fire: 300 base, season 20-50, building 148 halves risk, port towns +25; loops building slots 128-156 except a protected list and randomly clears up to N buildings, owner gets 'The fire in {s60} de...' per building). Each sets party 47 (accumulated rents) to 75% (25% for code 100) and applies prosperity change reg1 from get_event_details (109 stmts: code -> name/description/prosperity effect). strig:47 (every 0.37h) reads/clears slot 800 over time; get_center_ideal_prosperity, center_get_capital, get_rumor_to_s61 and prsnt:center_management read it.",
+      "hooks": [
+        "strig:142",
+        "strig:143",
+        "strig:144",
+        "strig:145",
+        "strig:146",
+        "strig:47"
+      ],
+      "scripts": [
+        "get_event_details",
+        "change_center_prosperity",
+        "add_notification_menu",
+        "get_center_ideal_prosperity",
+        "get_rumor_to_s61",
+        "center_get_capital"
+      ],
+      "menus": [
+        "menu_disaster_event",
+        "menu_epidemic_outbreak"
+      ],
+      "presentations": [
+        "prsnt_center_management"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:4286:dlga_town_dweller_ask_situation:town_dweller_talk:cond"
+      ],
+      "slots": [
+        "party:800",
+        "party:801",
+        "party:47",
+        "party:50",
+        "party:128-156 (buildings destroyed by fire)",
+        "party:139",
+        "party:135",
+        "party:145",
+        "party:148",
+        "party:152"
+      ],
+      "globals": [
+        "g_cur_month"
+      ],
+      "resources": {
+        "string": [
+          "event names/descriptions in get_event_details: recently conquered, earthquake, fire, drought, ..."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 strig:142/143/144/145/146: seasonal odds, building modifiers, slot 800/801 writes, menu_disaster_event / menu_epidemic_outbreak notifications",
+        "slot ad457 party 800: written by strig:47/143/144/145/146 (values 0,100,110,120,130), read by menu:disaster_event, center_get_capital, get_center_ideal_prosperity, get_rumor_to_s61",
+        "explain ad457 get_event_details: text 'recently_conquered | earthquake | fire | drought ...'",
+        "menu:disaster_event text 'Disaster!^^{s10} was hit by a disastrous {s0}. {s1}...'"
+      ],
+      "overlaps": [
+        "acan.settlement_events_epidemics",
+        "pop.fief_heartbeat_problems"
+      ]
+    },
+    {
+      "id": "ad457.religion_faiths_and_piety",
+      "name": "Faiths for lords and kingdoms, player conversion, piety and battle blessings",
+      "category": "religion-culture",
+      "summary": "Every kingdom has an official faith (five Christian confessions, Roman paganism, Germanic/steppe paganism, two Zoroastrian schools, Judaism) and every lord has a personal faith. Every three days a random lord may convert to his kingdom's (or culture's) faith, which is announced. The player picks a faith at the start, can convert by talking to bishops/abbots/high priests, can dedicate himself to a pagan pantheon at shrines (which raises relation with lords of that faith), and earns piety by praying, sacrificing, donating, funding memorials and through event choices. With piety above 25 the player may receive a random blessing in battle (allies faster, damage changes, or the player healed). Religious sites are real map locations with monasteries, temples and shrines.",
+      "mechanics": "Faith codes 0-9 (0 Chalcedonian, 1 Arian, 2 Miaphysite, 3 Nestorian, 4 Donatist, 5 Paganism, 6 Roman paganism, 7 Mazdaist, 8 Zurvanite, 9 Judaism). init_religions (from game_start, 160 stmts) assigns religion factions (fac_roman_christians, fac_arian_christians, fac_coptic_christians, fac_nestorian_christians, fac_donatist_christians, fac_pagans, fac_roman_pagans, fac_zoroastrians...) to p_religious_site_* parties with scenes (christian_monastery, fire_temple, german_temple_*, celtic_stone_circle, steppe_shrine, roman_pagan_temple, siwa) and abbot/priest troops. Kingdom faith = faction slot 13, lord faith = troop slot 15 (spouse slot 30 follows). strig:15 (every 72h) calls check_lord_religion on a random hero: if his faith differs from his kingdom's, he converts when the kingdom is one of a listed set or his culture (troop 44) matches, and a log line names the new faith. Player faith $g_player_faith set by menu_religion_selection, MCC presets, player_is_king/lord, and conversion dialogs (dlg:4686, 4700, 4712, 4724, 5932-5981); the player can also ask a lord to convert (dlg:1204 lord_talk_convert, dlg:1208-1225 choices, each setting the lord's troop 15). $piety written by menu:religious_location_christian/generic options (pray/sacrifice +1 piety and 1 hour, memorial +5 honour, donate 500, raid, seize the monastery), event menus and quest dialogs. menu:religious_location_generic dedication options call change_player_relation_lords_religion(faith, amount), which loops lords and changes relation by faith match. mst:lead_charge/t91 (and the same trigger in other battle templates; check 3s, rearm 100000000 = once per battle) with $piety>25 and 16% chance applies a random blessing: allied agent_set_damage_modifier 95 or 110, agent_set_speed_modifier 110, or heals the player to full. Temple building 142 (ad457.center_buildings_management) is named after the holder's faith.",
+      "hooks": [
+        "strig:15",
+        "script:game_start",
+        "menu:religious_location_christian",
+        "menu:religious_location_generic",
+        "menu:religion_selection",
+        "mst:lead_charge/t91:conseq",
+        "dlg:4686:dlga_chalcedonian_bishop_talk:chalcedonian_bishop_talk_convert_1:conseq"
+      ],
+      "scripts": [
+        "init_religions",
+        "check_lord_religion",
+        "change_player_relation_lords_religion",
+        "change_player_relation_with_troop_religion",
+        "change_player_relation_with_troop"
+      ],
+      "menus": [
+        "menu_religion_selection",
+        "menu_religious_location_christian",
+        "menu_religious_location_generic"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_religious_center",
+        "mst_religious_center_noricum"
+      ],
+      "dialogs": [
+        "dlg:4686",
+        "dlg:4700",
+        "dlg:4712",
+        "dlg:4724",
+        "dlg:5932",
+        "dlg:5938",
+        "dlg:5944",
+        "dlg:5950",
+        "dlg:5956",
+        "dlg:5964",
+        "dlg:5972",
+        "dlg:5981"
+      ],
+      "slots": [
+        "troop:15",
+        "troop:30",
+        "troop:44",
+        "faction:13",
+        "party:255"
+      ],
+      "globals": [
+        "g_player_faith",
+        "piety",
+        "g_player_converted",
+        "g_paganism_dedication"
+      ],
+      "resources": {
+        "faction": [
+          "fac_roman_christians",
+          "fac_arian_christians",
+          "fac_coptic_christians",
+          "fac_nestorian_christians",
+          "fac_donatist_christians",
+          "fac_pagans",
+          "fac_roman_pagans",
+          "fac_zoroastrians",
+          "fac_zurvanism",
+          "fac_jews"
+        ],
+        "party": [
+          "p_religious_site_1..N"
+        ],
+        "scene": [
+          "scn_christian_monastery",
+          "scn_christian_monastery_desert",
+          "scn_fire_temple",
+          "scn_german_temple_1-3",
+          "scn_celtic_stone_circle",
+          "scn_steppe_shrine",
+          "scn_roman_pagan_temple",
+          "scn_siwa"
+        ],
+        "troop": [
+          "trp_roman_abbot",
+          "trp_coptic_abbot",
+          "trp_pagan_high_priest",
+          "trp_zoroastrian_high_priest",
+          "trp_roman_pagan_high_priest",
+          "trp_monk",
+          "trp_pagan_priest"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 check_lord_religion: troop 15 vs faction 13, conversion + log '{s35} has converted ...', faith names list",
+        "dis ad457 strig:15 stmt 1-2: random hero -> check_lord_religion every 72h",
+        "explain ad457 init_religions: religion faction refs, p_religious_site_* parties, temple scenes, priest troops",
+        "global ad457 g_player_faith: writers = religion_selection options + 12 conversion dialogs + MCC/sandbox scripts",
+        "global ad457 piety: writers = religious_location menus, event menus, dialogs; readers = battle templates t91 and menu:reports",
+        "dis ad457 mst:lead_charge/t91:conseq: $piety>25, 16% roll, damage/speed modifiers or heal, 'Your faith increases...'",
+        "slot ad457 troop 15: 340 accesses in 132 blocks, values 0-9; writers include init_religions, check_lord_religion, religion_selection options, lord_talk_convert dialogs 1210-1225",
+        "dis ad457 initialize_banner_info: slot 15 written only on trp_banner_background_color_array (array element), not on lords"
+      ],
+      "notes": "Oddity: the 95 damage-modifier blessing lowers allied damage although it is announced as a faith boost.",
+      "overlaps": [
+        "acan.patron_gods_piety_miracles",
+        "awoiaf.four_faiths_religion",
+        "vc.monasteries_and_hofs",
+        "vc.religion_center_conversion"
+      ]
+    },
+    {
+      "id": "ad457.town_rebellions_secession",
+      "name": "Town revolts that spawn rebel kingdoms, plus rebel reconciliation and riots in ownerless towns",
+      "category": "dynamic-world-events",
+      "summary": "Towns can rise in revolt: a rebel army appears and besieges the town, and if it wins, the town becomes the seat of a new breakaway kingdom named after it, using the culture and troops of the kingdom it left. Later, a sufficiently old rebel kingdom of the right culture may make peace with and rejoin the Western Roman Empire, handing back its towns and lords while its leader becomes an outlaw. Towns that end up with no proper owner are besieged by rioting citizens.",
+      "mechanics": "strig:147 (every 3h, random walled centre): if party slot 811 == 1 (revolt armed) and 813 holds a rebel faction, sets war (-100) with the holder, sets 811=0, 812 = 90-120 day cooldown, calls cf_launch_rebellion and jumps the player to menu_rebellion_launched; cf_launch_rebellion spawns pt_rebel_army at the town (party slot 123 = home), fills it 35-45 times from the rebel faction's reinforcement templates (faction slots 77/78), sets AI to besiege (behaviour 4, object = town), marks the town under siege (party 54 = rebel party, 64 = start hour) and calls village_set_state(5). Separately, with 1/50 chance for specific towns of listed kingdoms, cf_start_rebellion(town, parent faction) takes a free pooled faction from fac_rebel_kingdom_1..3 (faction slot 21 == 2 = unused), renames it after the town, copies culture (10), banner/troop slots 15/22/40-59 and reinforcement templates 77-79 from the parent (Hispania templates for listed towns), sets 811=3 (countdown) and 812 cooldown. strig:15 (72h) reconciliation: a rebel faction at peace with fac_kingdom_1, same culture, faction slot 1450 > 30, 1/20 chance -> marked defeated (21=2), its lords join kingdom_1, its centres go to kingdom_1, its leader becomes an outlaw, its parties change faction, player shown menu_rebels_join_rome. strig:117 (72h): any town/castle owned by fac_manhunters or fac_commoners gets a 600-man 'Rioting Citizens' party (fac_outlaws, besieging, ignore player).",
+      "hooks": [
+        "strig:147",
+        "strig:15",
+        "strig:117"
+      ],
+      "scripts": [
+        "cf_start_rebellion",
+        "cf_launch_rebellion",
+        "village_set_state",
+        "recalculate_ais_for_faction",
+        "change_troop_faction",
+        "give_center_to_faction"
+      ],
+      "menus": [
+        "menu_rebellion_launched",
+        "menu_rebels_join_rome",
+        "menu_generic_rebellion_launched",
+        "menu_uprising_successful"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:811",
+        "party:812",
+        "party:813",
+        "party:54",
+        "party:64",
+        "party:123",
+        "faction:21",
+        "faction:10",
+        "faction:15",
+        "faction:22",
+        "faction:40-59",
+        "faction:77",
+        "faction:78",
+        "faction:79",
+        "faction:1450"
+      ],
+      "globals": [
+        "g_infinite_camping",
+        "freelancer_state",
+        "players_kingdom"
+      ],
+      "resources": {
+        "faction": [
+          "fac_rebel_kingdom_1",
+          "fac_rebel_kingdom_2",
+          "fac_rebel_kingdom_3"
+        ],
+        "pt": [
+          "pt_rebel_army",
+          "pt_hispenias_a/b/c"
+        ],
+        "troop": [
+          "trp_bandit",
+          "trp_brigand (riot filler)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 strig:147 stmts 0-52: 811/812/813 state machine, set_relation -100, cf_launch_rebellion, jump_to_menu menu_rebellion_launched, log '{s10} has revolted!'",
+        "dis ad457 cf_start_rebellion: pooled fac_rebel_kingdom_1..3, faction_set_name from town, slot copies 40-60 and 77-80",
+        "dis ad457 cf_launch_rebellion: spawn pt_rebel_army, 35-45 template adds, besiege behaviour, party 54/64",
+        "dis ad457 strig:15 stmts 3-73: rebel faction rejoins fac_kingdom_1, menu_rebels_join_rome",
+        "dis ad457 strig:117 stmts 45-66: 'Rioting_Citizens' 300 bandits + 300 brigands besiege ownerless centres"
+      ],
+      "overlaps": [
+        "acan.civil_war_usurpation_restoration",
+        "ad457.landless_faction_cleanup",
+        "tld.faction_defeat_redistribution_last_stand",
+        "vc.faction_restoration_and_adventurers"
+      ]
+    },
+    {
+      "id": "ad457.ai_tributary_states_casus_belli",
+      "name": "Weak kingdoms become tributaries; provocations lead to reparation demands",
+      "category": "diplomacy-politics",
+      "summary": "Kingdoms reduced to one to three fortresses look for protection: every two days one such kingdom may submit as a tributary to a stronger enemy that has a grudge against it, paying 20,000 and making peace; its other wars are ended or joined to its overlord's. The player's kingdom can be offered a tributary in the same way. When one realm has a casus belli against another, the aggrieved ruler may demand reparations (8,000 per town, 4,000 per castle of the offender) instead of going straight to war; the offender pays or war starts. The player can be on either side of such a demand.",
+      "mechanics": "strig:127 (every 48h): random active kingdom with faction slots 81+82 (castles+towns) in 1-3; for every active faction, reads the computed per-pair faction arrays at 820+other (friendly treaty state, >40 counted) and 1020+other (grievance/provocation score); picks the hostile faction with the highest grievance that is bigger, compares against a resistance score 300 - 30*(#factions it has grievances over) + 30*holdings + 30*friends; if beaten calls dplmc_start_tributary_between_kingdoms(weak, strong, 1), or if the strong one is the player's kingdom raises menu_notification_tributary_offer. dplmc_start_tributary_between_kingdoms (97 stmts): faction slot 100 = overlord, relation +15 (min 40), prisoner exchange, rulers' wealth -/+20000, player relation updates, notification menu_dplmc_notification_tribute_declared, peace both ways, sets 820+ pair slots to 160 and clears 1020+ grievances, makes the tributary leave wars with overlord's friends and join the overlord's wars. strig:27 -> randomly_start_war_peace_new_for_faction (269 stmts, per-faction variant of Native's war/peace script) raises menu_notification_casus_belli_decide: both sides run npc_decision_checklist_peace_or_war, ruler reputation types 1/4/5 are more aggressive; result is war, menu_notification_tribute_demanded (if the player rules the offender), reparations paid via add_to_troop_wealth, or war on refusal. menu_decide_ai_tribute handles the player's own demand. Expiries via menu_dplmc_notification_tribute_expired_*.",
+      "hooks": [
+        "strig:127",
+        "strig:27",
+        "menu:notification_casus_belli_decide",
+        "menu:decide_ai_tribute",
+        "menu:notification_tributary_offer"
+      ],
+      "scripts": [
+        "dplmc_start_tributary_between_kingdoms",
+        "randomly_start_war_peace_new_for_faction",
+        "npc_decision_checklist_peace_or_war",
+        "diplomacy_start_war_between_kingdoms",
+        "count_parties_of_faction_and_party_type",
+        "add_to_troop_wealth",
+        "exchange_prisoners_between_factions",
+        "count_wars_and_pacts"
+      ],
+      "menus": [
+        "menu_notification_casus_belli_decide",
+        "menu_notification_tribute_demanded",
+        "menu_decide_ai_tribute",
+        "menu_notification_tributary_offer",
+        "menu_dplmc_notification_tribute_declared",
+        "menu_dplmc_notification_tribute_expired_1_tribute_of_2",
+        "menu_dplmc_notification_tribute_expired_2_tribute_of_1",
+        "menu_notification_decide_tributary_war_decleration",
+        "menu_threat_war_reaction",
+        "menu_persuade_war_reaction"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:100",
+        "faction:81",
+        "faction:82",
+        "faction:21",
+        "faction:32",
+        "faction:820+f (computed per-pair array)",
+        "faction:1020+f (computed per-pair array)",
+        "troop:52"
+      ],
+      "globals": [
+        "g_notification_menu_var1",
+        "g_notification_menu_var2",
+        "g_last_acting_faction",
+        "g_last_target_faction"
+      ],
+      "resources": {
+        "string": [
+          "str_diplo_casus_expired_reparations_accepted",
+          "str_diplo_casus_expired_reparations_refused_war"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 strig:127: weak-faction selection by slots 81/82, grievance arrays 820/1020+f, call dplmc_start_tributary_between_kingdoms or menu_notification_tributary_offer",
+        "dis ad457 dplmc_start_tributary_between_kingdoms: slot 100, +/-20000 wealth, peace, war inheritance loops",
+        "dis ad457 menu:notification_casus_belli_decide: reparations 8000/town + 4000/castle, war on refusal, player branch -> menu_notification_tribute_demanded",
+        "refs ad457 menu menu_notification_casus_belli_decide: raised from strig:27",
+        "dis ad457 menu:decide_ai_tribute: player's own reparation demand pays troop_add_gold"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "ad457.village_reinforcement_marches",
+      "name": "Garrison reinforcements march in from the fief's villages",
+      "category": "recruitment-troops",
+      "summary": "Instead of soldiers appearing out of thin air in a castle or town, the holder's money buys reinforcements that are raised in the centre's bound villages and walk to the fortress as visible map parties ('X reinforcements'). They can be intercepted. The amount depends on the centre's treasury, difficulty setting and kingdom policy; the troop mix comes from the kingdom's (or the player's chosen culture's) three reinforcement templates.",
+      "mechanics": "strig:23 (every ~9 min, rotating $center_to_check over towns/castles) calls prune_prisoners then hire_men_to_center(center). hire_men_to_center (130 stmts): only for lord-owned centres not under siege (party 54 == -1); cost per batch 300/450/600 by game_get_reduce_campaign_ai (player's own kingdom fixed 450, 1 batch); uses faction slots 77/78/79 (Native reinforcement templates; player culture when $g_king_start and $g_player_culture set; special cases for fac_indigenoi castles). For each bound village (party 120 == center, village not looted: party 35 == 0) while half the centre's wealth (party 49) exceeds the cost: reuse or spawn pt_center_reinforcements at the village (party 60 links village -> party), roll 0-99 + clamp(faction slot 304,-3,4): <65 template a, <100 b, else c (fallback 15 x faction slot 41 or trp_manhunter), name '{village} reinf', set faction, party 0=6 (type), 5=target, 123=home village, AI behaviour 1 (travel) to the centre, flag 65536; deduct cost from party 49. Any batches left over use cf_reinforce_party(center) directly (Native-style). strig:82 (every 3h) handles arrival: a pt_center_reinforcements party (type 6) inside its target centre is merged with party_add_party, except stacks of looters or of a hostile foreign culture, which are put in the centre's prison; if the centre changed owner the party is dismissed, if it is in a different centre it is re-routed; the village link (party 60) is cleared.",
+      "hooks": [
+        "strig:23",
+        "strig:82"
+      ],
+      "scripts": [
+        "hire_men_to_center",
+        "prune_prisoners",
+        "cf_reinforce_party",
+        "party_add_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:49",
+        "party:54",
+        "party:60",
+        "party:120",
+        "party:35",
+        "party:123",
+        "party:5",
+        "party:0",
+        "faction:77",
+        "faction:78",
+        "faction:79",
+        "faction:41",
+        "faction:304"
+      ],
+      "globals": [
+        "center_to_check",
+        "g_king_start",
+        "g_player_culture",
+        "players_kingdom",
+        "g_excubitors_founded"
+      ],
+      "resources": {
+        "pt": [
+          "pt_center_reinforcements",
+          "pt_culture_minor_*_reinforcements_a/b/c"
+        ],
+        "string": [
+          "str_s5_reinf"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 hire_men_to_center: village loop, spawn_around_party pt_center_reinforcements, party_set_name str_s5_reinf, ai object = centre, wealth slot 49 deduction",
+        "dis ad457 strig:23: rotating centre, prune_prisoners + hire_men_to_center",
+        "explain ad457 hire_men_to_center: text 'Reinforcements_from_{s5}'",
+        "refs ad457 pt pt_center_reinforcements + dis ad457 strig:82 stmts 123-205: arrival merge via party_add_party, hostile stacks to prison, re-route/dismiss"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "ad457.landless_faction_cleanup",
+      "name": "Kings without a town take one; lords of fortress-less kingdoms defect or disband",
+      "category": "campaign-ai",
+      "summary": "Every frame one kingdom is checked. If its king owns no town but the kingdom has a town with no lord, the king is given it. If the kingdom has lost every town and castle, its lords look for a new kingdom and defect (announced in the log); those who cannot leave have their war parties disbanded when idle, and the rest lose 50 relation with their king.",
+      "mechanics": "strig:41 (interval 0, round-robin $checked_faction over fac_player_supporters_faction..fac_manhunters) calls check_king_has_town, check_lords_but_no_centers, recalculate_ais_for_faction. check_king_has_town: if an active non-player kingdom's leader (faction slot 11) owns no town (loop p_town_1..p_castle_1 on party 7), find one of the kingdom's towns with party 7 == -1 and give_center_to_lord(center, king); castles are not considered. check_lords_but_no_centers: if the kingdom holds no towns/castles (villages ignored), for each lord: lord_find_alternative_faction -> change_troop_faction with log '{s1} has joined the {s2}'; else if his party (troop 10) is idle and not in battle and not the player's enlisted party -> remove_party, troop 10 = -1, '{s1} has disbanded.'; else -50 relation with the king.",
+      "hooks": [
+        "strig:41"
+      ],
+      "scripts": [
+        "check_king_has_town",
+        "check_lords_but_no_centers",
+        "recalculate_ais_for_faction",
+        "lord_find_alternative_faction",
+        "change_troop_faction",
+        "give_center_to_lord",
+        "remove_hero_prisoners",
+        "troop_change_relation_with_troop"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:11",
+        "faction:21",
+        "faction:64",
+        "party:7",
+        "troop:2",
+        "troop:10"
+      ],
+      "globals": [
+        "checked_faction",
+        "players_kingdom",
+        "enlisted_party"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 strig:41: round-robin $checked_faction, three calls",
+        "dis ad457 check_king_has_town: give_center_to_lord to a landless king",
+        "dis ad457 check_lords_but_no_centers: defection log '{s1} has joined the', disband '{s1} has disbanded.', -50 relation"
+      ],
+      "overlaps": [
+        "acan.civil_war_usurpation_restoration",
+        "ad457.town_rebellions_secession",
+        "tld.faction_defeat_redistribution_last_stand",
+        "vc.faction_restoration_and_adventurers"
+      ]
+    },
+    {
+      "id": "ad457.court_offices_and_titles",
+      "name": "Court offices for vassals and a title ladder for the player",
+      "category": "kingdom-management",
+      "summary": "Kingdoms hand out named offices (e.g. Magister Militum per Gallia, Magister Officiorum, Comes Africae, Eran-Spahbed) to their most respected lords, and a ruling player can appoint vassals to offices through the minister. A player serving Rome rises through honorary ranks - Vir Clarissimus, then Spectabilis, then Illustris - as his relation with the emperor reaches 15, 30 and 50, each announced by a promotion screen. Titles show in lord names and notes.",
+      "mechanics": "assign_rank(office, faction): among the faction's lords without an office (troop 155 == 0) and with rank >= 1 (troop 156), pick the one with the best relation-to-ruler + renown/2 (min 300), set troop 155 = office, then troop_set_title_according_to_faction (modified, 165 stmts) rebuilds his displayed name; called from change_troop_faction and indict_lord_for_treason so offices are refilled when holders leave. Player: trig:21-24 (24h, one-shot) require homage to fac_kingdom_1/2 and relation with either emperor >= 15/30/50 and the previous rank in troop 156, then jump to menu_promotion_clarissimus/spectabilis/illustris whose 'Accept the title' option sets troop 156. dlg:1364-1373 (minister_grant_rank_choose_office) let a ruling player assign the office list. game_get_troop_note shows the rank.",
+      "hooks": [
+        "trig:21:conseq",
+        "trig:22:conseq",
+        "trig:23:conseq",
+        "trig:24:conseq",
+        "dlg:701:dlga_minister_talk:minister_grant_rank:cond",
+        "script:change_troop_faction"
+      ],
+      "scripts": [
+        "assign_rank",
+        "troop_set_title_according_to_faction",
+        "change_troop_faction",
+        "indict_lord_for_treason",
+        "game_get_troop_note"
+      ],
+      "menus": [
+        "menu_promotion_clarissimus",
+        "menu_promotion_spectabilis",
+        "menu_promotion_illustris",
+        "menu_promotion_officorum"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:701",
+        "dlg:1364",
+        "dlg:1365",
+        "dlg:1366",
+        "dlg:1367",
+        "dlg:1368",
+        "dlg:1369",
+        "dlg:1370",
+        "dlg:1371",
+        "dlg:1372",
+        "dlg:1373"
+      ],
+      "slots": [
+        "troop:155",
+        "troop:156",
+        "troop:7",
+        "faction:11"
+      ],
+      "globals": [
+        "g_king_start",
+        "g_player_culture",
+        "player_honor",
+        "player_has_homage",
+        "players_kingdom"
+      ],
+      "resources": {
+        "string": [
+          "office names: Comes Domesticus, Magister Officiorum, Magister Militum per Gallia, Magister Utriusque Militiae, Comes Illyricum, Comes Hispenias, Comes Africae, Eran-Spahbed ..."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 assign_rank: troop 155/156 selection by relation + renown, troop_set_title_according_to_faction",
+        "dis ad457 trig:21/22/24:cond: homage + relation >=15/30/50 + troop 156 rank steps",
+        "slot ad457 troop 156: written by promotion menus' accept options, read by assign_rank and trig:22-24",
+        "global ad457 g_king_start readers include dlg:1364-1373 'minister_grant_rank_choose_office'",
+        "explain ad457 assign_rank: text 'Comes_Domesticus | Magister_Officiorum | Magister_Militum_per_Gallia ...'"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "ad457.minor_tribes_and_tributaries",
+      "name": "Independent tribes with capitals, patrols, migration, conquest and tribute",
+      "category": "diplomacy-politics",
+      "summary": "About 37 small independent peoples (Aestii, Dani, Frisians, Vascones, Garamantes, steppe hordes and others) each have a capital, a king, a garrison and roaming patrols. The player can visit, recruit their warriors, attack the capital, and afterwards loot it, pillage it or turn the tribe into a tributary that pays a monthly tribute; tributary kings can be asked for levies or a special tribute. Nomadic tribes periodically pack up their camp, travel across the map and settle somewhere new.",
+      "mechanics": "init_minor_factions (598 stmts, game_start) sets up fac_minor_* factions (culture slot 10, leader 11, templates 41-52/77), their capital parties (p_aestii_village .. before p_religious_site_1) with scenes, kings and merchants, gold and ages. strig:117 (72h): spawn_minor_faction_patrols (up to 3 parties of template faction slot 77 per capital, patrol radius 25, home = party 123), restores a free king as leader of his capital's stack, keeps Mediterranean pirates (spawn_pirate, <3) and Roman fleets (spawn_naval_patrol_ravenna/naples/constantinople) alive. fully_refresh_minor_faction_garrison(capital, size) refills garrisons from slot 77. game_event_party_encounter -> menu_minor_faction_town (137 stmts: quest branches, hostility/tributary text via faction slot 299, burned -> menu_settlement_burned, looted (party 255) -> menu_settlement_looted), recruiting via prsnt_barracks, attack -> menu_minor_town_fight -> menu_minor_town_loot (options: tributary state, pillage, quest). Faction slot 299 = 1 marks a tributary of the player (set by the loot menu and dlg:5893 'I accept your offer. We will pay a monthly tribute of 1000...'; read by prsnt:budget_report and dialogs dlg:5852 levies / dlg:5859 special tribute). Migration in strig:147 stmts 53-132: a nomad/ship capital (icon nomad_camp/ship/steppe_lord) with a linked camp party (slot 123) rolls 1/180, picks a land point >5 away and >3 from other centres, sets icon steppe_lord and travels; on arrival sets icon nomad_camp and becomes enterable again ('The {s13} have settled near {s12}').",
+      "hooks": [
+        "script:game_start",
+        "strig:117",
+        "strig:147",
+        "script:game_event_party_encounter",
+        "menu:minor_faction_town",
+        "menu:minor_town_loot/opt:continue_tributary:conseq"
+      ],
+      "scripts": [
+        "init_minor_factions",
+        "init_minor_kings",
+        "spawn_minor_faction_patrols",
+        "fully_refresh_minor_faction_garrison",
+        "setup_minor_Faction_king_meeting",
+        "spawn_pirate",
+        "spawn_naval_patrol_ravenna",
+        "spawn_naval_patrol_naples",
+        "spawn_naval_patrol_constantinople",
+        "get_closest_center"
+      ],
+      "menus": [
+        "menu_minor_faction_town",
+        "menu_minor_town_fight",
+        "menu_minor_town_loot",
+        "menu_minor_town_pillage",
+        "menu_attack_minor_town",
+        "menu_settlement_burned",
+        "menu_settlement_looted"
+      ],
+      "presentations": [
+        "prsnt_barracks",
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [
+        "mst_visit_minor_town",
+        "mst_minor_village_attack",
+        "mst_minor_village_attack_quest"
+      ],
+      "dialogs": [
+        "dlg:5852",
+        "dlg:5859",
+        "dlg:5863",
+        "dlg:5893"
+      ],
+      "slots": [
+        "faction:299",
+        "faction:77",
+        "faction:10",
+        "faction:11",
+        "faction:21",
+        "party:123",
+        "party:255",
+        "troop:60"
+      ],
+      "globals": [
+        "g_last_rest_center"
+      ],
+      "resources": {
+        "faction": [
+          "fac_minor_aestii .. (37 minor factions)"
+        ],
+        "party": [
+          "p_aestii_village, p_dani_village, p_onoguroi_village, p_garamantian_village_1, ... (tribal capitals)"
+        ],
+        "pt": [
+          "pt_aestii_party_1, pt_dani_party, ... pt_pirates_mediterranean, pt_classis_ravenna/naples/constantinople"
+        ],
+        "scene": [
+          "scn_minor_roman_town, scn_aestii_town, scn_dani_town, scn_panticapaeum, ..."
+        ],
+        "icon": [
+          "nomad_camp",
+          "steppe_lord",
+          "ship"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain ad457 init_minor_factions: 37 fac_minor_* refs, tribal capitals, kings, scenes",
+        "dis ad457 strig:117: spawn_minor_faction_patrols, king re-attachment, pirates, Roman fleets",
+        "dis ad457 strig:147 stmts 53-132: migration with icons steppe_lord/nomad_camp and log 'The {s13} have settled ...'",
+        "dis ad457 menu:minor_faction_town; explain ad457 menu:minor_town_loot: options continue_tributary / continue_pillage",
+        "slot ad457 faction 299: writers = tributary dialogs/menu; readers = budget report, levy/tribute dialogs"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "ad457.royal_and_lord_sandbox_start",
+      "name": "Start the game as ruler or vassal of an existing kingdom",
+      "category": "qol-ui",
+      "summary": "At game start the player can choose 'Royal Sandbox' to take over an existing kingdom as its ruler (picking from a kingdom-selection screen), or start as a landed lord, instead of the usual nobody start. The chosen realm's former ruler steps aside, the player gets its fortresses, faith and culture, and the realm keeps its existing alliances and tributaries. Character creation itself uses a one-screen point-buy menu.",
+      "mechanics": "menu:start_game_0 options 'Normal Sandbox' -> prsnt_mcc_character_creation (mcc_generate_skill_set 696 stmts, mcc_random_settings, mcc_default_settings) and 'Royal Sandbox' -> prsnt_select_king (t1 event handler) -> player_is_king(kingdom) (612 stmts): moves the old king, sets $g_king_start, $g_player_culture, $g_player_faith, background, activates the player faction (activate_player_faction), hands over centres (give_center_to_lord), creates kingdom hero parties, adjusts right to rule, re-creates tributary/alliance links (dplmc_start_tributary_between_kingdoms, dplmc_start_alliance_between_kingdoms) and re-initialises faction troop types; player_is_lord (169 stmts) does the vassal version. $g_king_start then changes recruitment (hire_men_to_center, cf_reinforce_party, create_kingdom_hero_party use the player's chosen culture) and enables the minister's office dialog.",
+      "hooks": [
+        "menu:start_game_0/opt:starting_as_king:conseq",
+        "menu:start_game_0/opt:continue:conseq",
+        "prsnt:select_king/t1",
+        "prsnt:mcc_character_creation/t1"
+      ],
+      "scripts": [
+        "player_is_king",
+        "player_is_lord",
+        "activate_player_faction",
+        "give_center_to_lord",
+        "create_kingdom_hero_party",
+        "change_player_right_to_rule",
+        "initialize_faction_troop_types",
+        "mcc_generate_skill_set",
+        "mcc_random_settings",
+        "mcc_default_settings",
+        "set_player_face_according_culture"
+      ],
+      "menus": [
+        "menu_start_game_0",
+        "menu_culture_selection",
+        "menu_religion_selection"
+      ],
+      "presentations": [
+        "prsnt_select_king",
+        "prsnt_select_lord",
+        "prsnt_mcc_character_creation"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:11",
+        "faction:10",
+        "faction:299",
+        "troop:156"
+      ],
+      "globals": [
+        "g_king_start",
+        "g_player_culture",
+        "g_player_faith",
+        "background_type"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs ad457 prsnt prsnt_select_king: menu:start_game_0/opt:starting_as_king:conseq 'Royal_Sandbox'",
+        "refs ad457 prsnt prsnt_mcc_character_creation: menu:start_game_0/opt:continue:conseq 'Normal_Sandbox'",
+        "explain ad457 player_is_king: callees change_troop_faction, activate_player_faction, give_center_to_lord, dplmc_start_tributary/alliance, initialize_faction_troop_types; writes g_king_start, g_player_culture, g_player_faith",
+        "global ad457 g_king_start: 29 readers incl. hire_men_to_center, cf_reinforce_party, create_kingdom_hero_party, minister office dialogs"
+      ],
+      "overlaps": [
+        "acw.play_as_ruler_start",
+        "awoiaf.campaign_setup_options",
+        "cbl.invasion_date_options",
+        "laigle.story_start_missions",
+        "tld.in_game_strategy_options"
+      ]
+    },
+    {
+      "id": "ad457.dplmc4_tax_inefficiency_and_extras",
+      "name": "Diplomacy 4.x extras: tax inefficiency, disguises, taverngoer locations",
+      "category": "economy-trade",
+      "summary": "Holding more fiefs than your administration can handle costs money: past a difficulty-based number of fiefs, each extra fief loses a growing share (up to 65%) of its taxes, reduced by having a chamberlain, a court and a spouse, and shifted by the kingdom's centralisation/policy settings. The chamberlain's overview and the budget report show the loss. Also present: buying disguises (pilgrim etc.) from minstrels, craftsmen and village elders to sneak into towns, and tavern travellers who list where ransom brokers, booksellers and minstrels can currently be found.",
+      "mechanics": "cf_dplmc_calculate_tax_inefficiency(num_fiefs, income, faction) (94 stmts; callers dlg:1058 dplmc_chamberlain_overview cond and prsnt:budget_report/t0): free fief count 2/4/6 by game_get_reduce_campaign_ai (+court bits from $players_kingdom_name_set, +1 if married), penalty per extra fief 5/4/3 %, capped at 65; reduction 10 with a chamberlain plus faction policy slots 301 (x5) and 303 (x3) (copied to the player faction from the liege when the player is a vassal); returns lost amount in reg0 and percent in reg1. acquire_disguise (dlg:3048/3054/3477/3658/3827/3944/3945) and set_disguise_override_items/get_disguise_string implement disguise outfits; list_known_taverngoers (dlg:3426/3431/3436) prints 'You can find {s10}s at {s11}'.",
+      "hooks": [
+        "dlg:1058:dlga_dplmc_chamberlain_overview:dplmc_chamberlain_pretalk:cond",
+        "prsnt:budget_report/t0",
+        "dlg:3426:dlga_tavern_traveler_minstrel_location_ask_money:tavern_traveler_npc_location_tell:conseq",
+        "dlg:3477:dlga_minstrel_disguise_teach:close_window:conseq"
+      ],
+      "scripts": [
+        "cf_dplmc_calculate_tax_inefficiency",
+        "acquire_disguise",
+        "set_disguise_override_items",
+        "get_disguise_string",
+        "list_known_taverngoers",
+        "cf_no_known_taverngoers",
+        "cf_find_alternative_town_for_taverngoers"
+      ],
+      "menus": [
+        "menu_dplmc_choose_disguise"
+      ],
+      "presentations": [
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1058",
+        "dlg:3426",
+        "dlg:3431",
+        "dlg:3436",
+        "dlg:3477",
+        "dlg:3658",
+        "dlg:3944"
+      ],
+      "slots": [
+        "faction:301",
+        "faction:302",
+        "faction:303",
+        "faction:304",
+        "faction:306",
+        "troop:30"
+      ],
+      "globals": [
+        "g_dplmc_gold_changes",
+        "g_player_chamberlain",
+        "g_player_court",
+        "players_kingdom_name_set"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 cf_dplmc_calculate_tax_inefficiency: difficulty thresholds, 65% cap, chamberlain/policy reductions",
+        "explain ad457 cf_dplmc_calculate_tax_inefficiency: callers dlg:1058 and prsnt:budget_report/t0",
+        "explain ad457 acquire_disguise: 7 dialog callers, text 'Acquired {s0}'s clothing'",
+        "explain ad457 list_known_taverngoers: 3 tavern-traveller dialog callers"
+      ],
+      "overlaps": [
+        "acan.imperial_treasury_budget",
+        "acan.senate_influence_edicts",
+        "acan.town_decrees",
+        "be.pps_political_simulation"
+      ]
+    },
+    {
+      "id": "ad457.travel_random_events",
+      "name": "Random travel events with moral choices",
+      "category": "dynamic-world-events",
+      "summary": "Every few days a renowned player (200+ renown) leading more than 30 men on land may run into one of about 23 small events: a sacrificial animal, beggars, a hungry child, Huns offering to join for 300 silver, travellers asking for money, and so on. Each offers choices that cost or earn silver, piety, honour or men.",
+      "mechanics": "strig:132 (every 96h): map_free, not enlisted ($freelancer_state 0), not camping, not captive, land terrain, 1/5 roll, renown (troop 7) >= 200 and > 30 men -> random 0-43 picks menu_event_01..21 (some gated on terrain or troops_can_join), menu_event_pilos_1 and a second unique event (flags $g_unique_event_1/2). The menus' options write $piety, gold, honour or add troops (e.g. menu_event_03 Huns join for 300).",
+      "hooks": [
+        "strig:132"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_event_01",
+        "menu_event_02",
+        "menu_event_03",
+        "menu_event_06",
+        "menu_event_07",
+        "menu_event_18",
+        "menu_event_21",
+        "menu_event_pilos_1",
+        "menu_event_aurelian_1"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:7"
+      ],
+      "globals": [
+        "piety",
+        "g_unique_event_1",
+        "g_unique_event_2",
+        "freelancer_state",
+        "g_infinite_camping"
+      ],
+      "resources": {
+        "mesh": [
+          "event background pictures"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 strig:132: gating conditions and 23-way jump_to_menu",
+        "global ad457 piety writers: menu:event_01/02/06/07/18/pilos_1 option consequences",
+        "dis ad457 menu:event_03: 'You spot a small group of huns ... join you for a small fee of 300 siliquae.'"
+      ],
+      "overlaps": [
+        "acw.historical_event_calendar",
+        "awoiaf.canon_story_event_timeline",
+        "awoiaf.random_travel_events",
+        "sw.random_town_ambushes",
+        "vc.random_events_and_judgments"
+      ]
+    },
+    {
+      "id": "ad457.barracks_recruitment_screen",
+      "name": "Barracks screen: pick exactly which troops to recruit",
+      "category": "recruitment-troops",
+      "summary": "'Recruit Volunteers' in towns (and in tribal capitals) opens a barracks screen showing the local culture's units with pictures and stats; the player picks a unit and a count and pays per head. Nobles and commoners are separate recruit pools, elite guard units unlock through story flags, and the screen shows party size, wage and limit. A troop-detail view shows each unit's equipment.",
+      "mechanics": "prsnt_barracks (t0 load 1386 stmts; t2 event 66 stmts) opened by menu:town/opt:recruit_volunteers_town_1 and menu:minor_faction_town/opt:recruit_minor_town; builds a list from the centre's culture (fac_culture_* slots) and unlock globals ($g_can_recruit_candidati/domestici/schola/shah_guard/noricum, $g_can_hire_arthurian_knights), splits availability with cf_is_noble ('Available nobles / commoners'), prices via game_get_join_cost, shows calculate_weekly_party_wage and game_get_party_companion_limit; t2 recruits ('Recruit {reg43} troops for {reg44} siliquae') or errors ('There are not enough recruits available!'). prsnt_troop_detail (VC troop_detail_* scripts) shows gear.",
+      "hooks": [
+        "menu:town/opt:recruit_volunteers_town_1:conseq",
+        "menu:minor_faction_town/opt:recruit_minor_town:conseq",
+        "prsnt:barracks/t0",
+        "prsnt:barracks/t2"
+      ],
+      "scripts": [
+        "cf_is_noble",
+        "game_get_join_cost",
+        "calculate_weekly_party_wage",
+        "game_get_party_companion_limit",
+        "troop_detail_change_screen",
+        "troop_detail_inventory",
+        "troop_detail_stats"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_barracks",
+        "prsnt_troop_detail"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:10",
+        "faction:301",
+        "faction:302",
+        "faction:303",
+        "faction:304"
+      ],
+      "globals": [
+        "g_can_recruit_candidati",
+        "g_can_recruit_domestici",
+        "g_can_recruit_schola",
+        "g_can_recruit_shah_guard",
+        "g_can_hire_arthurian_knights",
+        "current_town"
+      ],
+      "resources": {
+        "tableau": [
+          "tab_troop_tree_pic"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs ad457 prsnt prsnt_barracks: town + minor town recruit options, troop_detail back-link",
+        "explain ad457 prsnt:barracks/t0: callees and text 'Available nobles', 'Available commoners', 'Party size ... Party wage ...'",
+        "explain ad457 prsnt:barracks/t2: 'Recruit {reg43} troops for {reg44} siliquae', 'There are not enough recruits available!'"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "ad457.village_enslavement_and_repopulation",
+      "name": "Enslaving villages and 'repopulating' hostile settlements",
+      "category": "settlements-villages",
+      "summary": "A ruthless player can enslave a village's inhabitants (big relation loss with the village, companion objections, lower honour, and soldiers of that kingdom think less of you) or, from the management screen of a hostile settlement he holds with 200+ men, kill the locals and give the land to his soldiers' families. The kingdom-wide soldier opinion feeds into the morale of troops of that origin in your party.",
+      "mechanics": "menu:village option -> menu_village_enslave_complete: achievement stats, objectionable_action(3, str_sell_slavery), village relation -25..-35, looted smoke particle, faction relation -2 if hostile, change_faction_troop_morale(faction, -75 x villagers (max -2000), notify=1). change_faction_troop_morale (44 stmts) adds to Native faction slot 99 (morale of player's troops from that faction) and messages when the hundreds digit changes; game_get_morale_of_troops_from_faction (modified) reads slot 99 per troop culture and adds a bonus for the player's own culture. menu_repopulate (from prsnt:center_management/t2, needs >=200 men and negative relation) -> menu_repopulate_complete; its 'Kill them all' option also writes $piety. strig:81 applies -5000 troop morale for a defeated faction.",
+      "hooks": [
+        "menu:village",
+        "menu:village_enslave_complete",
+        "prsnt:center_management/t2",
+        "menu:repopulate/opt:special_tax:conseq",
+        "strig:81"
+      ],
+      "scripts": [
+        "change_faction_troop_morale",
+        "game_get_morale_of_troops_from_faction",
+        "objectionable_action",
+        "change_player_relation_with_center",
+        "change_player_relation_with_faction"
+      ],
+      "menus": [
+        "menu_village_enslave_complete",
+        "menu_repopulate",
+        "menu_repopulate_complete"
+      ],
+      "presentations": [
+        "prsnt_center_management"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:99",
+        "faction:21"
+      ],
+      "globals": [
+        "qst_eliminate_bandits_infesting_village_num_villagers",
+        "current_town",
+        "piety"
+      ],
+      "resources": {
+        "psys": [
+          "psys_map_village_looted_smoke"
+        ],
+        "mesh": [
+          "mesh_pic_prisoner_wilderness"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs ad457 menu menu_village_enslave_complete: from menu:village",
+        "dis ad457 menu:village_enslave_complete: relation -25..-35, objectionable_action, change_faction_troop_morale",
+        "dis ad457 change_faction_troop_morale and game_get_morale_of_troops_from_faction: faction slot 99",
+        "slot ad457 faction 99: Native slot also used by Native morale_report"
+      ],
+      "overlaps": [
+        "acan.slave_economy",
+        "laigle.keep_battlefield_pickups",
+        "vc.town_plunder_and_slaves"
+      ]
+    },
+    {
+      "id": "ad457.vc_siege_planning_and_camp_events_inherited",
+      "name": "Siege planning and siege-camp events (inherited from VC/Brytenwalda, extended)",
+      "category": "sieges",
+      "summary": "Same multi-day siege layer as Viking Conquest: from 'Siege Warfare (Planning Siege)' the player builds circumvallation and latrines, seeks a traitor, sends infiltrators, forages nearby fields, places ladders/mantlets; starving defenders may sally or surrender. During a siege with enough men, random camp events fire - 457 AD has 29 siege-event menus (VC's own count not re-checked).",
+      "mechanics": "menu:castle_besiege/opt:siege_warfare_p -> menu_siege_plan with the Brytenwalda/VC Spanish-named sub-menus (construct_circunvalation, construct_saneamiento, traicion_*, infiltracion_*, campos_cercanos*, emboscada_*, poner_escaleras*, build_mantles2), globals $g_empieza_asedio, $g_siege_saneamiento, $g_campos_cercanos, $g_infiltracion_interna, $g_cabezas_dentro. strig:133 (60h, needs >30 men and no latrines) -> menu_event_siege_01..03; strig:134 (24h, >40 fit men) -> menu_event_siege_04..26 (some gated on party 275 != 2, one removes a regular via remove_regular_troops). Disease menus enfermedad*_siege.",
+      "hooks": [
+        "menu:castle_besiege/opt:siege_warfare_p:conseq",
+        "menu:siege_plan",
+        "strig:133",
+        "strig:134"
+      ],
+      "scripts": [
+        "remove_regular_troops",
+        "lift_siege",
+        "process_sieges"
+      ],
+      "menus": [
+        "menu_siege_plan",
+        "menu_siege_assault",
+        "menu_construct_circunvalation",
+        "menu_construct_saneamiento",
+        "menu_traicion_interna2",
+        "menu_infiltracion_resultado1",
+        "menu_campos_cercanos1",
+        "menu_nofood_siege_defenders_sally",
+        "menu_surrender_siege_defenders_starved",
+        "menu_event_siege_01",
+        "menu_event_siege_29",
+        "menu_enfermedad_siege"
+      ],
+      "presentations": [
+        "prsnt_infiltrationandsabotage"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:275"
+      ],
+      "globals": [
+        "g_empieza_asedio",
+        "g_siege_saneamiento",
+        "g_campos_cercanos",
+        "g_infiltracion_interna",
+        "g_cabezas_dentro"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis ad457 strig:133 / strig:134: siege-camp event dispatch",
+        "menus-not-in-Native list (auto report): menu_event_siege_01..29, enfermedad*_siege"
+      ],
+      "overlaps": [
+        "acan.siege_planning_inherited",
+        "acw.siege_assault_waves_and_surrender",
+        "awoiaf.siege_ram_assault_and_hostage_surrender",
+        "bi.siege_town_militia",
+        "vc.siege_planning"
+      ]
+    },
+    {
+      "id": "ad457.vc_battle_naval_layer_inherited",
+      "name": "VC battle layer: formations, local courage, war cries/berserk, ship battles (inherited)",
+      "category": "battle-ai-formations",
+      "summary": "457 AD carries Viking Conquest's battle code largely unchanged: Motomataru formations with saved division placements, AI field tactics, local courage/morale with war cry, horn, shield taunt and berserker rage, troop-detail screens, seasonal scene lighting, and deck-to-deck ship battles with Roman fleets and pirates.",
+      "mechanics": "Scripts identical or near-identical to VC (diff ad457 vc: 239 identical): battlegroup_*/form_*/player_order_formations/memorize_division_placements/process_player_division_positioning, field_tactics/team_field_melee_tactics, agent_perform_warcry/horn/shield_taunt, berserk_trigger, apply_effect_of_other_people_on_courage_scores_vc (= VC's apply_effect_of_other_people_on_courage_scores, named 100%/shape 100%), decide_run_away_or_not_vc (a VC variant of decide_run_away_or_not), inflict_casualties_to_party_vc (88% named to VC), ship_AI/spawn_ship/put_the_Klabautermann_into_the_ships/mst_sea_battle, calculate_season_light (213 callers in mission templates).",
+      "hooks": [
+        "mst:lead_charge",
+        "mst:sea_battle"
+      ],
+      "scripts": [
+        "player_order_formations",
+        "memorize_division_placements",
+        "field_tactics",
+        "team_field_melee_tactics",
+        "agent_perform_warcry",
+        "agent_perform_horn",
+        "agent_perform_shield_taunt",
+        "berserk_trigger",
+        "apply_effect_of_other_people_on_courage_scores_vc",
+        "apply_death_effect_on_courage_scores_vc",
+        "decide_run_away_or_not_vc",
+        "ship_AI",
+        "spawn_ship",
+        "calculate_season_light"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_order_display",
+        "prsnt_formation_mod_option",
+        "prsnt_naval_ui",
+        "prsnt_troop_detail"
+      ],
+      "mission_templates": [
+        "mst_sea_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:23-47",
+        "team:1-13",
+        "scene_prop:6-48"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "ad457.freelancer_variant",
+      "name": "Freelancer (enlist as a soldier) - 457 AD variant",
+      "category": "mercenaries",
+      "summary": "Enlisting under a lord as a common soldier, with weekly pay, promotion choice when eligible, leave, desertion, revolt and capture events, a commander's report and audience menu.",
+      "mechanics": "freelancer_event_player_enlists/discharge/vacation/returns/deserts/revolts/captured, cf_freelancer_player_can_upgrade, freelancer_equip_troop; strig:115 (168h, $freelancer_state 1) pays 10 x troop level, +70 xp, bread if low on food and jumps to menu_upgrade_path when promotion XP is reached; trig:55/57 -> menu_world_map_soldier (commander audience, report prsnt_taragoth_lords_report, revolt, desert).",
+      "hooks": [
+        "strig:115",
+        "trig:55:conseq",
+        "trig:57:conseq",
+        "trig:54:conseq",
+        "menu:world_map_soldier"
+      ],
+      "scripts": [
+        "freelancer_event_player_enlists",
+        "freelancer_event_player_revolts",
+        "freelancer_event_player_captured",
+        "cf_freelancer_player_can_upgrade",
+        "freelancer_get_upgrade_xp",
+        "freelancer_equip_troop"
+      ],
+      "menus": [
+        "menu_world_map_soldier",
+        "menu_upgrade_path",
+        "menu_commander_aud",
+        "menu_ask_revolt",
+        "menu_ask_desert",
+        "menu_desert"
+      ],
+      "presentations": [
+        "prsnt_taragoth_lords_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "quest:13",
+        "quest:14",
+        "quest:17"
+      ],
+      "globals": [
+        "freelancer_state",
+        "enlisted_party",
+        "player_cur_troop"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis ad457 strig:115: weekly pay/xp and menu_upgrade_path",
+        "refs ad457 menu menu_world_map_soldier: trig:55/57"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "ad457.per_faction_ai_recalculation",
+      "name": "Targeted per-kingdom AI recalculation instead of world-wide rethinks",
+      "category": "performance-bugfix",
+      "summary": "When something changes for a kingdom (war or peace, a treaty, a centre changing hands, a lord changing sides, a battle result, a marshal change), 457 AD re-plans only the kingdoms involved, immediately, instead of setting Native's 'recalculate everything' flag that makes every kingdom and every lord re-plan. A slow round-robin also refreshes one kingdom per tick. This keeps campaign AI responsive and cheaper on big maps.",
+      "mechanics": "recalculate_ais_for_faction(faction) (13 stmts): for kingdoms (fac_player_supporters_faction..fac_manhunters) and minor factions -> init_ai_calculation_new(faction) (re-computes party strengths and nearby friend/enemy strengths only for that faction's lord parties, its centres and the player) -> decide_faction_ai(faction) -> calculate_troop_ai for that faction's lords only. 39 call sites replace Native's $g_recalculate_ais flag: diplomacy_start_war/peace_between_kingdoms and every dplmc_start_*_between_kingdoms (both factions), give_center_to_faction, change_troop_faction, player_join/leave_faction, activate_player_faction, game_event_simulate_battle, event_player_captured_as_prisoner, process_hero_ai, cf_launch_rebellion, marshal/feast/call-to-arms dialogs. strig:41 also calls it for one faction per tick. The global recalculate_ais remains only on the debug 'Force rethink for all factions' option.",
+      "hooks": [
+        "strig:41",
+        "script:diplomacy_start_war_between_kingdoms",
+        "script:give_center_to_faction",
+        "script:game_event_simulate_battle"
+      ],
+      "scripts": [
+        "recalculate_ais_for_faction",
+        "init_ai_calculation_new",
+        "decide_faction_ai",
+        "calculate_troop_ai",
+        "party_calculate_strength",
+        "party_calculate_and_set_nearby_friend_enemy_follower_strengths"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1356",
+        "dlg:2229",
+        "dlg:2234",
+        "dlg:2481",
+        "dlg:2829"
+      ],
+      "slots": [
+        "troop:2",
+        "troop:10",
+        "faction:21"
+      ],
+      "globals": [
+        "checked_faction"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis ad457 recalculate_ais_for_faction and init_ai_calculation_new",
+        "callers ad457 recalculate_ais_for_faction: 39 call sites (diplomacy, centre transfer, battles, dialogs)",
+        "callers ad457 recalculate_ais: only menu:faction_orders/opt:faction_orders_rethink_all"
+      ],
+      "overlaps": [
+        "be.async_round_robin_campaign_ai",
+        "bi.courage_update_staggering"
+      ]
+    }
+  ]
+}

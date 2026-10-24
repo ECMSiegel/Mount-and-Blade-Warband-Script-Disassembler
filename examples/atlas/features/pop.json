@@ -1,0 +1,1572 @@
+{
+  "module": "pop",
+  "features": [
+    {
+      "id": "pop.fief_heartbeat_problems",
+      "name": "Fief 'heartbeat' problems (steward summons to solve local crises)",
+      "category": "settlements-villages",
+      "summary": "Every few days one of the player's fiefs may develop a problem (rats, flood, curse/witch, clan blood-feud, horse thieves, wolves, refugees, fire, poisoned wells, captured heretic, cult spies, shrine dispute, disease, mercenaries asking for work, thieves, castle repairs, deserters, trade-route petitions). A messenger summons the player; he can ride there and choose one of four responses, pay 500 denars to have it handled remotely, or ignore it and lose honour, morale and village relation.",
+      "mechanics": "strig:20 (every 96h, 50% chance) picks a random center led by the player (get_number_of_hero_centers / troop_get_leaded_center_with_index), stores a problem id 1-13 in party slot 296 and raises menu_heartbeat_quest via add_notification_menu (or just a log line if $notif_village_help=1). menu:heartbeat_quest offers accept / pay 500 (clears slot 296) / decline (-1 honour, -5 party morale, -5 center relation, clears slot). When the player talks to the elder or seneschal of that fief, dlg:1065 (start state) fires if slot 296>=1, shows a random intro string, dlg:1066-1067 state the problem (str_heartbeat_problem_statement_N + variants a-d) and dlg:1068-1071 offer four responses that call pop3_heartbeat_resolve(choice, problem). The 2056-statement resolver rolls success against the player's skill 7 and the steward's skills 15/22/7/8 plus bonuses from built improvements it reads up front (party slots 250 herbalist, 257 hunting lodge, 259 sheriff, 265 church, 267 fire brigade, 270 shrine, 274 training grounds, 276 hospital, 278 cathedral, 283 well cleaners, 286 thieves guild, 287 town crier, 288 civic patrols, 289 knighthood chapter) and applies prosperity, gold, relation (center/faction/troop), renown, honour and morale changes, sometimes spawning parties (looters, heretics, mercenaries).",
+      "hooks": [
+        "strig:20",
+        "menu:heartbeat_quest",
+        "dlg:1065:dlga_start:heartbeat_intro_response_1:cond",
+        "dlg:1068:dlga_heartbeat_problem_selection:close_window:conseq",
+        "dlg:1069:dlga_heartbeat_problem_selection:close_window:conseq",
+        "dlg:1070:dlga_heartbeat_problem_selection:close_window:conseq",
+        "dlg:1071:dlga_heartbeat_problem_selection:close_window:conseq"
+      ],
+      "scripts": [
+        "pop3_heartbeat_resolve",
+        "pop3_heartbeat_offset",
+        "pop_commoner_talk",
+        "get_message_color",
+        "change_center_prosperity",
+        "change_player_relation_with_center",
+        "change_player_honor",
+        "change_player_party_morale"
+      ],
+      "menus": [
+        "menu_heartbeat_quest",
+        "menu_test_heartbeat",
+        "menu_center_income_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1065",
+        "dlg:1066",
+        "dlg:1067",
+        "dlg:1068",
+        "dlg:1069",
+        "dlg:1070",
+        "dlg:1071"
+      ],
+      "slots": [
+        "party:296",
+        "party:293",
+        "party:250",
+        "party:257",
+        "party:259",
+        "party:265",
+        "party:267",
+        "party:270",
+        "party:274",
+        "party:276",
+        "party:278",
+        "party:283",
+        "party:286",
+        "party:287",
+        "party:288",
+        "party:289"
+      ],
+      "globals": [
+        "notif_village_help",
+        "g_notification_menu_var1",
+        "g_encountered_party",
+        "g_talk_troop"
+      ],
+      "resources": {
+        "string": [
+          "str_heartbeat_intro_1..7",
+          "str_heartbeat_intro_response_1..7",
+          "str_heartbeat_problem_statement_1..18",
+          "str_heartbeat_problem_N_a..d",
+          "str_heartbeat_problem_response_N_a..d",
+          "str_heartbeat_quest_notif"
+        ],
+        "mesh": [
+          "mesh_pic_messenger"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:20: random player center -> party_set_slot 296, add_notification_menu menu_heartbeat_quest",
+        "dis menu:heartbeat_quest opts: pay 500 / decline -1 honour -5 morale -5 relation",
+        "dis dlg:1065 cond checks party slot 296>=1 for elder/seneschal",
+        "dis pop3_heartbeat_resolve lines 0-80: reads 14 improvement slots and steward skills",
+        "slot pop party 296: 8 accesses, all in this system",
+        "texts: 18 problem statements with a-d variants"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "acan.settlement_events_epidemics",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "ad457.settlement_disasters_epidemics",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "pop.fief_improvements_expanded",
+      "name": "Expanded fief buildings with damage, auto-repair and AI lord construction",
+      "category": "settlements-villages",
+      "summary": "Villages, castles and towns each get their own long list of buildings (about 38 in total: mine and prospecting, herbalist, market, skilled craftsmen, manor, fish pond, school, watch tower, messenger post, prison tower, winery, hunting lodge, foresters, sheriff, shrine, blacksmith, hospital, university, thieves guild, training grounds, church, cathedral, monastery, chapel, crop rotation, court system, warehouse, guilds, lamplighters, well cleaners, street sweepers, building inspectors, renderers, tax office, fire brigade, town crier, civic patrols, improved roads, sanitation). Buildings add base income and prosperity, can be damaged by war and are repaired over time; AI lords also spend their own wealth building in their fiefs.",
+      "mechanics": "get_improvement_details (243 stmts vs Native 32) maps party slots 250-289 to name/description/cost; ranges are per center type (village 250-272, castle 260-275, town 262-288). Slot value 1 = built and working, 2..9 = damaged level. strig:76 (12h) completes construction from Native slots 124/125 (improvement in progress / finish hour) and calls center_base_income_change(center, slot, 1) which adds the building's income/prosperity effect (221 stmts, also called when buildings are damaged in game_event_simulate_battle, village_set_state, peace/truce dialogs). auto_repair_buildings (strig:123, ~weekly) walks damaged buildings: AI fiefs repair by the steward/lord engineering skill (skill 8) per week; player fiefs repair only if Skilled Craftsmen (slot 268) is built and the player can afford 200 x skill denars. random_build_buildings (strig:124, every ~20 days) lets non-player lords (troop slot 11 = wealth) roll to build a missing building, paying 1/5 of the cost. Mines (slot 269) take a prospecting result (get_mineral_value) and give direct income; can be closed by steward dialog (dlg:2294-2296).",
+      "hooks": [
+        "strig:76",
+        "strig:123",
+        "strig:124",
+        "menu:center_manage",
+        "menu:center_improve",
+        "menu:center_income_report",
+        "menu:center_construction_report"
+      ],
+      "scripts": [
+        "get_improvement_details",
+        "center_base_income_change",
+        "auto_repair_buildings",
+        "random_build_buildings",
+        "get_mineral_value",
+        "pop2_location_improvements",
+        "get_center_ideal_prosperity"
+      ],
+      "menus": [
+        "menu_center_manage",
+        "menu_center_improve",
+        "menu_center_income_report",
+        "menu_center_construction_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2294",
+        "dlg:2295",
+        "dlg:3395"
+      ],
+      "slots": [
+        "party:250-289",
+        "party:124",
+        "party:125",
+        "party:293",
+        "party:25",
+        "troop:11"
+      ],
+      "globals": [
+        "g_improvements_built"
+      ],
+      "resources": {
+        "string": [
+          "qstr_Mine",
+          "qstr_Herbalist",
+          "qstr_Market",
+          "... ~38 building names and descriptions"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis get_improvement_details: 38 slot->name branches with descriptions incl. income/prosperity numbers",
+        "dis auto_repair_buildings: damaged range 2..9, steward skill 8, Skilled Craftsmen slot 268 gate, 200xskill gold",
+        "dis random_build_buildings: AI lords pay reg10/5 from troop slot 11",
+        "dis strig:76: slots 124/125 completion -> center_base_income_change"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "pop.sheriff_militia_patrols",
+      "name": "Sheriff improvement spawns village militia patrols",
+      "category": "caravans-patrols",
+      "summary": "Villages where the holder has hired a Sheriff periodically send out a named '<Village> Militia Patrol' that patrols a small radius around the village under the village's faction, thinning bandits near home.",
+      "mechanics": "spawn_friendlies (21 stmts), called from game_start and strig:17 (weekly): for every village with party slot 259 (Sheriff) = 1, 13% chance, global cap of 9 pt_militia parties; spawn_around_party, set slot 123 to the home village, rename '{s1} Militia Patrol', set faction to the village's, ai_behavior 3 (patrol) radius 5 around the village, and flag 65536. The sheriff also feeds refresh_village_defenders and heartbeat bonuses, and is built via menu:center_manage/opt:center_build_sheriff.",
+      "hooks": [
+        "strig:17",
+        "script:game_start",
+        "menu:center_manage/opt:center_build_sheriff"
+      ],
+      "scripts": [
+        "spawn_friendlies",
+        "refresh_village_defenders"
+      ],
+      "menus": [
+        "menu_center_manage"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:3413:dlga_village_elder_talk:village_elder_menu2.1"
+      ],
+      "slots": [
+        "party:259",
+        "party:123"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_militia"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis spawn_friendlies: full 21 stmts read",
+        "slot pop party 259: writers menu center_build_sheriff, readers spawn_friendlies/refresh_village_defenders/heartbeat",
+        "improvement text: 'sends out militia patrols'",
+        "explain: callers game_start, strig:17 (168h)"
+      ],
+      "overlaps": [
+        "pop.order_chapter_knight_patrols",
+        "sw.faction_town_patrols",
+        "tld.strength_scaled_hosts_and_patrols"
+      ]
+    },
+    {
+      "id": "pop.noble_recruit_pool",
+      "name": "Noble recruit pool for the player's kingdom",
+      "category": "recruitment-troops",
+      "summary": "When the player rules a kingdom, each week a pool of noble recruits grows from the player's towns and castles (more with a shrine or church, scaled by renown and honour). From the steward's 'war room' the player buys them into his court at 500 denars each (x1, x10 or all) as noble-line troops.",
+      "mechanics": "generate_noble_recruits (strig:17, weekly): only if $players_kingdom>0; for each center owned by the player: towns add 0-2, castles 0-1, villages 25% for 1; Shrine (party slot 270) and Church (265) each add 25% for +1; a bonus roll 1..min(6, renown/500 + honour/50 + 1) is added once. Total accumulates in faction slot 70 of fac_player_faction, with a fanfare log message if a center with a knighthood chapter (slot 289) contributed. Consumed by dlg:2370-2376 (pop2_war_room_noble_recruits) which take 500 per recruit and decrement slot 70; the troop type comes from the faction's noble line (s17).",
+      "hooks": [
+        "strig:17",
+        "dlg:2350:dlga_pop2_war_room_menu:pop2_war_room_noble_recruits:cond",
+        "dlg:2374",
+        "dlg:2375",
+        "dlg:2376"
+      ],
+      "scripts": [
+        "generate_noble_recruits",
+        "initialize_faction_troop_types_player_kingdom_only"
+      ],
+      "menus": [
+        "menu_character_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2350",
+        "dlg:2370",
+        "dlg:2373",
+        "dlg:2374",
+        "dlg:2375",
+        "dlg:2376"
+      ],
+      "slots": [
+        "faction:70",
+        "party:7",
+        "party:265",
+        "party:270",
+        "party:289",
+        "troop:7"
+      ],
+      "globals": [
+        "players_kingdom",
+        "player_honor"
+      ],
+      "resources": {
+        "sound": [
+          "snd_fanfare1"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis generate_noble_recruits: full 79 stmts",
+        "slot pop faction 70: writer generate_noble_recruits + 3 purchase dialogs, readers war-room dialogs and character_report",
+        "text: '{reg0} noble recruits have joined your cause'"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "pop.garrison_and_lord_training",
+      "name": "Passive training of lord parties and garrisons (with garrison sorting)",
+      "category": "recruitment-troops",
+      "summary": "Every two days AI lords' parties and all non-player garrisons gain free upgrade XP (more on easy campaign AI, less on hard); player fiefs train their garrisons according to the steward's trainer skill and training grounds. Garrisons are re-sorted so the best troops sit at the top of the stack list.",
+      "mechanics": "strig:31 (48h): for each active lord (troop slot 2 = 2) with a party (troop slot 10), XP = (trainer skill 17 + 5) x 1000 at 30% chance (35%/x1.5 on campaign AI 0, 25%/x0.5 on 2, player's own kingdom unaffected) via party_upgrade_with_xp. For each center not owned by the player: 3000 XP at the same chance scaling, then pop_sort_garrison. For player centers: XP = (steward trainer skill x 50 + 250) x (1 + clamp(training grounds slot 274, 0..2)) unless slot 349 is set. pop_sort_garrison selection-sorts companion stacks by level and troop slot 169 (power rating), weighting by troop slot 172 (type) and down-weighting special troops, preserving wounded counts.",
+      "hooks": [
+        "strig:31"
+      ],
+      "scripts": [
+        "pop_sort_garrison"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:2",
+        "troop:10",
+        "troop:169",
+        "troop:172",
+        "party:7",
+        "party:293",
+        "party:274",
+        "party:349"
+      ],
+      "globals": [
+        "players_kingdom"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:31: full 71 stmts",
+        "dis pop_sort_garrison: full 64 stmts",
+        "options_get_campaign_ai branches seen",
+        "sqlite: pop_sort_garrison only in pop"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "pop.king_hired_mercenary_companies",
+      "name": "Kings hire named mercenary companies that shadow their armies",
+      "category": "mercenaries",
+      "summary": "Occasionally a king hires a mercenary company (either a famous named company with its own captain, or a generic one) which spawns at his capital, joins his faction and follows/attaches to him. The player's minister can do the same for the player's kingdom, and the player can give the hired company orders. When a center comes under serious threat the company is detached to attack the threat.",
+      "mechanics": "cf_reinforce_party (620 stmts vs Native 49) for king parties: from day 2, if the king's troop slot 161 (hired company party) is empty/inactive, 4% chance per reinforcement; picks one of ~14 company options per kingdom (unique_hero_can_spawn gate for named captains, e.g. Griffonsword/Meregan, Ironsword/Kodan, Mettenheim, Veccavia, Barclay, Melitine, Marleons, Snow Lions, Unicorns) else a generic pt_merc_*; generate_mercenary_company(king, leader, template) spawns at the king's party (troop slot 10), sets faction, aggressiveness 6/courage 9/initiative 50, attaches to the king's attached-to party or escorts him (ai_behavior 10), stores the party in troop slot 161 and announces with snd_kinghorn. process_alarms (modified) detaches that company and sends it at an enemy whose strength >=7000 near a center. kt_party_calculate_strength_with_attachments counts attached parties in strength checks. Player side: dlg:611/627 pop_minister_hire_mercs, dlg:3915-3929 player_merc_talk/give_order/dismiss.",
+      "hooks": [
+        "strig:27",
+        "strig:56",
+        "strig:41",
+        "dlg:627:dlga_pop_minister_hire_mercs_confirm:minister_pretalk.1:conseq",
+        "dlg:3929:dlga_player_merc_dismiss:close_window:conseq",
+        "dlg:3921:dlga_player_merc_give_order:player_merc_give_order_answer:conseq"
+      ],
+      "scripts": [
+        "cf_reinforce_party",
+        "generate_mercenary_company",
+        "unique_hero_can_spawn",
+        "process_alarms",
+        "kt_party_calculate_strength_with_attachments",
+        "kt_party_calculate_strength",
+        "calculate_player_faction_wage"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:611",
+        "dlg:627",
+        "dlg:3915",
+        "dlg:3916",
+        "dlg:3921",
+        "dlg:3926",
+        "dlg:3928",
+        "dlg:3929"
+      ],
+      "slots": [
+        "troop:161",
+        "troop:10",
+        "troop:8",
+        "party_template:6"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_griffonsword",
+          "pt_ironsword",
+          "pt_player_merc_generic",
+          "pt_player_merc_mettenheim",
+          "pt_player_merc_mettenheim_2",
+          "pt_player_merc_veccavian",
+          "pt_player_merc_barclay",
+          "pt_player_merc_melitine",
+          "pt_player_merc_marleons",
+          "pt_player_merc_snowlions",
+          "pt_player_merc_unicorns",
+          "pt_player_merc_jatu",
+          "pt_merc_generic",
+          "pt_merc_singalian",
+          "pt_merc_vanskerry"
+        ],
+        "troop": [
+          "trp_merc_leader_*",
+          "trp_hero_meregan",
+          "trp_hero_kodan",
+          "trp_morcas",
+          "trp_timothy"
+        ],
+        "sound": [
+          "snd_kinghorn"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis generate_mercenary_company: full 45 stmts",
+        "dis cf_reinforce_party lines 185-291: 4% roll, per-king company list, generate_mercenary_company call",
+        "diff process_alarms native vs pop: strength >=7000 + troop slot 161 detach and ai_behavior 10",
+        "slot pop troop 161: 26 accesses incl. minister hire/dismiss dialogs and budget_report",
+        "dis kt_party_calculate_strength_with_attachments: sums attached parties"
+      ],
+      "overlaps": [
+        "bi.legion_mercenary_camps"
+      ]
+    },
+    {
+      "id": "pop.knighthood_order_membership",
+      "name": "Joinable knighthood orders with rank points, order quests and expulsion",
+      "category": "reputation-relations",
+      "summary": "The player can petition a knighthood order at its chapterhouse, pass a test of arms in the arena against the order's champion, and become a member. Order work (bounty hunting, winning a tournament in the order's name, a 'challenge' of many victories with lent order troops, settling a rivalry with another order) earns rank points; seven rank tiers unlock titles, order armour sets and recruitment of the order's knights. Acting against the order strips membership.",
+      "mechanics": "Membership is stored on the player as troop slot 162 (order leader/troop whose faction is the order). Joining: dlg:3877 (hall_order_join_confirm) sets $g_order_challenge_troop and jumps to mst_arena_heroic_challenge_fight in the nearest town's arena (party slot 16). change_rank_points_with_order(order_faction, points) scales points by (relation order<->player faction + 100)/100 and accumulates in faction slot 71; get_rank_from_rank_points maps 30/60/100/150/220/300 thresholds to ranks 1-7. Order quest givers (hall_order_guard_talk -> order_choose_quest dlg:3879-3884) issue qst_order_bounty / qst_order_tournament / order challenge / qst_order_rivalry; rewards (dlg:3891, 3898, 3904, 3912) give XP, renown, honour, faction relation and 6-8+ rank points (bounty scales by value killed). Promotions dlg:3796/3811; expulsion dlg:3799; resignation dlg:3867/3871; order books can be sold for rank (dlg:3842/3844); armour sets bought via buy_order_armour_set.",
+      "hooks": [
+        "dlg:3877:dlga_hall_order_join_confirm:close_window:conseq",
+        "dlg:3840:dlga_hall_order_guard_talk:order_choose_quest:cond",
+        "dlg:3891:dlga_order_bounty_reward:close_window:conseq",
+        "dlg:3898:dlga_order_tournament_reward:close_window:conseq",
+        "dlg:3904:dlga_order_challenge_reward:order_challenge_reward_mercs:conseq",
+        "dlg:3912:dlga_order_rivalry_reward:close_window:conseq",
+        "dlg:3796:dlga_start:close_window.56:conseq",
+        "dlg:3799:dlga_start:close_window.59:conseq"
+      ],
+      "scripts": [
+        "change_rank_points_with_order",
+        "get_rank_from_rank_points",
+        "get_knighthood_order_info",
+        "finish_quest_simple",
+        "reward_for_quest_per_player_level"
+      ],
+      "menus": [
+        "menu_order_relations_report",
+        "menu_camp_quests35"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_arena_heroic_challenge_fight"
+      ],
+      "dialogs": [
+        "dlg:3838-3849 hall_order_guard_talk",
+        "dlg:3867-3877 hall_order_join/resign",
+        "dlg:3879-3884 order_choose_quest",
+        "dlg:3891",
+        "dlg:3898",
+        "dlg:3904",
+        "dlg:3912",
+        "dlg:3796",
+        "dlg:3799",
+        "dlg:3811"
+      ],
+      "slots": [
+        "troop:162",
+        "faction:71",
+        "party:16"
+      ],
+      "globals": [
+        "g_order_challenge_won",
+        "g_order_challenge_troop",
+        "g_talk_troop_faction"
+      ],
+      "resources": {
+        "quest": [
+          "qst_order_bounty",
+          "qst_order_tournament",
+          "qst_order_rivalry"
+        ],
+        "faction": [
+          "fac_dragon_knights .. fac_player_knights (knighthood order factions)"
+        ],
+        "troop": [
+          "trp_dragon_knight",
+          "trp_lion_knight",
+          "trp_radiant_cross_knight",
+          "..."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis change_rank_points_with_order and get_rank_from_rank_points (full)",
+        "dis dlg:3877 conseq: arena challenge jump",
+        "dis reward dialogs 3891/3898/3912: rank point awards",
+        "slot pop troop 162: 51 accesses incl. promotion/expulsion/resign dialogs",
+        "texts: order quest prompts dlg:3880-3883"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "pop.player_founded_order",
+      "name": "Player-founded knighthood order with customizable, trainable troops",
+      "category": "recruitment-troops",
+      "summary": "A ruling player can found a chapter of a knighthood order in one of his fiefs (20-30k denars plus a special item), name it and pick colours, induct ordinary troops into it for gold and prestige, pay to permanently improve the order's knights and sergeants, have a companion drill them for weeks, and upgrade their equipment at an order blacksmith. AI lords of fiefs with a chapter get order knights in their reinforcements.",
+      "mechanics": "War-room dialogs off the fief steward (dlg:2350-2431): create_order (dlg:2426) charges 20000/25000/30000 by order type and removes itm_qualis, sets party slot 289 (chapter troop) and prsnt_name_order/randomize_color; train_order_troops (dlg:2418-2422) converts troops for gold and prestige (player troop slot 156); improve_troops (dlg:2413-2414) raises attributes +2 and seven proficiencies +20 on the troop TEMPLATE (trp_player_knight or custom knights 419-425) and backs it up with copy_complete_troop. strig:10 (18h) lets a companion assigned as trainer (troop slot 152 = 9) raise the order troops' attributes/skills toward his own. Equipment upgrades: find_item_to_upgrade / get_item_upgrade_cost_and_time / order_blacksmith_* globals. Persistence: strig:3 (every frame) runs detect_load_restore_custom_troops which, when a dummy troop's inventory slot is empty (fresh load), copies the *_save backups back onto the live order troops. cf_reinforce_party adds 1-3 order knights (and drakes) to lords whose fief has slot 289.",
+      "hooks": [
+        "dlg:2351:dlga_pop2_war_room_menu:pop2_war_room_create_order:cond",
+        "dlg:2426:dlga_pop2_war_room_create_order:pop2_war_room_create_order_after:conseq",
+        "dlg:2414:dlga_pop2_war_room_improve_troops_response:pop2_war_room_improve_troops_done:conseq",
+        "dlg:2419",
+        "dlg:2420",
+        "dlg:2358:dlga_dismantle_ko_confirm1:pop2_war_room_menu:conseq",
+        "dlg:472:dlga_member_train_order_3:close_window:cond",
+        "strig:10",
+        "strig:18",
+        "strig:3"
+      ],
+      "scripts": [
+        "copy_complete_troop",
+        "copy_inventory",
+        "detect_load_restore_custom_troops",
+        "get_knighthood_order_info",
+        "find_item_to_upgrade",
+        "get_item_upgrade_cost_and_time",
+        "prepare_dummy_and_wardrobe_for_upgrade",
+        "copy_upgrade_to_all_heroes",
+        "cf_reinforce_party",
+        "randomize_color"
+      ],
+      "menus": [
+        "menu_upgrade_screen",
+        "menu_auto_name_order",
+        "menu_notification_order_founded"
+      ],
+      "presentations": [
+        "prsnt_name_order",
+        "prsnt_order_founded"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2350-2431 pop2_war_room_*",
+        "dlg:440-472 member_train_order_*"
+      ],
+      "slots": [
+        "party:289",
+        "troop:156",
+        "troop:152",
+        "troop:162"
+      ],
+      "globals": [
+        "players_order_name_set",
+        "order_blacksmith_days",
+        "order_blacksmith_item",
+        "order_blacksmith_modifier",
+        "order_stronghold_upgrade_days",
+        "cko_training_time_var",
+        "g_presentation_obj_name_order_knight"
+      ],
+      "resources": {
+        "troop": [
+          "trp_player_knight",
+          "trp_player_sergeant",
+          "trp_player_knight_save",
+          "trp_player_sergeant_save",
+          "trp_custom_knight_1..7(_save)",
+          "trp_load_detector"
+        ],
+        "item": [
+          "itm_qualis"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis dlg:2426 conseq: cost tiers 20k/25k/30k + itm_qualis",
+        "dis dlg:2414 conseq: troop_raise_attribute / proficiency on order troop template + backup",
+        "dis detect_load_restore_custom_troops + strig:3",
+        "dis strig:10 head: trainer companion slot 152=9 raises order troop attributes",
+        "dis cf_reinforce_party 173-184: chapter slot 289 adds order knights to lords"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "pop.ai_minor_order_generation",
+      "name": "Procedurally generated minor knighthood orders that settle in AI fiefs",
+      "category": "dynamic-world-events",
+      "summary": "Rarely (5% every 13 days) a new minor knighthood order is founded in an AI lord's castle: it gets a random colour/animal name, a randomly assembled knightly equipment set, diplomatic relations seeded from the host kingdom, and the host lord becomes affiliated. Orders whose last chapterhouse was lost can re-found after the first year once the player is above level 30.",
+      "mechanics": "strig:128 (312h, 5%): pick a random castle/town with no chapter (party slot 289 = 0), not under siege (slot 54 = -1), owned by a regular lord; generate_minor_order finds an unused minor-order faction (65-71) whose chapter troop (faction slot 68) is not placed, calls generate_minor_order_knight (949 stmts: builds a knight troop's inventory from pools of knightly helmets/armour/shields/horses via pop_add_item_to_list, troop_add_random_item_if_missing, gives a colour+animal name, saves via copy_complete_troop) and sets relations to the host faction 90 and to others = host's relation +-30. Then party slot 289 = chapter troop, lord troop slots 158/159/160 record affiliation, notification menu_notification_order_founded. strig:127 (384h, 5%, day>365, player level>30) re-founds a major order (fac_dragon_knights..fac_player_knights) that has no chapter in a random kingdom's free fief. Chapters spawn order patrols via spawn_errant_knights (strig:82).",
+      "hooks": [
+        "strig:127",
+        "strig:128",
+        "menu:camp_vader/opt:camp_vader_randorder1:conseq"
+      ],
+      "scripts": [
+        "generate_minor_order",
+        "generate_minor_order_knight",
+        "pop_add_item_to_list",
+        "troop_add_random_item_if_missing",
+        "troop_add_random_item",
+        "randomize_color",
+        "copy_complete_troop",
+        "cf_item_is_knightly",
+        "spawn_errant_knights"
+      ],
+      "menus": [
+        "menu_notification_order_founded"
+      ],
+      "presentations": [
+        "prsnt_order_founded"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:289",
+        "party:54",
+        "party:7",
+        "faction:68",
+        "faction:22",
+        "faction:23",
+        "troop:158",
+        "troop:159",
+        "troop:160",
+        "troop:172"
+      ],
+      "globals": [
+        "pop_list_num_items"
+      ],
+      "resources": {
+        "faction": [
+          "minor order factions (ids 65-71)"
+        ],
+        "troop": [
+          "trp_temp_array_a",
+          "trp_rav_knight",
+          "trp_custom_knight_1_save"
+        ],
+        "item": [
+          "~360 knightly items referenced"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:128 and strig:127 (head)",
+        "dis generate_minor_order (full)",
+        "explain generate_minor_order_knight: 949 stmts, inventory 53%, 368 item refs"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "pop.renegade_and_merc_warbands",
+      "name": "Level-scaled renegade knight and wandering mercenary warbands",
+      "category": "bandits-outlaws",
+      "summary": "Every four days the world may spawn a renegade band (renegade knights of a kingdom, outlaw orders, adventurer companies, treasure hunters) near a regional spawn point; their size scales with the player's level. Separately, each nationality of mercenaries (Barclay, Mettenheim incl. Freikorps, Veccavia, Melitine) has a 10% chance per tick to field a company near a training ground, and rarely a named mercenary captain leads it instead.",
+      "mechanics": "strig:15 (96h) -> spawn_renegade (679 stmts). A 1-105 roll selects a band type; cap of 24 pt_ren_knights. Composition comes from cf_generate_renegade_troop_amount: with L = min(player level, 40), knights = L/5 + 1..2, squires = L/2 + 3..6, footmen = L + 5..9 (reg16/17/18). Band name depends on whether the kingdom still exists (faction slot 21 = 0 -> 'Sarleon', else 'Eastern' etc.). Some carry captive ladies (party_add_prisoners) as rescue bait. Tail section (after day 10, 10% each): spawns pt_merc_* companies around p_training_ground_1..5 with per-template caps (3/2/4/3/4); 5% of those rolls instead spawn a unique captain party (Rufio, Obrist Heynrich, Verante, Kaspax) if unique_hero_can_spawn allows. Log messages + sounds announce rare spawns.",
+      "hooks": [
+        "strig:15"
+      ],
+      "scripts": [
+        "spawn_renegade",
+        "cf_generate_renegade_troop_amount",
+        "unique_hero_can_spawn"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21",
+        "party_template:6"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_ren_knights",
+          "pt_adventurers",
+          "pt_fadventurers",
+          "pt_merc_barclay",
+          "pt_merc_freikorps_mettenheim",
+          "pt_merc_mettenheim",
+          "pt_merc_veccavian",
+          "pt_melitine_medium_spawn",
+          "pt_barclay_rufio",
+          "pt_mett_obrist",
+          "pt_vecc_verante",
+          "pt_melitine_kaspax"
+        ],
+        "party": [
+          "p_color1..5_*_spawn_point",
+          "p_training_ground_1..5"
+        ],
+        "troop": [
+          "73 PoP troops (knights/squires/renegades)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis spawn_renegade lines 0-140 and 556-679",
+        "dis cf_generate_renegade_troop_amount (full)"
+      ],
+      "overlaps": [
+        "acw.partisan_bands",
+        "cbl.regional_bandit_spawn_points",
+        "pop.lord_party_deserters",
+        "pop.minor_faction_repression_meter",
+        "pop.unique_signature_heroes"
+      ]
+    },
+    {
+      "id": "pop.unique_signature_heroes",
+      "name": "Named 'signature' warlords with patrols, repeatable until defeated and dealt with",
+      "category": "dynamic-world-events",
+      "summary": "Named villains and heroes (Burilgi the Usurper, Oswald de Fleur, Boris the Raven, Meregan/Griffonsword, Kodan/Ironsword, Shalavan, Syla, Wolfbode, Eyegrim, the Dread Legion, Three Seers, Inquisitor Rasmus...) appear with big unique armies announced by 'word reaches you' messages. Some field satellite patrols. After the player defeats and captures the leader he can execute him, ransom his armour, or exile him -- which permanently prevents that army from returning. Tavern/lord news points the player at them.",
+      "mechanics": "unique_hero_can_spawn(hero, template) is the shared gate used by 68 call sites: returns reg34=1 only if party_template slot 6 (retired) is 0, no party of that template exists, the hero is not the player's prisoner and not in the player's party; on success heals the hero to 100%. spawn_signature (strig:17 weekly, also from lord news dlg:1491 and manhunter dlg:214) rolls and spawns the named party at a fixed spawn point with message + sound. spawn_signature_patrols (strig:17) keeps up to 4 patrol parties around each living signature party (party_template slot 7 = home), patrolling radius 1. signature_repression_for_death_and_defeat (dlg:3681-3688 prisoner_chat_sig3) sets party_template slot 6 = 1 for the matching template (retire/exile/death), ending its respawns. game_event_simulate_battle also sets slot 6 on AI defeat in some cases.",
+      "hooks": [
+        "strig:17",
+        "dlg:1491:dlga_lord_tell_news:lord_pretalk:cond",
+        "dlg:214:dlga_manhunter_talk_b1:manhunter_talk_b2:conseq",
+        "dlg:3681:dlga_prisoner_chat_sig3:prisoner_chat_threat_retire:conseq",
+        "dlg:3688:dlga_prisoner_chat_sig3:close_window.4:conseq"
+      ],
+      "scripts": [
+        "unique_hero_can_spawn",
+        "spawn_signature",
+        "spawn_signature_patrols",
+        "signature_repression_for_death_and_defeat",
+        "sub_scenario_signature_information",
+        "cf_spawn_azi_death_cult",
+        "game_event_simulate_battle"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:3681",
+        "dlg:3682",
+        "dlg:3683",
+        "dlg:3685",
+        "dlg:3688",
+        "dlg:1491",
+        "dlg:214"
+      ],
+      "slots": [
+        "party_template:6",
+        "party_template:7"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_burilgi_the_usurper",
+          "pt_oswald",
+          "pt_boristheraven",
+          "pt_griffonsword",
+          "pt_ironsword",
+          "pt_shalavan",
+          "pt_syla_uzas",
+          "pt_eyegrim(_patrol)",
+          "pt_dread_legion(_patrol)",
+          "pt_wolfbode(_patrol)",
+          "pt_three_seers(_patrol)",
+          "pt_inquisitor_rasmus_patrol"
+        ],
+        "troop": [
+          "trp_hero_* (19 signature heroes)"
+        ],
+        "sound": [
+          "snd_bellchant",
+          "snd_drums"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis unique_hero_can_spawn (full 35 stmts)",
+        "slot pop party_template 6: writer signature_repression_for_death_and_defeat (19 sets), readers unique_hero_can_spawn/generate_mercenary_company",
+        "dis spawn_signature_patrols head",
+        "explain spawn_signature: 'Word reaches you...' strings"
+      ],
+      "overlaps": [
+        "acw.partisan_bands",
+        "cbl.regional_bandit_spawn_points",
+        "pop.lord_party_deserters",
+        "pop.minor_faction_repression_meter",
+        "pop.renegade_and_merc_warbands"
+      ]
+    },
+    {
+      "id": "pop.minor_faction_repression_meter",
+      "name": "Invader-faction strength meter driven by the player's kills",
+      "category": "bandits-outlaws",
+      "summary": "Each hostile minor faction (Snake Cult, Jatu, Mystmountain, Heretics; also Vanskerry, Noldor, Inquisition reported) has a strength score shown in a victory-progress report as Obliterated..Overwhelming. Destroying their armies and warbands lowers the score, which lowers how often they spawn; leaving them alone lets them grow.",
+      "mechanics": "determine_victory_conditions_and_text (strig:83 every 42h, strig:84 daily, menu:victory_progress_report) computes for each faction score = 100 + weighted live parties (army 20, warband 3, unique 50, small 1) - weighted parties destroyed by the player (store_num_parties_destroyed_by_player: army 23, warband 4, unique 60) and stores it in faction slot 66; repression_string_info maps it to a word. spawn_snake_cult / spawn_jatu / spawn_mystmountain / spawn_heretics read faction slot 66 (val_max 50) as the percent chance to spawn this tick. strig:84 also flags kingdoms with zero centers/lord parties as defeated (faction slot 21) and clears related invader parties (e.g. Inquisition when D'Shar falls).",
+      "hooks": [
+        "strig:83",
+        "strig:84",
+        "strig:82",
+        "menu:victory_progress_report"
+      ],
+      "scripts": [
+        "determine_victory_conditions_and_text",
+        "repression_string_info",
+        "faction_relations_text_reporter",
+        "spawn_snake_cult",
+        "spawn_jatu",
+        "spawn_mystmountain",
+        "spawn_heretics"
+      ],
+      "menus": [
+        "menu_victory_progress_report"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:66",
+        "faction:20",
+        "faction:21"
+      ],
+      "globals": [
+        "inquisition_spawn_region",
+        "supported_pretender"
+      ],
+      "resources": {
+        "faction": [
+          "fac_snake_cult",
+          "fac_jatu",
+          "fac_mystmountain",
+          "fac_heretics"
+        ],
+        "pt": [
+          "pt_snake_cult(_army/_warband)",
+          "pt_jatu_army",
+          "pt_mystmountain_army",
+          "pt_heretics_army",
+          "pt_dread_legion",
+          "..."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis determine_victory_conditions_and_text lines 0-50 and 268-298 (formula)",
+        "slot pop faction 66: writer determine_victory_conditions_and_text/game_start (130), readers 4 spawn scripts",
+        "dis spawn_snake_cult head: faction_get_slot 66, val_max 50, compare to d100",
+        "dis strig:84 head"
+      ],
+      "overlaps": [
+        "acw.partisan_bands",
+        "cbl.regional_bandit_spawn_points",
+        "pop.lord_party_deserters",
+        "pop.renegade_and_merc_warbands",
+        "pop.unique_signature_heroes"
+      ]
+    },
+    {
+      "id": "pop.fief_stewards_with_skills",
+      "name": "Fief stewards with real skills that the player can train",
+      "category": "kingdom-management",
+      "summary": "Every town/castle seneschal and village elder is a skilled steward (random skills at game start). Their engineering, trade, trainer and other skills drive building repair and AI construction, garrison training, heartbeat-crisis outcomes and income. The lord can hold a paid 'training session' (a few hours of waiting, 150 denars per hour) that raises the steward's skills up to the best in the player's party. The steward is also the hub for feasts, tournaments, gossip, mine closing and the war room.",
+      "mechanics": "initialize_steward_skills (from game_start) gives each seneschal (trp_town_1_seneschal..) 69 random skill points and each village elder 39. game_start / pop2_location_improvements store the steward troop in party slot 293. pop_check_steward_skills(steward) totals the gap between the steward's skills and get_max_skill_of_player_party; menu:steward_training (reached from dlg:2293 steward_menu3 / dlg:3393 village_elder_menu3) prices it at hours = gap (3..18) and 150 denars/hour; confirm (opt:steward_training_confirm) pays, calls pop_train_steward (raises each of ~14 skills, e.g. 27, 0, 7, 22, 9 ..., to the party max with troop_raise_skill) and rests in the town for the duration. Consumers: auto_repair_buildings / random_build_buildings (skill 8 engineering), strig:31 garrison XP (skill 17 trainer), pop3_heartbeat_resolve (skills 7/8/15/22), menu:center_improve text ('Your steward, with an engineering skill of ...').",
+      "hooks": [
+        "dlg:2282:dlga_start:steward_menu:cond",
+        "dlg:2293:dlga_steward_menu:steward_menu3:cond",
+        "dlg:3393:dlga_village_elder_talk:village_elder_menu3:cond",
+        "menu:steward_training/opt:steward_training_confirm:conseq",
+        "script:game_start"
+      ],
+      "scripts": [
+        "initialize_steward_skills",
+        "pop_check_steward_skills",
+        "pop_train_steward",
+        "get_max_skill_of_player_party",
+        "pop2_location_improvements"
+      ],
+      "menus": [
+        "menu_steward_training",
+        "menu_steward_training_complete"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2282-2431 steward_menu*",
+        "dlg:3393 village_elder_menu3"
+      ],
+      "slots": [
+        "party:293",
+        "party:295"
+      ],
+      "globals": [
+        "pop_train_steward_hours",
+        "auto_enter_town",
+        "g_town_visit_after_rest",
+        "g_last_rest_center"
+      ],
+      "resources": {
+        "mesh": [
+          "mesh_pic_pendor_village_training"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis menu:steward_training + confirm option (full)",
+        "dis initialize_steward_skills (full)",
+        "dis pop_train_steward head: skill-by-skill raise to party max",
+        "slot pop party 293: 57 accesses across improvements, training, heartbeat"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "pop.party_screen_hotkeys",
+      "name": "Party/garrison exchange-screen hotkeys (take all, move stacks)",
+      "category": "qol-ui",
+      "summary": "On the party exchange screen the player can press Ctrl+A to take all prisoners and Ctrl+S to take all troops from the other side (up to capacity, keeping wounded counts); in garrison management arrow keys and Page Up/Down move the selected troop stack between party and garrison or reorder it.",
+      "mechanics": "The engine calls game_get_troop_wage for every stack while the exchange screen is open; PoP's version stores the queried troop/party in troop slots 405/407 of a dummy troop (trp_quick_battle_6_player) and calls initialize_exchange_screen_extensions(troop) first. That script polls key_is_down: with slot 406 = 10 (loot/prisoner exchange opened from menus/trig:31) Ctrl+A moves p_temp_party prisoners into p_main_party and Ctrl+S moves companions (respecting free capacity and wounded); with slot 406 = 12 (garrison management opened via menu:town/opt:castle_station_troops, old_ruins, camp master) up/down/page-up/page-down move the hovered stack (slot 405 = last queried troop) between p_main_party and $current_town using party_add_party_companions on p_temp_party as scratch. Mode flag 406 is set by the menus that open the screen.",
+      "hooks": [
+        "script:game_get_troop_wage",
+        "menu:town/opt:castle_station_troops:conseq",
+        "menu:old_ruins/opt:camp_station_troops:conseq",
+        "dlg:3470:dlga_camp_master_garrison_1:camp_master_pretalk:conseq",
+        "trig:31:conseq"
+      ],
+      "scripts": [
+        "initialize_exchange_screen_extensions",
+        "game_get_troop_wage",
+        "party_add_party_companions"
+      ],
+      "menus": [
+        "menu_town",
+        "menu_old_ruins"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:3470"
+      ],
+      "slots": [
+        "troop:405",
+        "troop:406",
+        "troop:407"
+      ],
+      "globals": [
+        "current_town",
+        "g_move_heroes"
+      ],
+      "resources": {
+        "troop": [
+          "trp_quick_battle_6_player (dummy slot holder)"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis game_get_troop_wage head: troop_set_slot 407, call initialize_exchange_screen_extensions, troop_set_slot 405",
+        "dis initialize_exchange_screen_extensions: key_left_control+key_a / +key_s / key_up / key_down / key_page_up / key_page_down branches",
+        "slot pop troop 406: set to 10/12 by station-troops menus and trig:31",
+        "explain entry points include prsnt:budget_report and menu:morale_report (wage queries)"
+      ],
+      "overlaps": [
+        "awoiaf.party_screen_hotkeys",
+        "tld.exchange_screen_hotkeys"
+      ]
+    },
+    {
+      "id": "pop.companion_unique_troop_requests",
+      "name": "Ask companions or friendly lords to find special troops",
+      "category": "companions-heroes",
+      "summary": "The player can ask a companion (or a friendly lord) for help finding soldiers. Depending on a weekly random roll, the NPC offers a few troops tied to his background (e.g. a sword sister, Myst warriors, a D'Shar chieftain) for a price, says to ask again next week, or notes there is no room in the party.",
+      "mechanics": "ask_companions_for_unique_troops(npc, kind) uses weekly-refreshed randoms $event_rand_1a/1b (update_event_rand): <30 nothing, else maps each companion/lord to a background troop in reg35 and computes a count in reg36 (1-5 depending on kind); dialog states dlg:1483-1488 quote a cost in reg37, check party space and add the troops on acceptance. Entry from companion talk (dlg:438 member_question_2), companion re-meet/rehire (dlg:547/551/565) and lord talk (dlg:1482).",
+      "hooks": [
+        "dlg:438:dlga_member_question_2:ask_companions_for_unique_troops:conseq",
+        "dlg:547:dlga_companion_recruit_meet_again:ask_companions_for_unique_troops:conseq",
+        "dlg:551:dlga_companion_recruit_secondchance:ask_companions_for_unique_troops:conseq",
+        "dlg:1482:dlga_lord_talk_ask_something_2:ask_companions_for_unique_troops:conseq",
+        "dlg:1486:dlga_ask_companions_for_unique_troops_2:close_window:conseq"
+      ],
+      "scripts": [
+        "ask_companions_for_unique_troops",
+        "update_event_rand"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:438",
+        "dlg:547",
+        "dlg:551",
+        "dlg:565",
+        "dlg:1482",
+        "dlg:1483-1488"
+      ],
+      "slots": [],
+      "globals": [
+        "event_rand_1a",
+        "event_rand_1b"
+      ],
+      "resources": {
+        "troop": [
+          "~20 companion->troop mappings (trp_sword_sister, trp_myst_warrior, trp_dshar_chieftain, trp_vanskerry_jarl, ...)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis ask_companions_for_unique_troops lines 0-40 and 180-222",
+        "texts dlg:1483-1488 (offer/cost/no space/next week)",
+        "explain: 5 dialog callers"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "pop.order_chapter_knight_patrols",
+      "name": "Knight patrols sent out from knighthood chapterhouses",
+      "category": "caravans-patrols",
+      "summary": "Fiefs hosting a knighthood order chapter periodically send out small knight patrols ('Errant Knights', 'Questing Lords', 'Order Knights'...) that patrol around the fief under the fief's or the order's colours, sometimes mixed with the order's sergeants. A separate band of mysterious knights roams one region.",
+      "mechanics": "spawn_errant_knights (game_start + strig:82 every 16h): for each center, reads its chapter troop (party slot 289) and order faction (faction slot 69 = sergeant troop); per-order probabilities decide whether the patrol flies the order's faction instead of the fief's and whether sergeants join. Global cap 9 pt_errant_knights; spawned around the fief, slot 123 = home, ai patrol radius 5, flag 65536, random knightly name, 4-12 knights or 6-20 knights + 10-25 sergeants. A second block (15%, cap 13) spawns Silvermist/Ebony 'Clandestine Patrol' knights at p_color5_black_spawn_point.",
+      "hooks": [
+        "strig:82",
+        "script:game_start"
+      ],
+      "scripts": [
+        "spawn_errant_knights"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:289",
+        "party:123",
+        "faction:68",
+        "faction:69"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_errant_knights"
+        ],
+        "faction": [
+          "fac_silvermist_knights",
+          "fac_ebony_knights"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis spawn_errant_knights lines 0-40, 168-294",
+        "explain: callers game_start, strig:82"
+      ],
+      "overlaps": [
+        "pop.sheriff_militia_patrols",
+        "sw.faction_town_patrols",
+        "tld.strength_scaled_hosts_and_patrols"
+      ]
+    },
+    {
+      "id": "pop.lord_party_deserters",
+      "name": "Deserter bands splitting off from lords' armies",
+      "category": "bandits-outlaws",
+      "summary": "Weekly, each active non-player-faction lord on the map has a 5% chance that a band of deserters (his faction's recruits, promoted one to three times, sized by player level) appears next to his army.",
+      "mechanics": "spawn_deserters (strig:17): cap 8 pt_deserters; for each active lord (troop slot 2 = 2) not in fac_player_supporters_faction whose party (troop slot 10) is not inside a town, 5% -> spawn_around_party radius 4, add 10..(2 x player level + 11) of the faction's tier-1 troop (faction slot 41, Native slot_faction_tier_1_troop), then party_upgrade_with_xp 1,000,000 one to three times.",
+      "hooks": [
+        "strig:17"
+      ],
+      "scripts": [
+        "spawn_deserters"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:2",
+        "troop:10",
+        "faction:41"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_deserters"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis spawn_deserters (full 29 stmts)"
+      ],
+      "overlaps": [
+        "acw.partisan_bands",
+        "cbl.regional_bandit_spawn_points",
+        "pop.minor_faction_repression_meter",
+        "pop.renegade_and_merc_warbands",
+        "pop.unique_signature_heroes"
+      ]
+    },
+    {
+      "id": "pop.raid_refugees",
+      "name": "Refugees and looters spawned by raids and conquests",
+      "category": "dynamic-world-events",
+      "summary": "When a village is raided or a castle/town falls, groups of refugees (some guarded), desperate looters and occasionally Red Brotherhood slavers spill out around it, giving the war visible aftermath and rescue/robbery opportunities.",
+      "mechanics": "generate_refugees(center, radius) is called from process_village_raids (on raid) and menu:castle_taken. It spawns 0-1 groups (+2 for towns); per group a d150 roll: <30 pt_refugees (cap 9, faction of the center, slot 123 = home), <50 pt_refugees_guarded (cap 11), <100 pt_looters renamed 'Desperate Refugees'/'Rabble'/'Hungry Refugees'/'Angry Peasants' (cap 18), else Red Brotherhood variants (thieves, outlaws, slavers with captive ladies).",
+      "hooks": [
+        "menu:castle_taken",
+        "script:process_village_raids"
+      ],
+      "scripts": [
+        "generate_refugees",
+        "process_village_raids"
+      ],
+      "menus": [
+        "menu_castle_taken"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:123",
+        "party:0"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_refugees",
+          "pt_refugees_guarded",
+          "pt_looters",
+          "pt_red_brotherhood"
+        ],
+        "faction": [
+          "fac_innocents",
+          "fac_red_brotherhood"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis generate_refugees lines 0-45",
+        "explain: callers menu:castle_taken, script:process_village_raids"
+      ],
+      "overlaps": [
+        "acw.prisoner_breakouts_and_refugees",
+        "vc.prisoner_revolts"
+      ]
+    },
+    {
+      "id": "pop.post_battle_lord_relation_gain",
+      "name": "Automatic relation gain with lords who fought beside you",
+      "category": "reputation-relations",
+      "summary": "After a battle the player wins together with allied lords, each lord who was on the player's side gains +1 relation (+2 for martial personalities), unless he already dislikes the player.",
+      "mechanics": "automatic_relation_gain_after_battles (called from game_event_simulate_battle, menu:total_victory, menu:castle_taken_by_friends): loops over lords/companion-lords; if a stack of that hero is in p_collective_friends and his relation with the player is >= -5, adds 1, or 2 when troop slot 52 (Native slot_lord_reputation_type) = 1 (martial), via troop_change_relation_with_troop.",
+      "hooks": [
+        "menu:total_victory",
+        "menu:castle_taken_by_friends",
+        "script:game_event_simulate_battle"
+      ],
+      "scripts": [
+        "automatic_relation_gain_after_battles",
+        "troop_change_relation_with_troop",
+        "troop_get_relation_with_troop"
+      ],
+      "menus": [
+        "menu_total_victory",
+        "menu_castle_taken_by_friends"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:2",
+        "troop:52"
+      ],
+      "globals": [
+        "players_kingdom"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis automatic_relation_gain_after_battles (full 32 stmts)",
+        "explain callers: menu:total_victory, menu:castle_taken_by_friends, game_event_simulate_battle"
+      ],
+      "overlaps": [
+        "awoiaf.commoner_trust",
+        "bi.triumphus",
+        "tld.lord_friendship_gifts"
+      ]
+    },
+    {
+      "id": "pop.formations_battle_ai_kit",
+      "name": "Formations and field-tactics battle AI (Motomataru-style kit, PoP variant)",
+      "category": "battle-ai-formations",
+      "summary": "AI teams and the player get infantry/archer/cavalry formations (ranks, wedge/shield-wall style infantry, archer lines, cavalry wedges), formation move/hold orders, and a battle-phase AI that positions archers, finds high ground, times charges, sends reinforcements and decides disengagement. Toggleable from PoP's mod options.",
+      "mechanics": "Mission-template triggers in mst_lead_charge (t28-t63), mst_castle_attack_walls_defenders_sally, mst_camp_review_soldiers (and the unreferenced mst_ai_training_with_formations) call: cf_formation / form_infantry / form_archers / form_cavalry / set_formation_position / get_formation_position (formation geometry stored in globals formation_<team><class>_x/_y/_rot), player_order_formations + player_attempt_formation (player keys), and field_tactics -> team_field_melee_tactics (1011 stmts) / team_field_ranged_tactics fed by store_battlegroup_data (676 stmts, per-team globals team0_num_infantry.. team3_weapon_length_cavalry). Gated by $g_option_formations (prsnt_mod_options) and $g_disciplined_faction (see pop.disciplined_faction_ai_gate).",
+      "hooks": [
+        "mst:lead_charge/t58:conseq",
+        "mst:lead_charge/t59:conseq",
+        "mst:lead_charge/t61:conseq",
+        "mst:lead_charge/t63:conseq",
+        "mst:castle_attack_walls_defenders_sally/t51:conseq",
+        "mst:camp_review_soldiers/t25:conseq",
+        "prsnt:battle/t1"
+      ],
+      "scripts": [
+        "cf_formation",
+        "form_infantry",
+        "form_archers",
+        "form_cavalry",
+        "set_formation_position",
+        "get_formation_position",
+        "player_order_formations",
+        "player_attempt_formation",
+        "formation_move_position",
+        "formation_current_position",
+        "get_first_formation_member",
+        "field_tactics",
+        "team_field_melee_tactics",
+        "team_field_ranged_tactics",
+        "store_battlegroup_data",
+        "battlegroup_get_position",
+        "battlegroup_get_size",
+        "battlegroup_get_level",
+        "find_high_ground_around_pos1_corrected",
+        "formation_battle_tactic_apply_aux",
+        "formation_battle_tactic_init_aux"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_battle",
+        "prsnt_mod_options"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_camp_review_soldiers",
+        "mst_ai_training_with_formations"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:15"
+      ],
+      "globals": [
+        "g_option_formations",
+        "infantry_formation_type",
+        "archer_formation_type",
+        "cavalry_formation_type",
+        "formation_00_x .. formation_32_rot",
+        "team0_num_infantry .. team3_level",
+        "battle_phase",
+        "charge_activated",
+        "disengage"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain cf_formation: 33 callers in 4 mission templates",
+        "explain team_field_melee_tactics: 1011 stmts, globals per team",
+        "refs pop mt mst_ai_training_with_formations: 0 references (unreachable)"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "pop.disciplined_faction_ai_gate",
+      "name": "Only disciplined armies use formation AI; rabble fights as a mob",
+      "category": "battle-ai-formations",
+      "summary": "Before a battle PoP decides whether the enemy is a 'disciplined' force. Bandits, outlaws, rebel peasants, tribal raiders, militia and similar rabble fight without formations or field tactics, while kingdoms, orders and named warlords use the full formation AI. Formation AI and rout behaviour are also switchable in mod options.",
+      "mechanics": "set_disciplined_faction (35 stmts; called from 7 menus and 4 mission triggers) sets $g_disciplined_faction = 1, then 0 if the encountered party or its ally ($g_encountered_party / $g_encountered_party_2) belongs to fac_outlaws, fac_red_brotherhood, fac_rebel_peasants, fac_mystmountain, fac_dshar_raiders, fac_militia, fac_mountain_bandits, fac_forest_bandits or fac_singalians AND its template is not a signature warlord (not between pt_wolfbode and pt_refugees). battle_tactic_init_aux / battle_tactic_apply_aux, mst_lead_charge t28-t63 and castle sally triggers test $g_disciplined_faction (and $g_option_formations) before running formation/field-tactics code. $g_option_routing gates the rout trigger mst:lead_charge/t32 (decide_run_away_or_not every 3s).",
+      "hooks": [
+        "mst:lead_charge/t28:conseq",
+        "mst:lead_charge/t32:cond",
+        "mst:lead_charge/t61:conseq",
+        "mst:castle_attack_walls_defenders_sally/t51:conseq",
+        "prsnt:mod_options/t2"
+      ],
+      "scripts": [
+        "set_disciplined_faction",
+        "battle_tactic_init_aux",
+        "battle_tactic_apply_aux",
+        "orig_decide_run_away_or_not",
+        "calculate_renown_value"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_mod_options",
+        "prsnt_battle"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_castle_attack_walls_defenders_sally"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_disciplined_faction",
+        "g_option_formations",
+        "g_option_routing",
+        "g_encountered_party",
+        "g_encountered_party_2",
+        "g_encountered_party_faction"
+      ],
+      "resources": {
+        "faction": [
+          "fac_outlaws",
+          "fac_red_brotherhood",
+          "fac_rebel_peasants",
+          "fac_militia",
+          "fac_mountain_bandits",
+          "fac_forest_bandits"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis set_disciplined_faction (full)",
+        "sqlite globals pop g_disciplined_faction: 3 writers in set_disciplined_faction, readers in battle_tactic_*_aux, lead_charge t28-t63, sally t51-t53",
+        "dis mst:lead_charge/t32:cond: g_option_routing gate"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "pop.camp_troop_review_drill",
+      "name": "Walk among and drill your army from the camp menu",
+      "category": "qol-ui",
+      "summary": "From the camp menu the player can 'walk around and review your soldiers': the whole party is spawned in a random field scene where the player can inspect troops and practise formation orders without a battle.",
+      "mechanics": "menu:camp/opt:camp_action_1 sets jump mission mst_camp_review_soldiers, counts fit troops (party_count_fit_for_battle) and calls setup_random_scene, then change_screen_mission. The mission template carries the same formation/field-tactics triggers as lead_charge (t10-t30: cf_formation, field_tactics) plus a tab-to-leave trigger (t0).",
+      "hooks": [
+        "menu:camp/opt:camp_action_1:conseq"
+      ],
+      "scripts": [
+        "setup_random_scene",
+        "party_count_fit_for_battle",
+        "cf_formation",
+        "field_tactics"
+      ],
+      "menus": [
+        "menu_camp"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_camp_review_soldiers"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_encountered_party"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis menu:camp/opt:camp_action_1:conseq (full)",
+        "sqlite blocks: mst_camp_review_soldiers triggers t0-t30 incl. formation calls",
+        "explain cf_formation entry points include camp_review_soldiers"
+      ],
+      "overlaps": [
+        "acan.player_permanent_camps",
+        "acw.walkable_party_camp",
+        "tld.camp_menu_actions"
+      ]
+    },
+    {
+      "id": "pop.rumor_system",
+      "name": "Procedural rumours and gossip with per-NPC cooldowns",
+      "category": "reports-info",
+      "summary": "Tavernkeepers, travellers, ransom brokers, merchants and the player's steward tell randomly assembled rumours (who told it, what it is about, main-story hints), or say they have nothing new if asked again too soon. A mod option sets how often rumours refresh.",
+      "mechanics": "random_rumor_talk(kind, npc) (966 stmts) checks troop slot 157 (last rumour day) + $g_rumor_interval against the current day; if on cooldown builds a 'no news' line from 9 variants; otherwise picks a topic via rumor_topic (206 stmts) and a source via rumor_who_from (650 stmts), seeded by weekly $event_rand_* (update_event_rand), occasionally main_scenario_conversation_overheard, and stores the new day in slot 157. Entry: dlg:2695 tavernkeeper, dlg:2855 traveller, dlg:2778 ransom broker, dlg:3724 merchant, dlg:2287 steward gossip.",
+      "hooks": [
+        "dlg:2695:dlga_tavernkeeper_talk:tavernkeeper_rumors:conseq",
+        "dlg:2855:dlga_tavern_traveler_talk:tavern_traveler_rumors:conseq",
+        "dlg:2778:dlga_ransom_broker_talk:ransom_broker_rumors:conseq",
+        "dlg:3724:dlga_town_merchant_talk:merchant_gossip:conseq",
+        "dlg:2287:dlga_steward_menu:steward_gossip:conseq"
+      ],
+      "scripts": [
+        "random_rumor_talk",
+        "rumor_topic",
+        "rumor_who_from",
+        "main_scenario_conversation_overheard",
+        "update_event_rand",
+        "gender_to_reg63"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_mod_options"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2287",
+        "dlg:2695",
+        "dlg:2778",
+        "dlg:2855",
+        "dlg:3724"
+      ],
+      "slots": [
+        "troop:157"
+      ],
+      "globals": [
+        "g_rumor_interval",
+        "event_rand_0",
+        "event_rand_1a",
+        "event_rand_1b",
+        "event_rand_2a",
+        "event_rand_2b",
+        "event_rand_2c",
+        "event_rand_3",
+        "event_rand_4",
+        "current_town"
+      ],
+      "resources": {
+        "string": [
+          "qstr_no_tidbits_of_value ... (9 'no news' lines)",
+          "str_rumor_talk_* families"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis random_rumor_talk lines 0-60: slot 157 + g_rumor_interval cooldown, 'no news' variants",
+        "explain random_rumor_talk: 5 dialog callers, callees rumor_topic/rumor_who_from"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "pop.fief_base_income_and_reports",
+      "name": "Per-fief base income with income and construction reports",
+      "category": "reports-info",
+      "summary": "Every center has a 'base income' value (raised by buildings, lowered by damage and raids) that feeds its weekly wealth, and the Reports menu adds a fief income report (base income and prosperity of each of the player's fiefs, plus a list of fiefs with pending heartbeat crises) and a construction report (what is being built where and how many days remain).",
+      "mechanics": "Party slot 290 holds base income: initialised in pop2_location_improvements, changed by center_base_income_change (building completed/damaged/repaired, raids, peace deals) and a steward's lavish tournament (dlg:2307). strig:26 (weekly) adds 1000 + prosperity x 14 + base income x 4 (x1.3 in five capital towns) minus garrison wage (x3/4 when the player's spouse/minister owns it) to Native town wealth (slot 49) for non-player centers. menu:reports/opt:view_center_income_report -> menu:center_income_report lists player fiefs with slot 290 and slot 50 prosperity text; option lists fiefs with party slot 296 set; menu:center_construction_report reads Native slots 124/125 and get_improvement_details to print 'building X, N days left'. Steward/elder dialogs dlg:2431 / dlg:3407 report the same numbers in person.",
+      "hooks": [
+        "menu:reports/opt:view_center_income_report:conseq",
+        "menu:center_income_report/opt:construction:conseq",
+        "strig:26",
+        "dlg:2431:dlga_pop2_loc_status_center:steward_menu:cond"
+      ],
+      "scripts": [
+        "center_base_income_change",
+        "get_prosperity_text_to_s50",
+        "get_improvement_details",
+        "calculate_weekly_party_wage",
+        "calculate_hero_weekly_net_income_and_add_to_wealth"
+      ],
+      "menus": [
+        "menu_center_income_report",
+        "menu_center_construction_report",
+        "menu_center_reports",
+        "menu_reports"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2431",
+        "dlg:3407",
+        "dlg:2307"
+      ],
+      "slots": [
+        "party:290",
+        "party:49",
+        "party:50",
+        "party:124",
+        "party:125",
+        "party:296"
+      ],
+      "globals": [],
+      "resources": {
+        "mesh": [
+          "mesh_pic_pendor_rep_cityincome",
+          "mesh_pic_pendor_rep_cityconstruction"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis menu:center_income_report and menu:center_construction_report (full)",
+        "slot pop party 290: 17 accesses (writers pop2_location_improvements, center_base_income_change, tourney dialog)",
+        "dis strig:26: base income x4 into slot 49",
+        "sqlite refs: entry from menu:reports"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    }
+  ]
+}

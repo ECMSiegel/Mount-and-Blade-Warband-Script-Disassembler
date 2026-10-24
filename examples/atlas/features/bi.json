@@ -1,0 +1,1017 @@
+{
+  "module": "bi",
+  "features": [
+    {
+      "id": "bi.roman_public_buildings",
+      "name": "Roman public buildings in fiefs (18 improvement types, upkeep, effects)",
+      "category": "settlements-villages",
+      "summary": "Replaces Native's 6 village/castle improvements with 25 building slots: village works (manor, mill, watch tower, school, messenger post, prison tower, plantation, lumber yard) and town/castle buildings (mercenary hall, merchant guild, military academy, forge, arsenal, stables, training ground, shooting range) plus Roman-only monuments (horreum, thermae, templum, castra, basilica, aquaeductus, amphitheatrum). Each has a cost, build time, a monthly effect, and the Roman monuments charge the player a monthly upkeep.",
+      "mechanics": "Player picks a building in menu:center_manage (one option per building, gated by settlement type, existing slot, nearby-school for the academy, cf_center_is_roman for slots 148-154) -> menu:center_improve (lumber yard slot 134 lowers cost) -> improve_center stores the type in party slot 124 and finish-hour in 125 -> strig:69 (and a duplicate strig:112) every 12h sets party slot <type>=1 and logs 'Building of X finished'. Effects: strig:82 (every 720h) calls center_apply_monthly_building_effects (prosperity +1..+3 for plantation 133, merchant guild 139, forge 141, horreum 148, basilica 152, aquaeductus 153, +1 if romanitas>=50; garrison XP via party_upgrade_with_xp for training ground 144/shooting range 145/castra 151; castra adds 3-6 faction tier-2 troops; templum 150/thermae 149/amphitheatrum 154 add +1 village relation slot 26) and then charges upkeep 200-600 denars per monument from the player, or drops relation by 2 if unpaid. Other readers: strig:44 weekly rent +20% basilica / +10% merchant guild (party slot 47); update_mercenary_units_of_towns (mercenary hall 138: better and +4 mercenaries); refresh_center_stables (stables 143: extra horse merchandise); center_get_food_consumption (horreum: -40% food use); update_volunteer_troops_in_village (horreum x1.5 volunteers, templum better tier); enter_court (castra +2, arsenal +1 hall guards); get_center_ideal_prosperity (mill 146).",
+      "hooks": [
+        "menu:center_manage",
+        "menu:center_improve",
+        "strig:69",
+        "strig:112",
+        "strig:82",
+        "strig:44",
+        "script:update_mercenary_units_of_towns",
+        "script:refresh_center_stables"
+      ],
+      "scripts": [
+        "get_improvement_details",
+        "improve_center",
+        "get_improvement_progress",
+        "center_apply_monthly_building_effects",
+        "cf_center_infrastructure",
+        "cf_center_is_roman",
+        "center_get_food_consumption",
+        "update_mercenary_units_of_towns",
+        "refresh_center_stables",
+        "update_volunteer_troops_in_village",
+        "enter_court",
+        "initialize_improvement_info"
+      ],
+      "menus": [
+        "menu_center_manage",
+        "menu_center_improve"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:124",
+        "party:125",
+        "party:130",
+        "party:132",
+        "party:133",
+        "party:134",
+        "party:135",
+        "party:136",
+        "party:137",
+        "party:138",
+        "party:139",
+        "party:140",
+        "party:141",
+        "party:142",
+        "party:143",
+        "party:144",
+        "party:145",
+        "party:146",
+        "party:147",
+        "party:148",
+        "party:149",
+        "party:150",
+        "party:151",
+        "party:152",
+        "party:153",
+        "party:154",
+        "party:26",
+        "party:47"
+      ],
+      "globals": [
+        "g_improvement_type"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi get_improvement_details: 25 named buildings with costs (Manor 8000 ... Amphitheatrum 24000)",
+        "slot bi party 148/153: written only by menu:center_manage options, read by monthly effects/food/recruit scripts",
+        "dis bi strig:82: upkeep + 'You cannot pay for the upkeep of the public buildings in {s4}. They fall into disrepair.'",
+        "dis bi strig:69: completion sets party slot <type>=1",
+        "dis bi center_get_food_consumption / update_mercenary_units_of_towns / refresh_center_stables show slot reads",
+        "grep bi replace_scene_props|scene_prop_set_visibility|spawn_scene_prop: only change_flag_owner, remove_siege_objects, change_banners_and_chest, place_player_banner_near_inventory_bms and multiplayer blocks - none read improvement slots"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "bi.garrison_building_battle_bonuses",
+      "name": "Garrison combat bonuses from fief buildings",
+      "category": "combat-mechanics",
+      "summary": "Soldiers fighting for a settlement (its garrison) get damage and speed bonuses from that settlement's buildings, and an arsenal refills their ammunition during the battle.",
+      "mechanics": "ti_on_agent_spawn trigger in every field/siege mission template (e.g. mst:lead_charge/t5): if agent_get_party_id is a center (35..456), damage modifier +10% castra(151) +5% training ground(144) +5% templum(150); speed modifier +5% thermae(149) +5% amphitheatrum(154). A 20s trigger (mst:lead_charge/t6 and siege equivalents) calls agent_refill_ammo on garrison agents with no ammo if arsenal(142) is built.",
+      "hooks": [
+        "mst:lead_charge/t5:conseq",
+        "mst:lead_charge/t6:conseq",
+        "mst:castle_attack_walls_ladder/t3:conseq",
+        "mst:castle_attack_walls_ladder/t4:conseq",
+        "mst:besiege_inner_battle_castle/t3:conseq",
+        "mst:besiege_inner_battle_town_center/t3:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_village_attack_bandits",
+        "mst_village_raid",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_ladder"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:142",
+        "party:144",
+        "party:149",
+        "party:150",
+        "party:151",
+        "party:154"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi mst:lead_charge/t5:conseq (agent_set_damage_modifier / agent_set_speed_modifier by party slots)",
+        "dis bi mst:lead_charge/t6:conseq (agent_refill_ammo if party slot 142)",
+        "sqlite slots bi party 149/150/151/154 readers list the 8 mission templates"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "bi.romanitas",
+      "name": "Romanitas (how Roman a settlement is)",
+      "category": "religion-culture",
+      "summary": "Each settlement has a 0-100 'Romanitas' score built from its Roman monuments plus +25 if it belongs to a Roman faction. High Romanitas makes the settlement more prosperous, its people friendlier, its volunteers better, and its townsfolk more willing to fight under siege.",
+      "mechanics": "center_recalculate_romanitas (called monthly from center_apply_monthly_building_effects, strig:82) sums horreum 5, castra 5, templum 8, thermae 12, basilica 12, aquaeductus 15, amphitheatrum 18, +25 Roman faction, caps at 100, stores in party slot 605. Readers: monthly effects (+1 prosperity at >=50, +1 relation at >=70), update_volunteer_troops_in_village (>=50: +2 upgrade rolls, +15% chance -> higher-tier volunteers), process_sieges (romanitas/10 added to siege militia size).",
+      "hooks": [
+        "strig:82"
+      ],
+      "scripts": [
+        "center_recalculate_romanitas",
+        "cf_center_is_roman",
+        "center_apply_monthly_building_effects",
+        "update_volunteer_troops_in_village",
+        "process_sieges"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:605"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi center_recalculate_romanitas",
+        "slot bi party 605: written only by center_recalculate_romanitas; read by process_sieges and update_volunteer_troops_in_village",
+        "dis bi cf_center_is_roman: faction ids map to fac_kingdom_1 Rome, 7 Roman Gallia, 8 Roman Illyricum, 9 Roman Asia, 10 Roman Hispania (factions.txt)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "bi.siege_town_militia",
+      "name": "Townsfolk take up arms when a town is besieged",
+      "category": "sieges",
+      "summary": "When an enemy army starts besieging a town or castle, a one-time levy of armed townsmen joins the garrison, sized by the town's prosperity and Romanitas (up to 30). The player gets a message for their own fiefs.",
+      "mechanics": "Inside Native's process_sieges loop (BI adds ~19 statements), when a besieger is found: if party slot 616 is 0 and the center is not a village, adds (prosperity/8 + romanitas/10, max 30) trp_townsman to the center, sets slot 616=1 and, for player-owned centers, logs '{reg4} townsfolk of {s4} take up arms.'. lift_siege resets slot 616 to 0 so the levy can happen again next siege.",
+      "hooks": [
+        "script:process_sieges",
+        "script:lift_siege"
+      ],
+      "scripts": [
+        "process_sieges",
+        "lift_siege"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:616",
+        "party:605",
+        "party:50"
+      ],
+      "globals": [],
+      "resources": {
+        "troop": [
+          "trp_townsman"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi process_sieges @56-75",
+        "slot bi party 616: process_sieges e1/s1, lift_siege s1",
+        "text: '{reg4}_townsfolk_of_{s4}_take_up_arms.'"
+      ],
+      "overlaps": [
+        "acan.siege_planning_inherited",
+        "acw.siege_assault_waves_and_surrender",
+        "ad457.vc_siege_planning_and_camp_events_inherited",
+        "awoiaf.siege_ram_assault_and_hostage_surrender",
+        "vc.siege_planning"
+      ]
+    },
+    {
+      "id": "bi.military_academy_upgrades",
+      "name": "Military academy: pay to upgrade troops in a town",
+      "category": "recruitment-troops",
+      "summary": "In your own kingdom's towns with a military academy, a town-menu option opens a screen where you can pay the normal join cost to upgrade soldiers in your party to either of their next troop types, limited by the academy's remaining capacity.",
+      "mechanics": "menu:town option town_upgrade (needs party slot 140 >= 1, town of player's kingdom, player or kingdom-owned) shows the capacity and starts prsnt:upgrade_troops. The presentation lists party stacks; picking upgrade path 0/1 (troop_get_upgrade_troop) multiplies game_get_join_cost by count, removes gold, swaps troops (party_remove_members/party_add_members) and writes the reduced capacity back to party slot 140. Building the academy (menu:center_manage center_build_academy) requires a village of that town to have a school (slot 135).",
+      "hooks": [
+        "menu:town/opt:town_upgrade:cond",
+        "menu:town/opt:town_upgrade:conseq",
+        "prsnt:upgrade_troops/t0",
+        "prsnt:upgrade_troops/t1"
+      ],
+      "scripts": [
+        "game_get_join_cost"
+      ],
+      "menus": [
+        "menu_town"
+      ],
+      "presentations": [
+        "prsnt_upgrade_troops"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:140",
+        "party:135"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi menu:town/opt:town_upgrade:cond ('Enlist troops in the military academy ({reg12} available)')",
+        "grep bi: town_upgrade conseq -> start_presentation 49 = prsnt_upgrade_troops",
+        "dis bi prsnt:upgrade_troops/t1 @39-55 (join cost, troop swap, slot 140 decrement)",
+        "dis bi menu:center_manage/opt:center_build_academy:cond (school-in-bound-village check)",
+        "prsnt:upgrade_troops draws troops with Native tableau tab_game_party_window - no custom art needed"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "bi.ai_lords_build",
+      "name": "AI lords build improvements in their fiefs",
+      "category": "lord-behavior",
+      "summary": "AI lords spend their personal wealth to construct buildings in the fiefs they own, so NPC territory develops over time like the player's. Fiefs also start the game with buildings allocated from a wealth budget.",
+      "mechanics": "Native troop_does_business_in_center (lord visits his fief) now calls npc_upgrade_buildings(lord, center): wealth threshold depends on lord reputation type (troop slot 52); if lord wealth (troop slot 11) exceeds it and nothing is under construction (party slot 124), picks a random free building slot 130-154 (towns: 137+, Roman-only 148+ via cf_center_is_roman), computes build days from cost, lord engineer skill x intelligence, level and the center's prosperity, deducts the cost and calls improve_center. Player is told '{s10} constructs a {s0} in {s4}, finish in {reg0} days' for lords of their kingdom. game_start calls allocate_buildings to seed buildings.",
+      "hooks": [
+        "script:troop_does_business_in_center",
+        "script:game_start"
+      ],
+      "scripts": [
+        "npc_upgrade_buildings",
+        "improve_center",
+        "allocate_buildings",
+        "get_improvement_details",
+        "cf_center_is_roman",
+        "troop_does_business_in_center"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:11",
+        "troop:52",
+        "party:124",
+        "party:125",
+        "party:50"
+      ],
+      "globals": [
+        "g_improvement_type"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain bi npc_upgrade_buildings: caller troop_does_business_in_center, displayed text '{s10}_constructs_a_{s0}_in_{s4},_finish_in_{reg0}_days'",
+        "dis bi npc_upgrade_buildings (random slot 130-155, cost/time formula)",
+        "explain bi allocate_buildings: caller game_start, text '{s51} allocated {reg0} wealth for buildings'"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "bi.triumphus",
+      "name": "Triumphus after taking a city",
+      "category": "reputation-relations",
+      "summary": "A vassal of a Roman faction with 150+ renown who captures a town (not castles: the gate is center id 35-99, BI's town range) and is on good terms (+10) with the emperor may be granted a triumph: a celebratory screen offering a parade through the city for +25 renown, +3 relation with the ruler and a cash share of the spoils (25 x the captured fief's prosperity, 500-2525 denars). It can be refused.",
+      "mechanics": "menu:castle_taken calls cf_player_deserves_triumphus(center): center is a town (ids 35-99), player has homage, player kingdom is one of the Roman factions, troop slot 7 (renown) >= 150, ruler (faction slot 11) relation >= 10 -> jump_to_menu 77 (menu_triumphus, bare integer). menu_triumphus computes spoils from party slot 50 (prosperity) into $g_triumphus_spoils; accept option calls change_troop_renown 25, change_player_relation_with_troop ruler 3, troop_add_gold.",
+      "hooks": [
+        "menu:castle_taken",
+        "menu:triumphus",
+        "menu:triumphus/opt:triumphus_accept:conseq"
+      ],
+      "scripts": [
+        "cf_player_deserves_triumphus",
+        "change_troop_renown",
+        "change_player_relation_with_troop"
+      ],
+      "menus": [
+        "menu_triumphus",
+        "menu_castle_taken"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:7",
+        "faction:11",
+        "party:50"
+      ],
+      "globals": [
+        "g_triumphus_spoils"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep bi: menu:castle_taken @27 (jump_to_menu, 77) after cf_player_deserves_triumphus call",
+        "dis bi menu:triumphus + opt triumphus_accept conseq",
+        "menu text 'The senate and people of {s10} have decreed a triumphus...'",
+        "menu:triumphus background is mesh_pic_messenger (Native picture) - no custom art needed"
+      ],
+      "overlaps": [
+        "awoiaf.commoner_trust",
+        "pop.post_battle_lord_relation_gain",
+        "tld.lord_friendship_gifts"
+      ]
+    },
+    {
+      "id": "bi.legion_mercenary_camps",
+      "name": "Legion and foreign mercenary camps on the map",
+      "category": "mercenaries",
+      "summary": "Twelve fixed camps on the world map (six Roman legions plus Greek, Nubian, Egyptian, Iberian, Kushan and Illyrian mercenaries). Visiting one opens a menu to walk into a camp scene and talk to its commander, who tells its backstory and sells mercenaries through the standard hire screen. Camps restock every 3 days.",
+      "mechanics": "game_event_party_encounter jumps to menu 225 (menu_mercenary_camp) for camp parties p_camp_legion_1..p_camp_illyrian (party ids 21-32). Each option checks $g_encountered_party and jumps to scn_roman_camp_1 via mst_visit_town_castle with the commander (trp_heras, demetrios, mnasiboulos, aryesbokhe) at entry 2 and legionaries as set dressing. Dialogs dlga_start:mercenary_recruit -> backstory chains -> mercenary_buy_troops conseq: set_mercenary_source_party $g_talk_troop_party + change_screen_buy_mercenaries. strig:104 (every 72h) and game_start call refresh_mercenary_camp_troops: clears the camp party if it has >50 men, then party_add_template from pt_merc_camp_*_troops.",
+      "hooks": [
+        "script:game_event_party_encounter",
+        "menu:mercenary_camp",
+        "strig:104",
+        "dlg:2779:dlga_start:mercenary_recruit:cond",
+        "dlg:2784:dlga_mercenary_buy_troops:mercenary_buy_troops_2:conseq"
+      ],
+      "scripts": [
+        "refresh_mercenary_camp_troops",
+        "game_event_party_encounter"
+      ],
+      "menus": [
+        "menu_mercenary_camp"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_start:mercenary_recruit",
+        "dlga_mercenary_buy_troops:mercenary_buy_troops_2"
+      ],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "party": [
+          "p_camp_legion_1",
+          "p_camp_legion_2",
+          "p_camp_legion_3",
+          "p_camp_legion_4",
+          "p_camp_legion_5",
+          "p_camp_legion_6",
+          "p_camp_greeks",
+          "p_camp_nubians",
+          "p_camp_egyptian",
+          "p_camp_iberian",
+          "p_camp_kushan",
+          "p_camp_illyrian"
+        ],
+        "pt": [
+          "pt_merc_camp_legion_1_troops",
+          "pt_merc_camp_greek_troops",
+          "pt_merc_camp_nubian_troops"
+        ],
+        "troop": [
+          "trp_heras",
+          "trp_demetrios",
+          "trp_mnasiboulos",
+          "trp_aryesbokhe"
+        ],
+        "scene": [
+          "scn_roman_camp_1"
+        ],
+        "scene_prop": [
+          "spr_tent_a",
+          "spr_tent_b",
+          "spr_oim_chastokol_long",
+          "spr_oim_tyn",
+          "spr_oim_tyn_spike",
+          "spr_410_watch_tower"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi refresh_mercenary_camp_troops; strig:104 every 72h",
+        "grep bi: game_event_party_encounter @69 (jump_to_menu, 225)",
+        "dis bi menu:mercenary_camp/opt:enter_camp_legion_1_camp:conseq (set_visitor commander, jump_to_scene 56)",
+        "dis bi dlg:2784 (set_mercenary_source_party + change_screen_buy_mercenaries)",
+        "names: parties 21-32 p_camp_*, pt 119-130 pt_merc_camp_*"
+      ],
+      "overlaps": [
+        "pop.king_hired_mercenary_companies"
+      ]
+    },
+    {
+      "id": "bi.foraging_skill",
+      "name": "Foraging party skill reduces food consumption",
+      "category": "character-progression",
+      "summary": "A new party skill, Foraging, lets the army live off the land: every 14 hours the party eats less of its stored food depending on the skill level, the terrain (forest/steppe best) and the wealth of nearby villages and towns.",
+      "mechanics": "skills.txt reserved slot 28 renamed skl_foraging ('Your men live off the land...'). The Native 14h food simple trigger (strig:57) now calls forage_for_food: get_max_skill_of_player_party(28) -> base by terrain (+4 forest, steppe-forest, desert-forest and bridge terrain; +2 steppe or plain) + for each village/town within 2xskill distance: production slots 205,206,209-213,216,220,232 scaled, +2 if plantation (party 133); multiplied by x1.5 (skill 2+), x2 (5+), x2.5 (8+) or x3 (10), capped at skill x5. The result is subtracted from the number of food units consumed and 'Your men forage from the land, sparing {reg7} of your supplies.' is shown.",
+      "hooks": [
+        "strig:57"
+      ],
+      "scripts": [
+        "forage_for_food",
+        "consume_food",
+        "get_max_skill_of_player_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:205",
+        "party:206",
+        "party:209",
+        "party:210",
+        "party:211",
+        "party:213",
+        "party:216",
+        "party:220",
+        "party:232",
+        "party:133"
+      ],
+      "globals": [],
+      "resources": {
+        "skill": [
+          "skl_foraging (index 28)"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "skills.txt: 'skl_foraging Foraging ... Reduces the food your party eats'",
+        "dis bi strig:57 @13-27 (forage reduction + message)",
+        "dis bi forage_for_food",
+        "same-name awoiaf forage_for_food differs (op ratio 0.56)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "bi.town_bodyguards",
+      "name": "Companions follow you as bodyguards in towns",
+      "category": "companions-heroes",
+      "summary": "When you walk around a town, up to 4 of your companions appear in the scene with you as bodyguards; the number grows with Leadership and renown. Can be switched off in the PBOD options.",
+      "mechanics": "mst:town_default ti_before_mission_start calls add_player_bodyguards: requires PBOD preference p_main_party slot 83 >= 1 (default 1 in prebattle_set_default_prefs); count = leadership/3 + renown/300 (troop slot 7), max 4; for each NPC companion (troops 651-666) in the party and not a kingdom hero (troop slot 2 occupation != 2, i.e. not a companion who became a lord), add_visitors_to_current_scene at entry 0.",
+      "hooks": [
+        "mst:town_default/t1:conseq"
+      ],
+      "scripts": [
+        "add_player_bodyguards",
+        "prebattle_set_default_prefs"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_town_default"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:83",
+        "troop:7",
+        "troop:2"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi add_player_bodyguards",
+        "roots bi add_player_bodyguards -> mst:town_default/t1:conseq",
+        "sqlite: no other module has a script of this name"
+      ],
+      "overlaps": [
+        "acan.household_staff",
+        "acw.companion_bodyguards_and_disguise",
+        "cbl.tavern_mentors"
+      ]
+    },
+    {
+      "id": "bi.battle_event_messages",
+      "name": "Battle announcements: first blood, fallen heroes, kill milestones",
+      "category": "qol-ui",
+      "summary": "During battles the game announces who drew first blood, names every lord or companion who falls (red for allies, green for enemies), and congratulates the player at 5, 10, 20 and 40 personal kills.",
+      "mechanics": "ti_before_mission_start resets $g_battle_first_blood and $g_battle_player_kills; ti_on_agent_killed_or_wounded (mst:lead_charge/t4 and the siege/village equivalents) prints 'First blood is yours' / 'Your men draw first blood' / 'The enemy draws first blood', '{s5} has fallen' for heroes, and '{reg4} have fallen to your hand' at milestones.",
+      "hooks": [
+        "mst:lead_charge/t4:conseq",
+        "mst:castle_attack_walls_ladder/t2:conseq",
+        "mst:besiege_inner_battle_castle/t2:conseq",
+        "mst:village_raid/t1:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center",
+        "mst_village_raid",
+        "mst_village_attack_bandits"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_battle_first_blood",
+        "g_battle_player_kills"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi mst:lead_charge/t4:conseq",
+        "global bi g_battle_player_kills: 11 writers / 8 readers, all mission-template triggers",
+        "quick strings 'First_blood_is_yours', '{reg4}_have_fallen_t...'"
+      ],
+      "overlaps": [
+        "acw.order_voice_callouts",
+        "nw.fkey_order_tree",
+        "nw.objective_markers_hud",
+        "nw.voice_commands",
+        "sw.battle_start_speeches"
+      ]
+    },
+    {
+      "id": "bi.courage_update_staggering",
+      "name": "Battle morale recalculation spread over three ticks (performance)",
+      "category": "performance-bugfix",
+      "summary": "Native's every-3-seconds morale pass compares every soldier with every other soldier, which lags big battles. BI processes only a third of the soldiers each pass, cutting that cost to a third.",
+      "mechanics": "apply_effect_of_other_people_on_courage_scores (called from mst:lead_charge/t19 every 3s) cycles $courage_update_phase 0-2 and only updates agents whose id mod 3 equals the phase; the inner all-agents loop is unchanged.",
+      "hooks": [
+        "mst:lead_charge/t19:cond"
+      ],
+      "scripts": [
+        "apply_effect_of_other_people_on_courage_scores"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "courage_update_phase"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi apply_effect_of_other_people_on_courage_scores @0-8",
+        "global bi courage_update_phase: sole writer/reader is that script"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "acw.bury_the_dead",
+        "ad457.per_faction_ai_recalculation",
+        "be.async_round_robin_campaign_ai",
+        "be.company_discipline_rout",
+        "nw.morale_rout_rally",
+        "tld.battle_coherence_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "bi.freelancer_reassignment",
+      "name": "Freelancer: request reassignment to another troop line",
+      "category": "recruitment-troops",
+      "summary": "While enlisted in a lord's army, after 14 days the player can ask to be retrained as a different kind of soldier (infantry, archer or cavalry) of the same rank, receiving that troop's equipment.",
+      "mechanics": "Dialog lord_request_reassignment (cond: >14 days since quest slot 16 of the freelancer quest, current troop not the faction's tier-1) -> choose type -> cf_freelancer_get_reassign_troop builds a candidate list from a scratch troop's slots (upgrade tree of the faction) filtered by troop_is_guarantee_horse/ranged and cf_freelancer_player_can_upgrade, adds Intelligence/8 extra ranks of choice, picks one -> finish conseq: freelancer_unequip_troop, set $player_cur_troop, faction slot 101, freelancer_equip_troop, notes and quest slots 13/17 (XP to next promotion via freelancer_get_upgrade_xp).",
+      "hooks": [
+        "dlg:984:dlga_lord_request_reassignment:lord_request_reassignment_select:cond",
+        "dlg:992:dlga_lord_request_reassignment_finish:lord_pretalk:conseq"
+      ],
+      "scripts": [
+        "cf_freelancer_get_reassign_troop",
+        "freelancer_list_faction_troops",
+        "freelancer_get_upgrade_xp",
+        "freelancer_equip_troop",
+        "freelancer_unequip_troop",
+        "cf_freelancer_player_can_upgrade"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_lord_request_reassignment",
+        "dlga_lord_request_reassignment_select",
+        "dlga_lord_request_reassignment_finish"
+      ],
+      "slots": [
+        "faction:101",
+        "faction:41"
+      ],
+      "globals": [
+        "player_cur_troop",
+        "enlisted_lord",
+        "temp"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis bi cf_freelancer_get_reassign_troop",
+        "dis bi dlg:984 cond and dlg:992 conseq",
+        "cmp.py bi acw: reassignment scripts op=1.00"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "bi.world_map_presentation",
+      "name": "Reports: zoomable political world map screen",
+      "category": "reports-info",
+      "summary": "A Reports menu entry opens a full-screen schematic map showing every town, castle and village as coloured blocks by owning faction, with toggles for towns/castles/villages and names on mouse-over.",
+      "mechanics": "menu:reports option action_view_world_map -> start_presentation 52 (prsnt_world_map, 282-statement load trigger): iterates centers, reads positions and faction colours (faction slot 21), draws overlay blocks; checkboxes filter by type; get_closest_center used for hover labels.",
+      "hooks": [
+        "menu:reports/opt:action_view_world_map:conseq",
+        "prsnt:world_map/t0"
+      ],
+      "scripts": [
+        "get_closest_center"
+      ],
+      "menus": [
+        "menu_reports"
+      ],
+      "presentations": [
+        "prsnt_world_map"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21",
+        "party:120"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep bi: menu:reports/opt:action_view_world_map:conseq (start_presentation, 52)",
+        "explain bi prsnt:world_map/t0: text 'The_World_Map', 'Show_towns/castles/villages', 'Tip: move the mouse onto the black blocks...'",
+        "grep bi create_mesh_overlay --kinds prsnt: prsnt:world_map draws only mesh_white_plane (Native core mesh) - no custom art needed"
+      ],
+      "overlaps": [
+        "acan.troop_detail_and_upgrade_trees",
+        "be.faction_troop_tree_viewer",
+        "vc.camp_and_report_screens"
+      ]
+    },
+    {
+      "id": "bi.faction_agent_modifiers",
+      "name": "Per-faction troop combat modifiers (unfinished)",
+      "category": "combat-mechanics",
+      "summary": "A spawn hook that would give every soldier of a kingdom faction-wide bonuses to damage, ranged damage, accuracy/reload, hit points and speed. As shipped it does nothing because the faction values are never set.",
+      "mechanics": "init_agent_modifiers is called from ti_on_agent_spawn in 20 mission templates; for agents whose troop faction equals their party's faction it applies agent_set_damage_modifier (faction slot 23), ranged damage (24), accuracy + reload (27), max HP add (25), and for horses speed/horse_speed_factor (26), storing agent slot 5090. No block ever writes faction slots 23-27, so every modifier is 100% (+0).",
+      "hooks": [
+        "mst:lead_charge/t1:conseq",
+        "mst:castle_attack_walls_ladder/t5:conseq"
+      ],
+      "scripts": [
+        "init_agent_modifiers"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:23",
+        "faction:24",
+        "faction:25",
+        "faction:26",
+        "faction:27",
+        "agent:5090"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis bi init_agent_modifiers",
+        "slot bi faction 23..27: one 'get' each, only in init_agent_modifiers; no faction_set_slot writers",
+        "roots bi init_agent_modifiers: 20 ti_on_agent_spawn triggers"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "bi.diplomacy_suite",
+      "name": "Diplomacy mod (treaties, ministers, patrols, policies, gifts)",
+      "category": "diplomacy-politics",
+      "summary": "BI ships the Diplomacy package: alliances/defensive/trade/non-aggression treaties, chamberlain/constable/chancellor, patrols, scouts, messengers, gifts, domestic policy (centralisation, serfdom, economy) and the advanced preferences screen.",
+      "mechanics": "dplmc_* scripts, menus (dplmc_question_*_offer, dplmc_notification_*), prsnt:dplmc_policy_management, prsnt:adv_diplomacy_preferences, weekly/monthly strig:106/108/111/113/114/115 (lord exile return, patrol upkeep, policy drift).",
+      "hooks": [
+        "strig:106",
+        "strig:108",
+        "strig:111",
+        "strig:113",
+        "strig:114",
+        "strig:115"
+      ],
+      "scripts": [
+        "dplmc_send_patrol",
+        "dplmc_send_gift",
+        "dplmc_start_alliance_between_kingdoms",
+        "dplmc_lord_return_from_exile",
+        "dplmc_get_troop_standing_in_faction"
+      ],
+      "menus": [
+        "menu_dplmc_preferences",
+        "menu_dplmc_domestic_policy"
+      ],
+      "presentations": [
+        "prsnt_dplmc_policy_management",
+        "prsnt_adv_diplomacy_preferences"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:200",
+        "faction:201",
+        "faction:202",
+        "faction:203",
+        "faction:204",
+        "faction:205",
+        "faction:206"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "bi.pbod_formations_ai",
+      "name": "PBOD battle orders + Motomataru formations AI",
+      "category": "battle-ai-formations",
+      "summary": "Pre-battle orders and custom deployment screens, extra orders (volley, brace, skirmish, weapon-type switch), formation AI for AI teams, custom camera and key rebinding - the standard PBOD/Formations stack.",
+      "mechanics": "prsnt:prebattle_orders/custom_deployment/custom_divisions, order_* scripts, battlegroup_*/form_*/formation_* scripts, field_tactics -> team_field_melee/ranged_tactics, cust_cam_*, init_key_config.",
+      "hooks": [
+        "mst:lead_charge/t63:conseq",
+        "mst:lead_charge/t64:conseq",
+        "prsnt:prebattle_orders/t1"
+      ],
+      "scripts": [
+        "field_tactics",
+        "field_ai_start_positions",
+        "team_field_melee_tactics",
+        "player_order_formations",
+        "prebattle_order_update_text_slot",
+        "order_volley_begin_end",
+        "equip_best_melee_weapon",
+        "init_item_score"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_prebattle_orders",
+        "prsnt_prebattle_custom_deployment",
+        "prsnt_prebattle_custom_divisions",
+        "prsnt_pbod_redefine_keys",
+        "prsnt_caba_order_display"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "scratch op-sequence compare over battlegroup_/form_/order_/prebattle_ scripts"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "bi.skirmisher_detachment",
+      "name": "Skirmisher detachment screen (unreachable)",
+      "category": "deployment",
+      "summary": "A presentation for choosing how many skirmishers to detach into a separate 'Skirmish Party' on the map. It is never opened by any menu, dialog or trigger in 1.6.",
+      "mechanics": "prsnt_skirmishers (id 47) slider -> deploy_skirmishers spawns a party named 'Skirmish Party' (party slot 306) toward $skirmish_target; no start_presentation 47 exists anywhere.",
+      "hooks": [
+        "prsnt:skirmishers/t0",
+        "prsnt:skirmishers/t2"
+      ],
+      "scripts": [
+        "deploy_skirmishers"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_skirmishers"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:306"
+      ],
+      "globals": [
+        "skirmish_party_no",
+        "skirmish_size",
+        "skirmish_target",
+        "max_skirmishers"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "speculative",
+      "evidence": [
+        "explain bi prsnt:skirmishers/t2 -> deploy_skirmishers",
+        "grep bi 'start_presentation, 47' -> no hits",
+        "cmp.py bi awoiaf deploy_skirmishers op=1.00"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "bi.lost_eagle_quest",
+      "name": "Senator's 'lost eagle' quest",
+      "category": "quests",
+      "summary": "A senator NPC asks the player to recover a stolen legionary eagle from thieves; a party is spawned near a fixed location and returning the eagle completes the quest, rewarded with a sellable book.",
+      "mechanics": "dlga_start:god1 -> god3 -> godyes: setup_quest_text/start_quest 95, spawn_around_party 184 with template 20, $holy_relic=1; on return 'Did you find the eagle?' -> end_quest 95, $holy_relic=2.",
+      "hooks": [
+        "dlg:2721:dlga_start:god1:cond",
+        "dlg:2724:dlga_god3:godyes:conseq",
+        "dlg:2718:dlga_relic_find_question:relic_znaleziona:conseq"
+      ],
+      "scripts": [
+        "start_quest",
+        "end_quest"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_start:god1",
+        "dlga_god3:godyes",
+        "dlga_relic_find_question"
+      ],
+      "slots": [],
+      "globals": [
+        "holy_relic"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global bi holy_relic: writers dlg:2720/2726, readers dlg:2715/2717/2721",
+        "dis bi dlg:2724 conseq (start_quest 95, spawn_around_party)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "bi.culture_lord_map_icons",
+      "name": "Lord parties use their faction's own map icon",
+      "category": "map-travel",
+      "summary": "Every lord's party on the world map is drawn with an icon for its people - a Roman army column for Rome and the four Roman provinces, Germanic nobles, Dacian nobles, Parthian cataphracts, Numidian riders, Sarmatian horse archers, Bosporan foot and so on - instead of Native's one generic lord icon. Emperor Marcus Aurelius's party also spawns with 300 Praetorians.",
+      "mechanics": "create_kingdom_hero_party (Native script, modified): after spawning pt_kingdom_hero_party and setting the banner icon, a try/else chain on the lord's faction (store_troop_faction; faction ids 36-62) calls party_set_icon with one of 13 BI map icons (map_roman_army, germanic_noble, dacian_noble, eastern_cataphract, numider, celtic_noble, british_foot, sarmatian_cavalry, icon_beduin, sarmatian_horsearcher, bosporan_foot, judean_noble, eastern_archer). The icons are rows in map_icons.txt whose meshes live in Resource/BI_Map_Icons.brf. Separately, if the lord is troop 667 (trp_kingdom_1_lord, Emperor Marcus Aurelius) the party gets 300 trp_roman_n_praetorian on creation.",
+      "hooks": [
+        "script:create_kingdom_hero_party"
+      ],
+      "scripts": [
+        "create_kingdom_hero_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "map_icon": [
+          "map_roman_army",
+          "germanic_noble",
+          "dacian_noble",
+          "eastern_cataphract",
+          "numider",
+          "celtic_noble",
+          "british_foot",
+          "sarmatian_cavalry",
+          "icon_beduin",
+          "sarmatian_horsearcher",
+          "bosporan_foot",
+          "judean_noble",
+          "eastern_archer"
+        ],
+        "brf": [
+          "BI_Map_Icons"
+        ],
+        "troop": [
+          "trp_roman_n_praetorian"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis bi create_kingdom_hero_party @31-111: faction try-chain -> party_set_icon",
+        "map_icons.txt rows for all 13 icons (e.g. line 36 map_roman_army, line 60 germanic_noble)",
+        "all 13 icon meshes found in Resource/BI_Map_Icons.brf (scratch brfnames.py over the loaded BRFs)",
+        "sqlite names: bi troop 667 = trp_kingdom_1_lord (troops.txt: Emperor_Marcus_Aurelius)"
+      ],
+      "overlaps": [
+        "acw.army_size_map_icons",
+        "acw.besieged_map_smoke_and_caravan_spacing",
+        "cbl.map_icons_by_party_type_and_ships"
+      ]
+    }
+  ]
+}

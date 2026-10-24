@@ -1,0 +1,11 @@
+{
+  "_doc": "wbsd module registry. `path` is relative to WB_MODULES_DIR unless it starts with 'cache:' (relative to .cache/archives/). role: main | native | lineage | donor. Copy this file to modules.json (git-ignored) and add your own modules.",
+  "modules": [
+    {
+      "slug": "native",
+      "label": "Native",
+      "path": "Native",
+      "role": "native"
+    }
+  ]
+}

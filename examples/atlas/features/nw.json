@@ -1,0 +1,958 @@
+{
+  "module": "nw",
+  "features": [
+    {
+      "id": "nw.volley_fire",
+      "name": "Synchronised division volley fire",
+      "category": "battle-ai-formations",
+      "summary": "When a musket division is set to volley mode, every soldier in it raises and holds his musket until the whole division is aimed, then all fire together on the next frame; soldiers without a musket in hand are made to draw one.",
+      "mechanics": "mst:sp_campaign_*/t5 (every frame) calls volley_fire. For each team (0/1) and each of 9 divisions it checks the storage troop trp_custom_battle_dummy (455) slot 60+div (team 0) / 70+div (team 1) == 2 (volley mode, written by give_mm_order from the F6 'firing' sub-menu). Phase slot 80+div / 90+div: phase 0 = 'make ready' -> agent_set_attack_action(agent,0,1) (ready and hold) for every human of that team+division whose agent slot 23 == 0 (not routed) and who is not >1 m from his scripted destination (i.e. still marching); any agent wielding a non-musket (item slot 1 != 12) is switched to a musket from inventory. If every agent reached the aimed-hold attack state (attack_action 5) the phase flips to 1 = 'fire' -> agent_set_attack_action(agent,0,0) releases everybody at once, then the phase flips back to 0.",
+      "hooks": [
+        "mst:sp_campaign_vienna/t5:conseq",
+        "mst:sp_campaign_austerlitz_1/t5:conseq",
+        "mst:sp_campaign_austerlitz_1_old/t5:conseq",
+        "mst:sp_campaign_dresden_1/t5:conseq",
+        "mst:sp_campaign_dresden_2/t5:conseq"
+      ],
+      "scripts": [
+        "volley_fire"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:60-78 (trp_custom_battle_dummy, fire mode per team/division)",
+        "troop:80-98 (trp_custom_battle_dummy, volley phase)",
+        "agent:23",
+        "item:1"
+      ],
+      "globals": [],
+      "resources": {
+        "troop": [
+          "trp_custom_battle_dummy (455)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain nw volley_fire: 5 direct callers, all mst:sp_campaign_*/t5 [every 0s], bare-int call_script",
+        "dis nw volley_fire: slot 60/70 eq 2 test, phase slot 80/90, agent_set_attack_action 0,1 then 0,0",
+        "writer of slot 60+div: give_mm_order (l0==2 branch troop_set_slot 455 :l5 :l1)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "nw.locator_line_formations",
+      "name": "Musket-line formations via invisible locator props (line/column/square/skirmish, wheel)",
+      "category": "battle-ai-formations",
+      "summary": "Each division gets an invisible anchor prop. Orders move or rotate the anchor and every soldier is given an exact scripted spot around it: a line 2-4 ranks deep, a marching column, a hollow-ish square (side = sqrt(n)) or an open skirmish line, and the block can wheel 45 degrees left/right or turn to face the enemy.",
+      "mechanics": "mst:sp_campaign_*/t2 (once) spawns 20 copies of spr_formation_locator (prop 1560, one per team x division, invisible) and moves them to entry points; scene-independent because it uses spawn_scene_prop at runtime. On spawn/death correct_num_troops_in_formation keeps a live head-count per division in trp_custom_battle_dummy slots 20-38. give_mm_order (from the F4/F5 order presentation) writes the movement order (slot 100+div/110+div: 0 hold-here, 1 follow, 2 charge, 3 advance, 5 fall back) and the formation shape (slot 40+div/50+div: 0 line, 1 column, 2 square, 3 skirmish) and $g_wheel (1 left, 2 right, 3 face enemy). deploy_division_via_teleport (238 stmts; called from per-mission one-shot/state triggers t15/t19/t33) moves the locator (to the player for 'follow', +/-1.8 m for advance/fall back, rotated for wheel), then computes rank width from head-count (>59 -> n/4 per rank, >29 -> n/3, >5 -> n/2), spacing 100 (200 for skirmish, with staggered second rank) and gives each agent agent_set_scripted_destination (or _no_attack when the division is in hold-fire mode).",
+      "hooks": [
+        "mst:sp_campaign_vienna/t2:conseq",
+        "mst:sp_campaign_vienna/t1:conseq",
+        "mst:sp_campaign_vienna/t3:conseq",
+        "mst:sp_campaign_vienna/t15:conseq",
+        "mst:sp_campaign_vienna/t19:conseq",
+        "mst:sp_campaign_vienna/t33:conseq",
+        "prsnt:new_order_stuff/t1"
+      ],
+      "scripts": [
+        "deploy_division_via_teleport",
+        "give_mm_order",
+        "correct_num_troops_in_formation",
+        "division_get_average_position",
+        "team_get_average_position_of_enemies"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_new_order_stuff"
+      ],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:20-38 (head-count)",
+        "troop:40-58 (formation shape)",
+        "troop:60-78 (fire mode)",
+        "troop:100-118 (movement order)",
+        "agent:23"
+      ],
+      "globals": [
+        "g_wheel",
+        "g_hold_position_arrow_instance"
+      ],
+      "resources": {
+        "spr": [
+          "spr_formation_locator (1560)"
+        ],
+        "troop": [
+          "trp_custom_battle_dummy (455)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw mst:sp_campaign_vienna/t2:conseq: 20x spawn_scene_prop 1560 + entry-point placement",
+        "sqlite names nw spr 1560 = spr_formation_locator",
+        "dis nw give_mm_order: slot writes 455 40/50/60/70/100/110 + display_message 'form line/column/square/skirmish', 'wheel left/right'",
+        "dis nw deploy_division_via_teleport: rank-width rules and agent_set_scripted_destination",
+        "dis nw correct_num_troops_in_formation: slot 20/30+div +/-1 from spawn (t1) and death (t3)"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "nw.fkey_order_tree",
+      "name": "F-key order tree with 'hold where I look' arrow",
+      "category": "qol-ui",
+      "summary": "Pressing F4 opens a small order overlay: F4 again = movement (hold at the spot you are looking at, shown by a ground arrow while the key is held; follow; charge; advance; halt; fall back; retreat; slow/quick march), F5 = formation (line, column, square, skirmish, wheel left/right, face enemy), F6 = firing (fire at will / volley / hold).",
+      "mechanics": "mst:sp_campaign_*/t4 cond key_clicked F4 and presentation 52 not active -> start_presentation prsnt_new_order_stuff. Its ti_on_presentation_run (t1) reads F4-F12 and calls give_mm_order(menu, order, team). While F4 is held in the movement sub-menu it ray-marches from the player's look position (agent_get_look_position, step 5 cm until ground) and moves a visible arrow prop ($g_hold_position_arrow_instance, spawned in t7) there; releasing F4 issues 'hold here'. Orders are applied only to divisions selected in the Native order UI (class_is_listening_order) and echoed as '<division>, form square!' etc.",
+      "hooks": [
+        "mst:sp_campaign_vienna/t4:cond",
+        "mst:sp_campaign_vienna/t4:conseq",
+        "prsnt:new_order_stuff/t0",
+        "prsnt:new_order_stuff/t1",
+        "mst:sp_campaign_vienna/t7:conseq"
+      ],
+      "scripts": [
+        "give_mm_order"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_new_order_stuff",
+        "prsnt_custom_order_menu"
+      ],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:40-118 (trp_custom_battle_dummy order arrays)"
+      ],
+      "globals": [
+        "g_presentation_order_screen",
+        "g_presentation_order_last_command_at",
+        "g_hold_position_arrow_instance",
+        "g_presentation_obj_order_screen_0",
+        "g_presentation_obj_order_screen_1",
+        "g_presentation_obj_order_screen_2",
+        "g_presentation_obj_order_screen_3"
+      ],
+      "resources": {
+        "spr": [
+          "spr 449 (hold-position arrow)"
+        ],
+        "mesh": [
+          "order screen overlay meshes"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw mst:sp_campaign_vienna/t4:cond -> key_clicked key_f4, neg|is_presentation_active 52",
+        "sqlite names nw prsnt 52 = prsnt_new_order_stuff",
+        "dis nw prsnt:new_order_stuff/t1: 21 bare-int calls to give_mm_order keyed on F4..F12",
+        "explain nw give_mm_order text: 'hold this position!', 'follow me!', 'charge!', ..."
+      ],
+      "overlaps": [
+        "acw.order_voice_callouts",
+        "bi.battle_event_messages",
+        "nw.objective_markers_hud",
+        "nw.voice_commands",
+        "sw.battle_start_speeches"
+      ]
+    },
+    {
+      "id": "nw.crewed_artillery",
+      "name": "Player-crewed artillery (12pdr, howitzer, mortar, fort, naval, carronade, swivel, rocket)",
+      "category": "combat-mechanics",
+      "summary": "Cannons are multi-part scene props the player walks up to and works step by step with use-buttons (sponge/load cartridge, load round/shell/canister/bomb, ram, aim, fire, limber to a horse); once 'controlling' a gun the player aims with the camera and fires with a key, and the ball flies, bounces, damages people and destructible props.",
+      "mechanics": "Cannon kinds are scene props 1482-1489 (spr_mm_cannon_12pdr_wood ... spr_mm_cannon_rocket_wood) with child props (wheels, barrel, limber, buttons). Button props (spr_mm_aim_button, spr_mm_load_cartridge_button, spr_mm_round_button, spr_mm_limber_button, ...) call use_item on ti_on_scene_prop_use; use_item is gated (this_or_next|multiplayer_is_server)(neg|game_in_multiplayer_mode) so it also runs in single player. A mission trigger (mst:tutorial/t9) reads game keys 6/7 while $g_currently_controlling_object==1 and, when not in multiplayer, calls handle_agent_control_command directly (SP branch) which sets agent slot 6 (5 = fire). mst:tutorial/t1 (every 0.5 s, same SP-inclusive guard) aims the barrel from agent_get_look_position and, on command 5, calls fire_cannon; recoil_cannon animates the recoil. mst:tutorial/t2 (every 0.125 s) moves balls: cannon_ball_hit_ground (bounce), cannon_explosion_on_position / explosion_at_position, deliver_damage_to_prop. State lives in ~60 scene-prop slots (6-50+) and agent slots 6/7.",
+      "hooks": [
+        "mst:tutorial/t1:cond",
+        "mst:tutorial/t1:conseq",
+        "mst:tutorial/t2:conseq",
+        "mst:tutorial/t9:cond",
+        "mst:tutorial/t9:conseq",
+        "spr:spr_mm_aim_button/t0",
+        "spr:spr_mm_load_cartridge_button/t0",
+        "mst:multiplayer_dm/t20:conseq",
+        "mst:multiplayer_tdm/t25:conseq"
+      ],
+      "scripts": [
+        "fire_cannon",
+        "cannon_ball_hit_ground",
+        "cannon_explosion_on_position",
+        "recoil_cannon",
+        "handle_agent_control_command",
+        "use_item",
+        "stop_agent_controlling_cannon",
+        "set_agent_controlling_prop",
+        "cannon_instance_get_barrel",
+        "cannon_instance_get_wheels",
+        "cannon_child_find_cannon_instance",
+        "agent_take_cannonball",
+        "limber_cannon_to_horse",
+        "unlimber_cannon_from_horse",
+        "attach_limber_to_horse",
+        "generate_bits_for_cannon_instance",
+        "search_for_first_ground_from_direction_to_angle",
+        "prop_instance_animate_to_position_with_childs",
+        "set_prop_child_active",
+        "set_prop_child_inactive",
+        "find_or_create_scene_prop_instance"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_multiplayer_cannon_crosshair",
+        "prsnt_multiplayer_artillery_icons"
+      ],
+      "mission_templates": [
+        "mst_tutorial",
+        "mst_multiplayer_dm",
+        "mst_multiplayer_tdm",
+        "mst_multiplayer_hq",
+        "mst_multiplayer_cf",
+        "mst_multiplayer_sg",
+        "mst_multiplayer_bt",
+        "mst_multiplayer_cb",
+        "mst_multiplayer_duel",
+        "mst_multiplayer_kh",
+        "mst_multiplayer_br"
+      ],
+      "dialogs": [],
+      "slots": [
+        "scene_prop:6-50 (cannon/child state)",
+        "agent:6 (control command)",
+        "agent:7 (controlled prop)"
+      ],
+      "globals": [
+        "g_currently_controlling_object",
+        "g_cur_control_prop_kind"
+      ],
+      "resources": {
+        "spr": [
+          "spr_mm_cannon_12pdr_wood..spr_mm_cannon_rocket_wood (1482-1489)",
+          "spr_mm_cannon_*_wheels",
+          "spr_mm_cannon_*_limber",
+          "spr_mm_*_button (aim/load/round/shell/canister/bomb/rocket/limber/push)"
+        ],
+        "psys": [
+          "psys 70 (muzzle burst)"
+        ],
+        "sound": [
+          "snd 173 (fire)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw mst:tutorial/t1:cond = (this_or_next|multiplayer_is_server)(neg|game_in_multiplayer_mode)",
+        "dis nw mst:tutorial/t9:conseq: SP else-branch calls client_get_my_agent + handle_agent_control_command",
+        "dis nw use_item stmt 10-11: same SP-inclusive guard",
+        "roots nw fire_cannon: 10 mst_multiplayer_* + mst:tutorial/t1",
+        "menu:tutorial/opt:continue -> set_jump_mission 2 (= mst_tutorial)",
+        "tutorial string 'Finally! It is time for some artillery training. Walk up to the cannon'"
+      ],
+      "overlaps": [
+        "acw.field_artillery",
+        "be.field_artillery_batteries",
+        "laigle.artillery_park",
+        "laigle.field_artillery",
+        "oa1860.scripted_ballistic_hand_cannon"
+      ]
+    },
+    {
+      "id": "nw.explosives_destructible_props",
+      "name": "Grenades, explosive shot and destructible props",
+      "category": "combat-mechanics",
+      "summary": "Thrown grenades and explosive bullets blow up on impact, hurting nearby people and chipping damage off destructible scenery (doors, walls, gabions, crates), which steps through damage stages until it collapses; explosive supply crates chain-explode.",
+      "mechanics": "Item triggers: itm_grenade/t1 and itm_explosive_bullets/t0 (ti_on_missile_hit) call explosion_at_position (142 stmts: area damage to agents, sound/particles, then deliver_damage_to_prop on props in radius). deliver_damage_to_prop (314) looks up prop health (get_default_health_for_prop_kind), applies damage to scene-prop slot health, advances to the next destruction stage (get_next_stage_acording_to_damage, get_next_destruction_stage_prop_kind 542 stmts of prop-kind tables) and spawns debris (spawn_crator_on_pos, clean_up_prop_instance). spr_mm_sp_crate_explosive and mst:sp_campaign_vienna/t39 reach the same chain in SP.",
+      "hooks": [
+        "itm:itm_grenade/t1",
+        "itm:itm_explosive_bullets/t0",
+        "mst:sp_campaign_vienna/t39:conseq",
+        "spr:spr_mm_sp_crate_explosive/t0",
+        "mst:tutorial/t4:conseq"
+      ],
+      "scripts": [
+        "explosion_at_position",
+        "deliver_damage_to_prop",
+        "get_default_health_for_prop_kind",
+        "get_next_stage_acording_to_damage",
+        "get_next_destruction_stage_prop_kind",
+        "get_prop_center",
+        "get_prop_kind_for_constr_kind",
+        "spawn_crator_on_pos",
+        "clean_up_prop_instance",
+        "multiplayer_server_play_hit_effect",
+        "handle_cannon_hit_effect_event"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_tutorial",
+        "mst_multiplayer_dm",
+        "mst_multiplayer_tdm",
+        "mst_multiplayer_hq",
+        "mst_multiplayer_cf",
+        "mst_multiplayer_sg",
+        "mst_multiplayer_bt",
+        "mst_multiplayer_cb",
+        "mst_multiplayer_duel",
+        "mst_multiplayer_kh",
+        "mst_multiplayer_br"
+      ],
+      "dialogs": [],
+      "slots": [
+        "scene_prop:6-50 (health/stage)"
+      ],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_grenade",
+          "itm_explosive_bullets",
+          "itm_french_bomb"
+        ],
+        "spr": [
+          "spr_mm_sp_crate_explosive",
+          "destructible stage props (~100 kinds)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain nw explosion_at_position: callers itm:itm_explosive_bullets/t0, itm:itm_grenade/t1 [ti_on_missile_hit], mst:sp_campaign_vienna/t39",
+        "roots nw deliver_damage_to_prop includes spr:spr_mm_sp_crate_explosive and mst:sp_campaign_vienna",
+        "sqlite blocks nw itm:* lists grenade t0/t1, explosive_bullets t0"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "awoiaf.fire_arrows_destructible_props",
+        "be.ww1_weapons_mg_gas_grenades",
+        "oa1860.explosive_and_destructible_props",
+        "oa1860.explosive_thrown_weapons",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "nw.missile_launch_effects",
+      "name": "Central muzzle flash, smoke and report on every gunshot (engine hook)",
+      "category": "combat-mechanics",
+      "summary": "Every time any firearm is discharged the game plays the right report sound and puffs muzzle smoke and flash at the barrel, scaled per weapon class (pistol, musket, rifle, blunderbuss), with lighter smoke for the player's own shot so his view is not blinded; bullet impacts throw dust/spark particles.",
+      "mechanics": "game_missile_launch is an engine callback (params: shooter agent, weapon item, missile item) - NW defines it so the engine calls it on every missile launch. It picks sound 164/165/166 and smoke offsets by weapon id band, scales the burst to 65% when the shooter is the local player (client_get_my_agent), and fires particle_system_burst_no_sync 65-68. Impacts: item triggers on itm_bullets, itm_pistol_ammo, itm_canister_ammo, itm_shell_fragment call mm_on_bullet_hit (psys 90/91 at pos63).",
+      "hooks": [
+        "script:game_missile_launch",
+        "itm:itm_bullets/t0",
+        "itm:itm_pistol_ammo/t0",
+        "itm:itm_canister_ammo/t0",
+        "itm:itm_shell_fragment/t0",
+        "script:game_missile_dives_into_water"
+      ],
+      "scripts": [
+        "game_missile_launch",
+        "mm_on_bullet_hit",
+        "game_missile_dives_into_water",
+        "client_get_my_agent"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "psys": [
+          "psys 65-68 (muzzle smoke/flash)",
+          "psys 90-91 (impact)"
+        ],
+        "sound": [
+          "snd 164-166 (musket/pistol reports)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis nw game_missile_launch (62 stmts) - sound + 4 particle bursts",
+        "sqlite: game_missile_launch exists only in nw and be (be = SP gunpowder mod, 546 stmts)"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "nw.division_gunpowder_ai",
+      "name": "Division-level line-battle AI (advance to range, halt and fire, charge when close)",
+      "category": "battle-ai-formations",
+      "summary": "In NW's custom battles the AI handles each of its nine divisions separately: a division that can see an enemy division within about 200 m halts and fires at will, one that gets within 20 m (or is cavalry) charges, divisions out of contact hold with fire-on-command, and if nobody is engaged the army eventually switches to a general advance.",
+      "mechanics": "mst:quick_battle_battle/t17 (once) -> select_battle_tactic -> select_battle_tactic_aux (306 stmts: tallies infantry/cavalry/skirmish/artillery head-counts per side from trp_custom_battle_dummy_2 (456) slots 0-17/72-89 written by the custom-battle designer) and battle_tactic_init -> battle_tactic_init_aux. mst:quick_battle_battle/t20 (every 5 s) -> battle_tactic_apply -> battle_tactic_apply_aux (304): for each own division, find nearest enemy division (division_get_average_position) and line of sight (position_has_line_of_sight_to_position at +2 m); in LOS and <200 m or enemy within 25 m (get_closest3_distance_of_enemies_at_pos1) -> if cavalry or <20 m team_give_order charge (2) else hold at current spot + fire at will (13); otherwise hold + fire on command (17). With no division engaged a random roll against mission time switches tactic to 4 (advance) and stamps $g_last_tactic_change_at. mst:quick_battle_battle/t21 (every 1 s) re-issues charge/hold per division from slot 90+div/99+div.",
+      "hooks": [
+        "mst:quick_battle_battle/t17:conseq",
+        "mst:quick_battle_battle/t20:cond",
+        "mst:quick_battle_battle/t21:conseq"
+      ],
+      "scripts": [
+        "select_battle_tactic",
+        "select_battle_tactic_aux",
+        "battle_tactic_init",
+        "battle_tactic_init_aux",
+        "battle_tactic_apply",
+        "battle_tactic_apply_aux",
+        "division_get_average_position",
+        "get_closest3_distance_of_enemies_at_pos1",
+        "team_get_average_position_of_enemies",
+        "find_high_ground_around_pos1"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_quick_battle_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:0-17, 36-53, 72-89, 90-107 (trp 456 division type/state/count/stance)",
+        "agent:23"
+      ],
+      "globals": [
+        "g_last_tactic_change_at",
+        "ai_team_1",
+        "ai_team_2"
+      ],
+      "resources": {
+        "troop": [
+          "trp 456 (custom-battle data troop)"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain nw battle_tactic_apply_aux: entry mst:quick_battle_battle/t20:cond [every 5s]; 304 vs Native 61",
+        "dis nw battle_tactic_apply_aux stmts 34-105 (LOS, 20000/8000/2000 thresholds, orders 2/13/17, tactic 4)",
+        "dis nw mst:quick_battle_battle/t21:conseq"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "nw.morale_rout_rally",
+      "name": "Courage, rout and rally per soldier (with retreat order and difficulty scale)",
+      "category": "morale",
+      "summary": "Each soldier starts with a courage score (scaled by a campaign difficulty modifier for the player's side); deaths nearby lower it, enemy deaths raise it, a soldier whose courage falls below a threshold that rises as he loses health runs away, and he can rally if courage recovers. Ordering a division to 'retreat' makes it rout on purpose.",
+      "mechanics": "ti_on_agent_spawn (mst:sp_campaign_*/t1) sets agent slot 24 = 3000-4000 (x $g_global_morale_modifier/10 for team 0) and slot 23 = 0. ti_on_agent_killed_or_wounded (t3) -> apply_death_effect_on_courage_scores: counts same-team agents within 13 m of the casualty, then for every agent within 100 m adds a distance-weighted delta (+10 for enemies; -15+nearby_count capped at -5 for friends, divided by 3 if the casualty was already routing) to slot 24. Every 3 s after 25 s (t9) -> decide_run_away_or_not: if the division's movement order is retreat (mordr 14) or courage < 3500 - 40*hp -> agent_start_running_away + slot 23 = 1; if routed and courage >= 3700 - 40*hp and no retreat order -> agent_stop_running_away (rally).",
+      "hooks": [
+        "mst:sp_campaign_vienna/t1:conseq",
+        "mst:sp_campaign_vienna/t3:conseq",
+        "mst:sp_campaign_vienna/t8:cond",
+        "mst:sp_campaign_vienna/t9:cond",
+        "mst:quick_battle_battle/t4:conseq",
+        "mst:quick_battle_battle/t19:conseq"
+      ],
+      "scripts": [
+        "apply_death_effect_on_courage_scores",
+        "decide_run_away_or_not",
+        "apply_effect_of_other_people_on_courage_scores"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2",
+        "mst_quick_battle_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:23 (routed flag)",
+        "agent:24 (courage)"
+      ],
+      "globals": [
+        "g_global_morale_modifier"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw decide_run_away_or_not (36 stmts) - retreat order 14 and rally branch",
+        "dis nw mst:sp_campaign_vienna/t1:conseq stmts 5-14"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "acw.bury_the_dead",
+        "be.company_discipline_rout",
+        "bi.courage_update_staggering",
+        "tld.battle_coherence_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "nw.voice_commands",
+      "name": "Shouted voice commands and order call-outs",
+      "category": "qol-ui",
+      "summary": "The player (and officers) can shout a voice command with a key; NPC soldiers and officers audibly call out orders when the player issues them, with nationality- and gender-appropriate voice sets and a cooldown that is shorter for officers.",
+      "mechanics": "mst:quick_battle_battle/t0 (every frame, key 43 = voice-command key) -> if not multiplayer calls multiplayer_server_agent_play_voicecommand(agent, cmd) directly (SP branch); t1 (ti_on_order_issued) makes agents of the ordered divisions shout. The script (178 stmts, guard this_or_next|multiplayer_is_server / neg|game_in_multiplayer_mode) checks agent slot 1 (last shout time) against $g_time_between_voice_commands(_officer) by troop rank slot 12 (3-5 = officers), picks a voice set from troop faction/troop range and player gender, and plays the sound at the agent. Musicians and pianists are excluded.",
+      "hooks": [
+        "mst:quick_battle_battle/t0:conseq",
+        "mst:quick_battle_battle/t1:conseq"
+      ],
+      "scripts": [
+        "multiplayer_server_agent_play_voicecommand",
+        "cf_agent_is_playing_music",
+        "cf_agent_is_playing_piano",
+        "client_get_my_agent"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_quick_battle_battle",
+        "mst_multiplayer_dm",
+        "mst_multiplayer_tdm",
+        "mst_multiplayer_hq",
+        "mst_multiplayer_cf",
+        "mst_multiplayer_sg",
+        "mst_multiplayer_bt",
+        "mst_multiplayer_cb",
+        "mst_multiplayer_duel",
+        "mst_multiplayer_kh",
+        "mst_multiplayer_br"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:1 (last shout time)",
+        "troop:12 (rank class)"
+      ],
+      "globals": [
+        "g_time_between_voice_commands",
+        "g_time_between_voice_commands_officer",
+        "g_last_voice_command_at"
+      ],
+      "resources": {
+        "sound": [
+          "NW voice-command banks per nation (British, French, Prussian, Russian, Austrian, ...)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw mst:quick_battle_battle/t0:cond/conseq - key 43, SP else-branch",
+        "roots nw multiplayer_server_agent_play_voicecommand includes mst:quick_battle_battle",
+        "dis nw multiplayer_server_agent_play_voicecommand stmts 0-46"
+      ],
+      "overlaps": [
+        "acw.order_voice_callouts",
+        "bi.battle_event_messages",
+        "nw.fkey_order_tree",
+        "nw.objective_markers_hud",
+        "sw.battle_start_speeches"
+      ]
+    },
+    {
+      "id": "nw.objective_markers_hud",
+      "name": "On-screen objective markers and mission timer/progress counter",
+      "category": "qol-ui",
+      "summary": "Up to four objective markers float over their real-world positions on screen (hidden when off-screen), and a HUD counter shows either a countdown timer (m:ss) or a 'x of y' progress count for the current goal.",
+      "mechanics": "Mission triggers spawn invisible locator props (spr 1565) and move them to objective points ($g_objectives_locator_instance_1..4), then set $g_projection_state 1-4. prsnt_singleplayer_objective_projection_display/t1 (every frame) takes each locator's position +2.5 m, converts it with position_get_screen_projection and moves an overlay there (display only when inside -100..1100 x -100..850). prsnt_singleplayer_progress_counter/t1 mode 1 = countdown from $g_singleplayer_progress_counter_start_time/_max_value, mode 2 = string with reg0/reg1, mode -1 closes.",
+      "hooks": [
+        "prsnt:singleplayer_objective_projection_display/t0",
+        "prsnt:singleplayer_objective_projection_display/t1",
+        "prsnt:singleplayer_progress_counter/t0",
+        "prsnt:singleplayer_progress_counter/t1",
+        "mst:sp_campaign_vienna/t7:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [
+        "prsnt_singleplayer_objective_projection_display",
+        "prsnt_singleplayer_progress_counter"
+      ],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2",
+        "mst_camp_1"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_projection_state",
+        "g_objectives_locator_instance_1",
+        "g_objectives_locator_instance_2",
+        "g_objectives_locator_instance_3",
+        "g_objectives_locator_instance_4",
+        "g_singleplayer_progress_counter_mode",
+        "g_singleplayer_progress_counter_cur_value",
+        "g_singleplayer_progress_counter_max_value",
+        "g_singleplayer_progress_counter_start_time",
+        "g_singleplayer_progress_counter_string_id",
+        "g_singleplayer_progress_counter_overlay"
+      ],
+      "resources": {
+        "spr": [
+          "spr 1565 (objective locator)"
+        ],
+        "mesh": [
+          "objective marker overlay mesh"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw prsnt:singleplayer_objective_projection_display/t1 (80 stmts)",
+        "dis nw prsnt:singleplayer_progress_counter/t1 (37 stmts)",
+        "global nw g_projection_state: 33 writers across sp_campaign_* and camp_1"
+      ],
+      "overlaps": [
+        "acw.order_voice_callouts",
+        "bi.battle_event_messages",
+        "nw.fkey_order_tree",
+        "nw.voice_commands",
+        "sw.battle_start_speeches"
+      ]
+    },
+    {
+      "id": "nw.battle_results_payout",
+      "name": "Post-battle results screen with kill-based pay and casualty tally",
+      "category": "reports-info",
+      "summary": "After each scripted battle a results screen lists enemies killed, the player's personal kills, allies and companions lost, and the money earned: +20 per personal kill, +10 per enemy killed by the army, -5 per soldier lost, -10 per companion lost; the player can accept or retry.",
+      "mechanics": "ti_on_agent_killed_or_wounded (mst:sp_campaign_*/t3) calls sp_process_death_for_battle_results(dead, killer) which updates $g_sp_allies_lost / $g_sp_companions_lost (troop range 511-540 = companions) / $g_sp_enemies_killed / $g_sp_personal_kills / $g_sp_money_gained. prsnt_singleplayer_mission_results (220 stmts on load) renders the table and sets $g_singleplayer_mission_results_done / _retry; the money is spent at the camp merchants (sp_camp_set_merchandise stocks trp 550/551 at mission start of mst_camp_1).",
+      "hooks": [
+        "mst:sp_campaign_vienna/t3:conseq",
+        "prsnt:singleplayer_mission_results/t0",
+        "prsnt:singleplayer_mission_results/t1",
+        "mst:camp_1/t2:conseq"
+      ],
+      "scripts": [
+        "sp_process_death_for_battle_results",
+        "sp_camp_set_merchandise",
+        "store_vince_random_in_range"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_singleplayer_mission_results"
+      ],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2",
+        "mst_camp_1"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_sp_allies_lost",
+        "g_sp_companions_lost",
+        "g_sp_enemies_killed",
+        "g_sp_personal_kills",
+        "g_sp_money_gained",
+        "g_singleplayer_mission_results_done",
+        "g_singleplayer_mission_results_retry"
+      ],
+      "resources": {
+        "troop": [
+          "trp 550/551 (camp merchants)",
+          "trp 511-540 (campaign companions)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis nw sp_process_death_for_battle_results (29 stmts, money deltas +20/+10/-5/-10)",
+        "explain nw prsnt:singleplayer_mission_results/t0: reads g_sp_* globals, text 'Battle Results','Personal kills:','Allies lost:'",
+        "dis nw sp_camp_set_merchandise"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "nw.historical_campaign_framework",
+      "name": "Scripted historical-battle campaign (briefing, camp, companion picker, cutscene camera)",
+      "category": "quests",
+      "summary": "NW's single-player mode is a fixed chain of battles (Vienna bridge, Austerlitz, Dresden x2): a campaign map, a briefing, a walk-around camp with merchants and companions, a companion and companion-equipment picker, scripted fly-over camera intros with letterbox bars and timed objectives, and a memoir screen.",
+      "mechanics": "menu:run_mission_dummy branches on $g_finished_missions / $g_finished_sub_missions to jump to scenes 274/275/278/279 with mst_sp_campaign_vienna / austerlitz_1 / dresden_1 / dresden_2, else opens prsnt 59 (campaign map). Each sp_campaign template is a state machine on $g_mission_state: dozens of every-0s triggers each guarded by a mission-state value fire messages, move the cinematic camera (mission_cam_set_mode 1, mission_cam_animate_to_position, mission_cam_animate_to_screen_color fades), deploy divisions (deploy_division_via_teleport) and spawn objective markers. prsnt_singleplayer_companion_select / _companion_equipment_select choose which companions (trp 511-540) join and what they carry; mst_camp_1 is a walkable camp with merchants.",
+      "hooks": [
+        "menu:run_mission_dummy",
+        "menu:visit_camp_dummy",
+        "menu:go_briefing_dummy",
+        "mst:sp_campaign_vienna/t14:conseq",
+        "mst:sp_campaign_vienna/t16:conseq",
+        "prsnt:singleplayer_campain_map/t0",
+        "prsnt:singleplayer_camp_screen/t0",
+        "prsnt:singleplayer_companion_select/t1"
+      ],
+      "scripts": [
+        "sp_common_before_mission_start",
+        "deploy_division_via_teleport",
+        "sp_camp_set_merchandise"
+      ],
+      "menus": [
+        "menu_run_mission_dummy",
+        "menu_run_companion_dummy",
+        "menu_visit_camp_dummy",
+        "menu_go_briefing_dummy",
+        "menu_quit_dummy"
+      ],
+      "presentations": [
+        "prsnt_singleplayer_campain_map",
+        "prsnt_singleplayer_camp_screen",
+        "prsnt_singleplayer_memoir_screen",
+        "prsnt_singleplayer_companion_select",
+        "prsnt_singleplayer_companion_equipment_select",
+        "prsnt_singleplayer_cutscene_bars"
+      ],
+      "mission_templates": [
+        "mst_sp_campaign_vienna",
+        "mst_sp_campaign_austerlitz_1",
+        "mst_sp_campaign_austerlitz_1_old",
+        "mst_sp_campaign_dresden_1",
+        "mst_sp_campaign_dresden_2",
+        "mst_camp_1"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_finished_missions",
+        "g_finished_sub_missions",
+        "g_started_mission",
+        "g_mission_state",
+        "g_global_morale_modifier"
+      ],
+      "resources": {
+        "scene": [
+          "scn 274, 275, 278, 279 (campaign battlefields)",
+          "camp scene"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis nw menu:run_mission_dummy (jump to scenes 274-279, set_jump_mission 15-19)",
+        "sqlite names nw mt 15-20 = mst_sp_campaign_* and mst_camp_1",
+        "dis nw mst:sp_campaign_vienna/t14,t16 (cinematic camera)",
+        "explain nw prsnt:singleplayer_companion_select/t1 globals g_finished_missions ..."
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "nw.custom_battle_division_designer",
+      "name": "Custom battle designer by division",
+      "category": "qol-ui",
+      "summary": "NW's custom battle screen lets the player compose both armies division by division (troop type and size for each of nine divisions per side, factions, banners) and then fights it with the division AI.",
+      "mechanics": "prsnt_game_custom_battle_designer (t0 592-stmt layout, t2 262-stmt event handler) writes per-division troop choice and count into trp_custom_battle_dummy (455) slots 0-19 and trp 456 tables, then spawn_quick_battle_army (98 stmts, modified Native) adds the troops and banners and jumps to mst_quick_battle_battle; custom_battle_set_division_names labels divisions; custom_battle_end closes.",
+      "hooks": [
+        "prsnt:game_custom_battle_designer/t0",
+        "prsnt:game_custom_battle_designer/t2",
+        "mst:quick_battle_battle/t9:conseq"
+      ],
+      "scripts": [
+        "spawn_quick_battle_army",
+        "custom_battle_set_division_names",
+        "custom_battle_end",
+        "custom_battle_deployment"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_game_custom_battle_designer"
+      ],
+      "mission_templates": [
+        "mst_quick_battle_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:0-19 (trp 455)",
+        "troop:0-107 (trp 456)"
+      ],
+      "globals": [
+        "g_quick_battle_team_1_faction",
+        "g_quick_battle_team_2_faction",
+        "g_quick_battle_troop",
+        "g_is_quick_battle"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain nw spawn_quick_battle_army: caller prsnt:game_custom_battle_designer/t2",
+        "explain nw battle_tactic_init_aux text 'Centre_Inf','Lflank_Inf' ..."
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "nw.battle_weather_generator",
+      "name": "Random battle weather and time of day",
+      "category": "dynamic-world-events",
+      "summary": "Each NW map rolls weather and time: time of day, rain/snow strength, cloud cover and fog distance/colour, so the same field can be fought at dawn in fog or at noon in rain.",
+      "mechanics": "multiplayer_generate_weather (138 stmts) is called from multiplayer_mm_before_mission_start_common (also used by mst_tutorial, i.e. single player) and initialize_all_scene_prop_slots: it picks a day time (scene_set_day_time), set_rain(type, strength), set_global_cloud_amount and set_fog_distance($g_fog_distance, $g_fog_colour) from per-map settings and random rolls.",
+      "hooks": [
+        "mst:tutorial/t14:conseq",
+        "mst:multiplayer_cm/t3:conseq"
+      ],
+      "scripts": [
+        "multiplayer_generate_weather",
+        "multiplayer_mm_before_mission_start_common"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_tutorial",
+        "mst_multiplayer_dm",
+        "mst_multiplayer_tdm",
+        "mst_multiplayer_hq",
+        "mst_multiplayer_cf",
+        "mst_multiplayer_sg",
+        "mst_multiplayer_bt",
+        "mst_multiplayer_cb",
+        "mst_multiplayer_duel",
+        "mst_multiplayer_kh",
+        "mst_multiplayer_br"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_fog_distance",
+        "g_fog_colour"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain nw multiplayer_generate_weather: callers incl. multiplayer_mm_before_mission_start_common; roots include mst:tutorial",
+        "dis nw multiplayer_generate_weather: scene_set_day_time, set_rain, set_global_cloud_amount, set_fog_distance"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "be.campaign_weather_battle_atmosphere",
+        "laigle.weather_seasons",
+        "tld.battle_condition_modifiers",
+        "tld.day_night_proficiency_shift",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "nw.mp_only_systems",
+      "name": "Multiplayer-only systems (catalogue)",
+      "category": "other",
+      "summary": "Large parts of NW only make sense with human players and run only in multiplayer missions: sapper construction with team build points, battle royale weapon boxes, conquest/HQ flags, medics and bandages, musicians (drum/fife/bagpipe/piano) and multi-agent music sync, spyglass and drinking animations, admin/cheat/poll tools, rank-by-score, team balancing and teamkill penalties, troop/class availability limits.",
+      "mechanics": "Entry points are the ten mst_multiplayer_* templates and script game_receive_network_message (2771 stmts). Examples: multiplayer_server_construct_prop (reached only from itm_french_bomb and network messages), multiplayer_server_send_build_points, royale_* scripts (mst_multiplayer_br), server_handle_bandages_hit (MP templates only), multiplayer_server_agent_play_music (mst_multiplayer_cb + network), multiplayer_server_agent_use_spyglass (prsnt_spyglass_dummy + network), check_troop_availability / random_item_selection / quick_assign_item (MP item/troop select presentations), multiplayer_server_on_player_teamkilled_player.",
+      "hooks": [
+        "script:game_receive_network_message",
+        "mst:multiplayer_br/t4:conseq"
+      ],
+      "scripts": [
+        "multiplayer_server_construct_prop",
+        "multiplayer_server_send_build_points",
+        "royale_initialise_boxes",
+        "royale_initialise_cannons",
+        "royale_spawn_box",
+        "multiplayer_server_royale_use_weaponbox",
+        "server_handle_bandages_hit",
+        "multiplayer_server_agent_play_music",
+        "multiplayer_server_agent_stop_music",
+        "multiplayer_server_agent_use_spyglass",
+        "multiplayer_agent_drinking",
+        "check_troop_availability",
+        "random_item_selection",
+        "multiplayer_get_troop_rank",
+        "conquest_get_flag_name",
+        "multiplayer_server_on_player_teamkilled_player"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_multiplayer_construct",
+        "prsnt_multiplayer_music",
+        "prsnt_spyglass_dummy",
+        "prsnt_drinking",
+        "prsnt_multiplayer_admin_chat",
+        "prsnt_multiplayer_cheat_menu",
+        "prsnt_conquest_flag_select",
+        "prsnt_multiplayer_medic_icons"
+      ],
+      "mission_templates": [
+        "mst_multiplayer_dm",
+        "mst_multiplayer_tdm",
+        "mst_multiplayer_hq",
+        "mst_multiplayer_cf",
+        "mst_multiplayer_sg",
+        "mst_multiplayer_bt",
+        "mst_multiplayer_cb",
+        "mst_multiplayer_duel",
+        "mst_multiplayer_kh",
+        "mst_multiplayer_br",
+        "mst_multiplayer_cm"
+      ],
+      "dialogs": [],
+      "slots": [
+        "player:40-51",
+        "agent:12-37"
+      ],
+      "globals": [
+        "g_team_1_build_points",
+        "g_team_2_build_points"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "roots nw for each listed script: only mst_multiplayer_* / game_receive_network_message / MP presentations (spyglass and drinking scripts carry an SP-inclusive guard but are only started from MP presentation flows)",
+        "roots nw multiplayer_server_construct_prop: itm:itm_french_bomb + game_receive_network_message"
+      ],
+      "overlaps": []
+    }
+  ]
+}

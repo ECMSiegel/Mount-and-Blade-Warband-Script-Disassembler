@@ -1,0 +1,972 @@
+{
+  "module": "laigle",
+  "features": [
+    {
+      "id": "laigle.field_artillery",
+      "name": "Crewed field artillery in campaign battles",
+      "category": "combat-mechanics",
+      "summary": "In ordinary campaign field battles, each side that owns guns gets up to two cannon placed in front of its spawn, each worked by a three-man crew that turns the gun, picks a random enemy, fires a ball that lands after a flight delay and kills or wounds everyone within about two metres. Guns are lost when crews die (intended; see bug notes).",
+      "mechanics": "mst:lead_charge/t76 (before start) zeroes the registry troop trp_cannon_array. t77 (after start) walks parties fighting the player, calls get_cannon_count (party slots 502/503/504 = 3/6/12-pounders), and spawn_cannon for up to 2 guns per side; spawn_cannon resolves an entry point (1 for the AI, 3 for the player), offsets 10 m sideways per gun and 20 m forward, spawn_scene_prop, then spawn_agent x3 (officer + 2 operators from get_cannon_operator_for_faction), stores crew in prop slots 300-302, division 8, scripted destinations around the gun. Caliber only sets prop slot 309 = damage multiplier 1/2/3 (all calibers use spr_twleve_pound_cannon). Every 3 s: t78 marks gun active if crew alive (prop slot 305) and releases crew (agent slot 16, clear scripted mode) when it is dead; t79 picks target agent (first enemy human, then 5% chance to switch to each later one) into slot 304; t80 rolls the gun back after recoil; t81 calls brute_rotation_check to turn the prop toward the target, sets slot 306 = aimed when rotation is 0 and the two operators are within 1.5 m of their posts. Every 1 s t82 is the reload: an operator walks to a point 3 m in front of the muzzle, and while within 1 m the counter slot 308 ticks down; on 0 slot 307 (loaded) is cleared. t83 (3 s) fires when active+loaded+aimed and team hold-fire order is off: spawns spr_cannon_ball 10 m underground at the muzzle, stores an aim point = target position +/-10 m random (ball slots 301/302), flight time = distance/100 one-second ticks (slot 306), muzzle particles (psys_cannon_smoke/longsmoke/flash/touchsmoke), snd_cannon_shot (+snd_cannon_distant if the player is 60 m+ away), animates 40 cm recoil, sets reload counter 30-39 s. t84 (1 s) counts each live ball down; at 0 it moves the ball to ground at the aim point, plays psys_shell_flash/longsmoke/dirtsplosion + snd_shell_explosion, and deals 50-100 damage (x slot 309 within 1 m) via agent_deliver_damage_to_agent from the gun officer to every agent within 2 m. count_mission_casualties_from_agents decrements party slot 502-504 when an officer dies.",
+      "hooks": [
+        "mst:lead_charge/t76:conseq",
+        "mst:lead_charge/t77:conseq",
+        "mst:lead_charge/t78:conseq",
+        "mst:lead_charge/t79:conseq",
+        "mst:lead_charge/t80:conseq",
+        "mst:lead_charge/t81:conseq",
+        "mst:lead_charge/t82:conseq",
+        "mst:lead_charge/t83:conseq",
+        "mst:lead_charge/t84:conseq"
+      ],
+      "scripts": [
+        "spawn_cannon",
+        "get_cannon_count",
+        "get_cannon_operator_for_faction",
+        "brute_rotation_check",
+        "count_mission_casualties_from_agents",
+        "form_infantry"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge"
+      ],
+      "dialogs": [],
+      "slots": [
+        "scene_prop:300",
+        "scene_prop:301",
+        "scene_prop:302",
+        "scene_prop:303",
+        "scene_prop:304",
+        "scene_prop:305",
+        "scene_prop:306",
+        "scene_prop:307",
+        "scene_prop:308",
+        "scene_prop:309",
+        "scene_prop:310",
+        "party:502",
+        "party:503",
+        "party:504",
+        "agent:301",
+        "agent:302",
+        "agent:16",
+        "troop:0 (on trp_cannon_array, running index)"
+      ],
+      "globals": [
+        "total_cannon_count",
+        "g_siege_method",
+        "g_encountered_party_2"
+      ],
+      "resources": {
+        "scene_prop": [
+          "spr_twleve_pound_cannon",
+          "spr_six_pound_cannon",
+          "spr_three_pound_cannon",
+          "spr_cannon_ball"
+        ],
+        "psys": [
+          "psys_cannon_smoke",
+          "psys_cannon_longsmoke",
+          "psys_cannon_flash",
+          "psys_cannon_touchsmoke",
+          "psys_shell_flash",
+          "psys_shell_longsmoke",
+          "psys_shell_dirtsplosion"
+        ],
+        "sound": [
+          "snd_cannon_shot",
+          "snd_cannon_distant",
+          "snd_shell_explosion"
+        ],
+        "troop": [
+          "trp_cannon_array",
+          "trp_french_cannon_operator",
+          "trp_french_cannon_officer",
+          "trp_british_cannon_operator",
+          "trp_bavarian_cannon_operator"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle mst:lead_charge/t76..t84 (decoded above)",
+        "dis laigle spawn_cannon (spawn_agent x3, prop slots 300-302, 307=1, 308=30)",
+        "slot laigle scene_prop 309: written only in t77 (1/2/3), read only in t84",
+        "callers laigle get_cannon_count -> t77 x3, regiment_recruitment menu, cf_spawn_side_cannons",
+        "dis laigle count_mission_casualties_from_agents stmt 14-33 (gun loss)",
+        "form_infantry stmt 30: neg|is_between troop, trp_french_cannon_operator, trp_cannon_array (crew excluded from formations)"
+      ],
+      "overlaps": [
+        "acw.field_artillery",
+        "be.field_artillery_batteries",
+        "laigle.artillery_park",
+        "nw.crewed_artillery",
+        "oa1860.scripted_ballistic_hand_cannon"
+      ]
+    },
+    {
+      "id": "laigle.artillery_park",
+      "name": "Buy and maintain an artillery park (player and AI lords)",
+      "category": "recruitment-troops",
+      "summary": "The player buys 3-, 6- or 12-pounder gun crews at a nation's Arsenal (inside the capital depot) and can disband them; the party menu reports how many guns you have. AI lords occasionally acquire guns when they reinforce, so enemy armies can field artillery too.",
+      "mechanics": "menu:regiment_recruitment (reached from every <nation>_depot 'Arsenal.' option) shows get_cannon_count and offers recruit/disband per caliber, writing party slots 502/503/504. cf_spawn_side_cannons (7 stmts): if a party has < 2 guns, +1 to a random slot 502-504; it is called from hire_men_to_kingdom_hero_party (daily lord reinforcement via strig:22). The counts feed laigle.field_artillery.",
+      "hooks": [
+        "menu:regiment_recruitment",
+        "menu:french_depot/opt:cannon_foundry_entrance:conseq",
+        "strig:22"
+      ],
+      "scripts": [
+        "get_cannon_count",
+        "cf_spawn_side_cannons",
+        "hire_men_to_kingdom_hero_party"
+      ],
+      "menus": [
+        "menu_regiment_recruitment",
+        "menu_french_depot",
+        "menu_british_depot",
+        "menu_austria_depot",
+        "menu_rhine_depot",
+        "menu_prussian_depot",
+        "menu_russian_depot",
+        "menu_polish_depot",
+        "menu_naples_depot",
+        "menu_italian_depot",
+        "menu_dutch_depot"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:502",
+        "party:503",
+        "party:504"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "callers laigle get_cannon_count (13 sites incl. 9 regiment_recruitment option blocks)",
+        "callers laigle cf_spawn_side_cannons -> hire_men_to_kingdom_hero_party @83",
+        "dis laigle cf_spawn_side_cannons"
+      ],
+      "overlaps": [
+        "acw.field_artillery",
+        "be.field_artillery_batteries",
+        "laigle.field_artillery",
+        "nw.crewed_artillery",
+        "oa1860.scripted_ballistic_hand_cannon"
+      ]
+    },
+    {
+      "id": "laigle.weather_seasons",
+      "name": "Persistent seasonal weather and rain greatcoats",
+      "category": "dynamic-world-events",
+      "summary": "The world has a running day-of-year and season; every hour the sky is re-rolled (clear / cloudy / overcast with light or heavy fog), with rain chance depending on season and clouds. Battles and scenes then use that weather, and in heavy rain line troops swap their coats for greatcoats.",
+      "mechanics": "strig:100 (24h) advances $year_day and sets $season; strig:101 (1h) calls check_weather (179 stmts): per season, random 0-10 picks $clouds 0/1/2 with set_global_cloud_amount 0/25/75 and set_global_haze_amount 10/25/45/90 ($fog), then $rain from a cloud-dependent roll. ti_before_mission_start triggers in lead_charge and 10 other templates (sieges, town/village/castle visits) call set_rain (type 2 = snow when $season 3, else rain; strength 40-100). In lead_charge/t4, rain+overcast with $cold_uniforms 0 calls change_uniforms_rain (troop_remove_item/troop_add_item coat->greatcoat on ~25 regular troops) and clear weather calls change_uniforms_clear.",
+      "hooks": [
+        "strig:100",
+        "strig:101",
+        "mst:lead_charge/t4:conseq",
+        "mst:castle_attack_walls_ladder/t24:conseq",
+        "mst:town_center/t5:conseq",
+        "mst:village_center/t7:conseq"
+      ],
+      "scripts": [
+        "check_weather",
+        "change_uniforms_rain",
+        "change_uniforms_clear"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_visit",
+        "mst_town_center",
+        "mst_village_attack_bandits",
+        "mst_village_center",
+        "mst_village_raid"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "season",
+        "year_day",
+        "rain",
+        "fog",
+        "clouds",
+        "cold_uniforms"
+      ],
+      "resources": {
+        "item": [
+          "itm_french_greatcoat_line",
+          "itm_french_greatcoat_gren",
+          "itm_british_greatcoat_line"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle check_weather",
+        "dis laigle strig:100",
+        "global laigle season: writers start_game_0 options + strig:100, 12 template readers",
+        "dis laigle mst:lead_charge/t4:conseq"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "be.campaign_weather_battle_atmosphere",
+        "nw.battle_weather_generator",
+        "tld.battle_condition_modifiers",
+        "tld.day_night_proficiency_shift",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "laigle.military_rank_career",
+      "name": "Military rank ladder, purchasable commissions and rank salary",
+      "category": "character-progression",
+      "summary": "The player enlists with a nation's recruiter or liaison officer and climbs ten ranks (Sergeant to Marshal) by asking a lord for promotion once renown passes thresholds, or by buying Lieutenant/Captain/Major commissions. Rank sets how many troops you may lead, which uniforms you may buy, and a weekly salary.",
+      "mechanics": "Dialogs dlg:2779 recruiter_enter_service and dlg:1291-1293 lord_ask_commission (13750 / 37500 / 65000) write $character_rank. dlg:1280 lord_ask_promotion -> promotion_check: renown (troop slot 7 of trp_player) >= 140/250/300/400/500/600/700 raises $character_rank and shows 'You have been promoted to ...'. game_get_party_companion_limit (engine-called) = 10 + 8*leadership + CHA + a rank bonus of 1/10/30/50/70/100/150/200/300/400 (replaces Native's renown term). rank_salary_payment (called from prsnt:budget_report) pays 10..750 per week by rank. Depot uniform options are gated on $character_rank.",
+      "hooks": [
+        "dlg:1280:dlga_lord_ask_promotion:lord_ask_promotion_cont:conseq",
+        "dlg:2779:dlga_liason_talk:recruiter_enter_service:cond",
+        "prsnt:budget_report/t0",
+        "script:game_get_party_companion_limit"
+      ],
+      "scripts": [
+        "promotion_check",
+        "rank_salary_payment",
+        "game_get_party_companion_limit"
+      ],
+      "menus": [
+        "menu_french_depot_uniforms",
+        "menu_british_depot_uniforms"
+      ],
+      "presentations": [
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1021:dlga_lord_talk:lord_ask_promotion",
+        "dlg:1287..1293 lord_ask_comission_*",
+        "dlg:2776..2783 liason_talk/recruiter_talk"
+      ],
+      "slots": [
+        "troop:7"
+      ],
+      "globals": [
+        "character_rank",
+        "promoted"
+      ],
+      "resources": {
+        "troop": [
+          "trp_liaison_french",
+          "trp_liaison_british",
+          "trp_liaison_rhine",
+          "trp_liaison_austrian",
+          "trp_liaison_prussian"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain laigle promotion_check (caller dlg:1280; texts 'You have been promoted to Marshal!' ...)",
+        "global laigle character_rank: 11 writers, 61 readers (dialogs, depot uniform conds, companion limit, salary)",
+        "dis laigle game_get_party_companion_limit",
+        "dis laigle rank_salary_payment; callers -> prsnt:budget_report/t0"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "laigle.regimental_depots",
+      "name": "National regimental depots with rank-gated uniform shops",
+      "category": "economy-trade",
+      "summary": "Each nation's capital has a Depot with sub-menus for troops, uniforms (line, light infantry, cavalry) and an Arsenal. Uniform options open a trade screen stocked with exactly that uniform set, but only if your rank is high enough.",
+      "mechanics": "menu:town/opt:<nation>_depot_entrance (cond: encountered town belongs to that kingdom and is a town) -> menu_<nation>_depot -> _troops / _uniform_types / _uniforms / _uniforms_light / _uniforms_cavalry. Each uniform option checks $character_rank, then troop_clear_inventory trp_depot_merchant, troop_add_item the set, change_screen_trade. 10 nations x 7 menus.",
+      "hooks": [
+        "menu:town/opt:french_depot_entrance:conseq"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_french_depot",
+        "menu_french_depot_troops",
+        "menu_french_depot_uniform_types",
+        "menu_french_depot_uniforms",
+        "menu_french_depot_uniforms_cavalry",
+        "menu_french_depot_uniforms_light"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "character_rank"
+      ],
+      "resources": {
+        "troop": [
+          "trp_depot_merchant"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle menu:town/opt:french_depot_entrance:cond",
+        "dis laigle menu:french_depot_uniforms/opt:grenadier:conseq (clear inventory, add set, change_screen_trade)",
+        "refs laigle menu menu_regiment_recruitment (9 Arsenal entries)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "laigle.standard_bearers_and_captured_colours",
+      "name": "Regimental standard bearers and captured enemy colours",
+      "category": "recruitment-troops",
+      "summary": "At a depot you can add a standard-bearer troop for each regiment type in your party. Enemy standards (eagles/colours) picked up in battle can be presented to your lord for honour.",
+      "mechanics": "menu:<nation>_depot_troops/opt:recruit_guy calls cf_spawn_flags_in_party (219 stmts): for each regiment troop type present in the party, add the matching flag-bearer troop (trp_french_flag, trp_british_standard_foot, ... ~66 troops); message 'Standard Bearers added' or 'You lack enough troops'. dlg:1256 lord_standard_taken (cond check_for_standards: player carries an enemy itm_standard_*/itm_colours_* item) writes $glory.",
+      "hooks": [
+        "menu:french_depot_troops/opt:recruit_guy:conseq",
+        "dlg:1256:dlga_lord_standard_taken:lord_standard_taken_1:cond"
+      ],
+      "scripts": [
+        "cf_spawn_flags_in_party",
+        "check_for_standards"
+      ],
+      "menus": [
+        "menu_french_depot_troops"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:1256:dlga_lord_standard_taken"
+      ],
+      "slots": [],
+      "globals": [
+        "glory"
+      ],
+      "resources": {
+        "item": [
+          "itm_standard_french_infantry_eagle",
+          "itm_colours_british",
+          "itm_colours_russianinfantry"
+        ],
+        "troop": [
+          "trp_french_flag",
+          "trp_british_standard_foot"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain laigle cf_spawn_flags_in_party (11 depot callers, 66+ flag troop refs)",
+        "explain laigle check_for_standards (caller dlg:1256, item refs to standards)",
+        "global laigle glory: 3 writers, 0 readers"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "laigle.lord_army_doctrine",
+      "name": "Per-lord army doctrine for reinforcements",
+      "category": "lord-behavior",
+      "summary": "Every lord is assigned one of five doctrines at game start (e.g. line, light, guard, cavalry-heavy). When his party reinforces it draws from that doctrine's three party templates instead of the faction's generic ones, so different lords field visibly different armies.",
+      "mechanics": "game_start writes troop slot 352 = 1..5 on ~140 lords. initialize_faction_troop_types (234 stmts vs Native 74) fills faction slots 77-79 (doctrine 1, Native reinforcement slots) and 100-111 (doctrines 2-5, three templates each). cf_reinforce_party: for a lord party (party slot 0 == 13) reads the leader's troop slot 352 and picks the matching faction-slot triple; garrisons (party type 2/3) keep 77-79.",
+      "hooks": [
+        "strig:22",
+        "script:game_start"
+      ],
+      "scripts": [
+        "cf_reinforce_party",
+        "initialize_faction_troop_types",
+        "game_start"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:352",
+        "faction:77",
+        "faction:78",
+        "faction:79",
+        "faction:100",
+        "faction:101",
+        "faction:102",
+        "faction:103",
+        "faction:104",
+        "faction:105",
+        "faction:106",
+        "faction:107",
+        "faction:108",
+        "faction:109",
+        "faction:110",
+        "faction:111"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "per-faction doctrine party templates (faction slots 100-111)"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "slot laigle troop 352: written 140x in game_start (values 1-5), read in cf_reinforce_party",
+        "slot laigle faction 103: written in initialize_faction_troop_types (pt), read in cf_reinforce_party",
+        "dis laigle cf_reinforce_party stmts 18-53"
+      ],
+      "overlaps": [
+        "acw.lord_army_size_and_wages",
+        "awoiaf.lord_retinue_heroes"
+      ]
+    },
+    {
+      "id": "laigle.typed_volunteer_recruitment",
+      "name": "Recruit village volunteers as a chosen troop type",
+      "category": "recruitment-troops",
+      "summary": "When recruiting village volunteers the player chooses what they become - line infantry, light infantry, or more expensive types - instead of always getting the culture's base recruit. Elite types cost more and you get only half as many; some regions supply a special recruit.",
+      "mechanics": "menu:recruit_volunteers options (e.g. 'Recruit them as Light Infantry ({reg6} francs)') set $recruit_type 1-4, then village_recruit_volunteers_recruit (42 stmts vs Native 11) picks faction slot 41 (default), 151, 152 or 154 of the village's original faction; party slot 351 == 1 (regional villages) uses faction slot 153 instead; a hard-coded case gives French players Polish lancers in kingdom_7 villages. Types 3/4 halve the count. Cost 10 per man.",
+      "hooks": [
+        "menu:recruit_volunteers/opt:recruit_them:conseq",
+        "menu:recruit_volunteers/opt:recruit_themlight:conseq"
+      ],
+      "scripts": [
+        "village_recruit_volunteers_recruit",
+        "update_volunteer_troops_in_village",
+        "update_volunteer_troops_in_town",
+        "update_volunteer_troops_in_castle",
+        "update_volunteer_troops_in_scotland",
+        "cf_town_castle_recruit_volunteers_cond"
+      ],
+      "menus": [
+        "menu_recruit_volunteers",
+        "menu_recruit_volunteers_town"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:41",
+        "faction:151",
+        "faction:152",
+        "faction:153",
+        "faction:154",
+        "party:351",
+        "party:93",
+        "party:19"
+      ],
+      "globals": [
+        "recruit_type"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle village_recruit_volunteers_recruit",
+        "slot laigle party 351: game_start writes 1 on 9 villages, read by the recruit script",
+        "auto report: town/castle volunteer scripts are new and called from strig:66"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "laigle.size_aware_battlefields",
+      "name": "Hand-made battlefields chosen by battle size",
+      "category": "deployment",
+      "summary": "Field battles on plains are fought on one of eight hand-built maps: five small ones for battles of up to 125 men and three large ones for bigger fights, instead of a random terrain scene.",
+      "mechanics": "setup_random_scene (70 stmts vs Native 34) takes the battle size parameter; terrain 3 (plain): size <= 125 -> random scn_field_battle_small_1..5, else scn_field_battle_1..3; other terrains keep random_scene_* scenes.",
+      "hooks": [
+        "menu:simple_encounter/opt:encounter_attack:conseq",
+        "menu:join_battle/opt:join_attack:conseq"
+      ],
+      "scripts": [
+        "setup_random_scene"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "scene": [
+          "scn_field_battle_small_1",
+          "scn_field_battle_small_5",
+          "scn_field_battle_1",
+          "scn_field_battle_3",
+          "scn_field_river_small_1"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle setup_random_scene",
+        "explain laigle setup_random_scene (9 menu callers)"
+      ],
+      "overlaps": [
+        "acw.custom_battle_historical_scenarios",
+        "cbl.custom_field_battle_scenes",
+        "tld.region_tracking_and_battle_scenes"
+      ]
+    },
+    {
+      "id": "laigle.terrain_party_speed",
+      "name": "Terrain-dependent party speed on the map",
+      "category": "map-travel",
+      "summary": "Parties move slower in desert and snow and faster on water.",
+      "mechanics": "game_get_party_speed_multiplier (engine-called, 0 script callers): 100% base; terrain 5 (desert) 70%, 4 (snow) 60%, 7 (bridge) 20%, 0 (water) 150%; set_trigger_result.",
+      "hooks": [
+        "script:game_get_party_speed_multiplier"
+      ],
+      "scripts": [
+        "game_get_party_speed_multiplier"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis laigle game_get_party_speed_multiplier",
+        "callers laigle game_get_party_speed_multiplier -> 0 (engine hook)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "laigle.naval_boarding_battle",
+      "name": "Sea encounters fought as boarding actions",
+      "category": "naval",
+      "summary": "Meeting a party on water opens a naval encounter; attacking ('Close for boarding!') loads a ship-deck scene where generic sailors and marines represent each side, and the loser of the fight loses half of their real party.",
+      "mechanics": "game_event_party_encounter (129 stmts) jumps to menu_naval_encounter when party_get_current_terrain == 0. encounter_attack: set_jump_mission mst_naval_battle on scn_naval_battle1, set_visitors trp_regular_sailor / trp_regular_marine at entries 1-4 with half of each side's fit count. mst_naval_battle (lead_charge-like, with PBOD) ends via create_naval_casualties: removes half of the losing party's companions at random into p_enemy_casualties/p_player_casualties.",
+      "hooks": [
+        "script:game_event_party_encounter",
+        "menu:naval_encounter/opt:encounter_attack:conseq",
+        "mst:naval_battle/t1:conseq",
+        "mst:naval_battle/t8:conseq"
+      ],
+      "scripts": [
+        "create_naval_casualties",
+        "game_event_party_encounter"
+      ],
+      "menus": [
+        "menu_naval_encounter"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_naval_battle"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "scene": [
+          "scn_naval_battle1"
+        ],
+        "troop": [
+          "trp_regular_sailor",
+          "trp_regular_marine"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep laigle mst_naval_battle|menu_naval_encounter",
+        "dis laigle menu:naval_encounter/opt:encounter_attack:conseq",
+        "dis laigle create_naval_casualties"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "laigle.boxing_ladder",
+      "name": "Bare-knuckle boxing ladder in town arenas",
+      "category": "tournaments",
+      "summary": "Arena fights become one-on-one boxing bouts. The more bouts you have won, the tougher the opponent (novice to heavyweight) and the bigger the purse (10 to 100).",
+      "mechanics": "menu:town/opt:town_arena and the arena master dialog set_jump_mission mst_boxing_fight. mst:boxing_fight/t11 (0.5 s) picks $pugilist and $boxing_prize from $fights_won (>=3/10/15/20 -> regular/veteran/champion/heavyweight fighter, 35/50/75/100) and add_visitors_to_current_scene. t10 sorts agents into teams. Arena master dialog dlg:2652 pays $boxing_prize; $fights_won counts wins.",
+      "hooks": [
+        "menu:town/opt:town_arena:conseq",
+        "mst:boxing_fight/t11:conseq",
+        "dlg:2652:dlga_arena_master_fight_result:arena_master_pre_talk.1:conseq"
+      ],
+      "scripts": [
+        "end_tournament_fight"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_boxing_fight",
+        "mst_arena_melee_fight"
+      ],
+      "dialogs": [
+        "dlg:2652:dlga_arena_master_fight_result",
+        "dlg:2665:dlga_arena_master_melee_talk"
+      ],
+      "slots": [
+        "agent:7"
+      ],
+      "globals": [
+        "fights_won",
+        "pugilist",
+        "boxing_prize",
+        "recent_boxing_match",
+        "boxing_match_won"
+      ],
+      "resources": {
+        "troop": [
+          "trp_novice_fighter",
+          "trp_regular_fighter",
+          "trp_veteran_fighter",
+          "trp_champion_fighter",
+          "trp_heavyweight_fighter"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep laigle mst_boxing_fight (menu, dialog, arena template)",
+        "dis laigle mst:boxing_fight/t11:conseq",
+        "global laigle boxing_prize -> dlg:2652 pays it"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "laigle.faro_card_game",
+      "name": "Faro gambling minigame",
+      "category": "qol-ui",
+      "summary": "A tavern gambler offers games of Faro: a presentation with the 13 card ranks where you click to stack bets, deal, and win or lose depending on the dealer's and player's cards.",
+      "mechanics": "dlg:2217 faro_talk -> start_presentation prsnt_faro_play (t0 load 91, t1 event 66, t2 run 160 stmts). Bets per rank in $bet_ace..$bet_king, deck state in $spade_*; get_faro_card (159 stmts) draws cards; texts 'Deal Cards', 'Leave Table', 'Bet High Card'.",
+      "hooks": [
+        "dlg:2218:dlga_faro_talk:close_window:conseq",
+        "prsnt:faro_play/t0",
+        "prsnt:faro_play/t1",
+        "prsnt:faro_play/t2"
+      ],
+      "scripts": [
+        "get_faro_card"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_faro_play"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:2217:dlga_start:faro_talk",
+        "dlg:2219:dlga_faro_talk:faro_rules"
+      ],
+      "slots": [],
+      "globals": [
+        "bet_ace",
+        "bet_king",
+        "spade_ace",
+        "dealer_card",
+        "player_card"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "grep laigle prsnt_faro_play -> dlg:2218",
+        "explain laigle prsnt:faro_play/t0 (globals/texts)"
+      ],
+      "overlaps": [
+        "sw.cantina_blackjack_and_brawls"
+      ]
+    },
+    {
+      "id": "laigle.story_start_missions",
+      "name": "Playable story start: inn brawl, pistol duel, smugglers raid",
+      "category": "quests",
+      "summary": "After choosing a starting capital the player plays short scripted scenes - an inn encounter, a formal pistol duel (fire before the signal and you are dishonoured) and a night raid on smugglers - with won/lost outcomes before the campaign begins.",
+      "mechanics": "menu:start_phase_3/5 -> mst_start_inn; menu:start_phase_4 -> mst_start_duel; menu:attack_smugglers -> mst_start_smugglers; then menu_start_final. In the duel, timed triggers (t1/t3/t6/t7, 1-5 s) set $duel_clear_to_fire; itm_pistol_duelling's ti_on_weapon_attack sets $duel_violated if the player fires early; dlg:297 start_duel_failed reacts. Outcome strings str_start_won_duel/str_start_lost_duel/str_start_smugglers_won/_lost.",
+      "hooks": [
+        "menu:start_phase_3/opt:continue:conseq",
+        "menu:start_phase_4/opt:continue:conseq",
+        "menu:attack_smugglers/opt:continue:conseq",
+        "itm:itm_pistol_duelling/t0"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_start_phase_5",
+        "menu_attack_smugglers",
+        "menu_start_final"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_start_inn",
+        "mst_start_duel",
+        "mst_start_smugglers"
+      ],
+      "dialogs": [
+        "dlg:297:dlga_start:start_duel_failed"
+      ],
+      "slots": [],
+      "globals": [
+        "duel_started",
+        "duel_weapon",
+        "duel_clear_to_fire",
+        "duel_violated",
+        "duel_won"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep laigle mst_start_inn|mst_start_duel|mst_start_smugglers",
+        "global laigle duel_clear_to_fire (4 writers in mst_start_duel, read by itm_pistol_duelling)",
+        "dis laigle itm:itm_pistol_duelling/t0"
+      ],
+      "overlaps": [
+        "acw.play_as_ruler_start",
+        "ad457.royal_and_lord_sandbox_start",
+        "awoiaf.campaign_setup_options",
+        "cbl.invasion_date_options",
+        "tld.in_game_strategy_options"
+      ]
+    },
+    {
+      "id": "laigle.keep_battlefield_pickups",
+      "name": "Keep weapons and horse picked up in battle",
+      "category": "qol-ui",
+      "summary": "Every ten seconds of a battle, whatever weapon or horse the player is currently using is copied into their real inventory, so gear grabbed off the field is kept afterwards.",
+      "mechanics": "keep_flags (40 stmts) from a 10 s trigger in 11 battle templates (lead_charge/t17, sieges, naval, quick battles, village fights): for the player's wielded items (left and right hand) not in the troop's equipment, troop_add_item (optionally agent_unequip_item); if the ridden horse differs from inventory slot 8, moves the old horse to inventory and sets slot 8. Skipped in quick battles.",
+      "hooks": [
+        "mst:lead_charge/t17:conseq",
+        "mst:naval_battle/t10:conseq",
+        "mst:castle_attack_walls_ladder/t15:conseq"
+      ],
+      "scripts": [
+        "keep_flags"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_naval_battle",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_attack_walls_belfry",
+        "mst_besiege_inner_battle_castle",
+        "mst_village_attack_bandits"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_player_agent",
+        "g_player_troop",
+        "g_is_quick_battle"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle keep_flags",
+        "explain laigle keep_flags (11 template callers)"
+      ],
+      "overlaps": [
+        "acan.slave_economy",
+        "ad457.village_enslavement_and_repopulation",
+        "vc.town_plunder_and_slaves"
+      ]
+    },
+    {
+      "id": "laigle.musket_item_effects",
+      "name": "Firearm muzzle, pan-flash, distance-sound, scatter-shot and bullet-impact effects",
+      "category": "combat-mechanics",
+      "summary": "Each musket and pistol has its own firing effect placed at its muzzle and lock: smoke, flash, pan smoke, and a near or distant gunshot sound depending on how far the shooter is from the player. Blunderbusses fire six spread pellets. Bullets kick up dirt or dust where they land.",
+      "mechanics": "Item ti_on_weapon_attack triggers (11-28 stmts) on ~27 firearms: position offsets per model, particle_system_burst psys_musket_smoke/longsmoke/flash/pansmoke + psys_pistol_panflash, then play snd_pistol_shot if the player is < 60 m away else snd_musket_distant. itm_llew2_blunderbus: 6x add_missile with random +/-2 degree spread and itm_cartridges ammo. itm_cartridges/itm_cartridgesx ti_on_missile_hit -> bullet_land: psys_bullet_dirtsplosion or psys_bullet_dust/dirt by hit type.",
+      "hooks": [
+        "itm:itm_musket_brownbess/t0",
+        "itm:itm_llew2_blunderbus/t0",
+        "itm:itm_cartridges/t0",
+        "itm:itm_pistol_duelling/t0"
+      ],
+      "scripts": [
+        "bullet_land"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "psys": [
+          "psys_musket_smoke",
+          "psys_musket_longsmoke",
+          "psys_musket_flash",
+          "psys_musket_pansmoke",
+          "psys_pistol_panflash",
+          "psys_bullet_dirtsplosion",
+          "psys_bullet_dust",
+          "psys_bullet_dirt"
+        ],
+        "sound": [
+          "snd_musket_distant",
+          "snd_musket_distant_long",
+          "snd_pistol_shot"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis laigle itm:itm_musket_brownbess/t0",
+        "dis laigle itm:itm_llew2_blunderbus/t0 (add_missile x6)",
+        "callers laigle bullet_land -> itm_cartridges/t0, itm_cartridgesx/t0 [ti_on_missile_hit]"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "laigle.pbod_motomataru_stack",
+      "name": "PBOD orders/camera/deployment + Motomataru formations AI (older build)",
+      "category": "battle-ai-formations",
+      "summary": "Volley/skirmish/brace orders, weapon-type switching, custom/death camera, prebattle orders and deployment, AI weapon choice, and Motomataru formations and field tactics for both sides.",
+      "mechanics": "Same families as the standard PBOD/Formations stack: player_order_formations, order_volley_begin_end, order_skirmish_*, order_sp_brace_begin_end, cust_cam_*, prebattle_order_*, weapon_use_*, team_field_melee_tactics/store_battlegroup_data. L'Aigle's entry is cf_formation (57 stmts), an older Motomataru dispatcher: cf_valid_formation_division returns a division role 0-5 (two extra roles: second-line infantry 3 m behind, skirmish screen 12 m ahead, flank cavalry) and calls form_infantry/form_archers/form_cavalry; form_infantry excludes cannon crew troops.",
+      "hooks": [
+        "mst:lead_charge/t27:conseq",
+        "mst:lead_charge/t36:conseq",
+        "mst:lead_charge/t55:conseq",
+        "strig:103"
+      ],
+      "scripts": [
+        "cf_formation",
+        "cf_valid_formation_division",
+        "form_infantry",
+        "form_archers",
+        "form_cavalry",
+        "player_order_formations",
+        "order_volley_begin_end",
+        "team_field_melee_tactics",
+        "init_item_score",
+        "equip_best_melee_weapon"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_pbod_preferences",
+        "prsnt_prebattle_orders",
+        "prsnt_prebattle_custom_deployment",
+        "prsnt_caba_order_display"
+      ],
+      "mission_templates": [
+        "mst_lead_charge"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:28",
+        "agent:29",
+        "agent:33",
+        "agent:34",
+        "item:41",
+        "item:42",
+        "item:43",
+        "item:44",
+        "item:45"
+      ],
+      "globals": [
+        "fplayer_agent_no",
+        "fplayer_team_no",
+        "autorotate_at_player"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "diff laigle vs pop cf_formation (division-role variant)"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "laigle.old_native_baseline",
+      "name": "Pre-1.15x Native baseline (shared with CAE and 1860s)",
+      "category": "economy-trade",
+      "summary": "About 60 of L'Aigle's 'modified Native' scripts - the trade-good price model, center production, lord defection, merchant restocking via triggers - are not L'Aigle changes at all but an older Native version that CAE and 1860s Old America also use.",
+      "mechanics": "Shape-hash comparison: update_trade_good_prices (5 stmts in laigle/oa1860/cae/pop vs 37 in native/vc/awoiaf/be/acw), initialize_economic_information 231 vs 338, center_get_production 210 vs 235, lord_find_alternative_faction 32 vs 57. Merchant restocking lives in trig:1-4 (troop_add_merchandise_with_faction + troop_add_gold), and Native's refresh_center_armories/inventories/stables/weaponsmiths scripts are absent.",
+      "hooks": [
+        "trig:1:conseq",
+        "trig:2:conseq",
+        "trig:3:conseq",
+        "trig:4:conseq"
+      ],
+      "scripts": [
+        "update_trade_good_prices",
+        "initialize_economic_information",
+        "center_get_production",
+        "average_trade_good_prices",
+        "lord_find_alternative_faction"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite shape_hash grouping of update_trade_good_prices / initialize_economic_information / center_get_production / lord_find_alternative_faction across modules",
+        "dis oa1860 trig:2:conseq (identical economy trigger family)",
+        "auto report: refresh_center_* listed as Native scripts absent"
+      ],
+      "overlaps": []
+    }
+  ]
+}

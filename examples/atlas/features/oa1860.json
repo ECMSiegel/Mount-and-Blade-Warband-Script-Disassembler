@@ -1,0 +1,332 @@
+{
+  "module": "oa1860",
+  "features": [
+    {
+      "id": "oa1860.scripted_ballistic_hand_cannon",
+      "name": "Hand cannon with scripted cannonball arc",
+      "category": "combat-mechanics",
+      "summary": "A carried 'hand cannon' (a cheat item) fires a scripted cannonball: the script traces a falling arc straight ahead of the shooter, killing anyone the ball passes within 1.5 m of and knocking down or stunning anyone within 3 m, until the arc reaches the ground where it throws up smoke and dirt.",
+      "mechanics": "itm_cannon_visible ti_on_weapon_attack (93 stmts; the same block is also attached to itm_cannonball_box_3lb): sound + muzzle fire/smoke; finds the nearest human (the shooter); then loops reg5 = 1..499, each step moving a probe 1.6 m further forward and dropping it by reg5^2/2 cm (a parabola). For every live agent: < 1.5 m from the probe -> agent_set_hit_points 0 + agent_deliver_damage_to_agent (kill) + blood burst; < 3 m -> humans lose HP scaled by item slot 79 of their shield and item slot 77 of their body armour, play rider_fall_roll + snd_man_stun, horses scaled by slot 77 and horse_rear; anyone left under 15 HP is killed. When the probe is at or below ground level the loop stops, bursts psys_war_smoke_tall/psys_map_village_fire_smoke and moves instance 0 of spr_city_swad_02 there (an impact marker animated upward).",
+      "hooks": [
+        "itm:itm_cannon_visible/t0",
+        "itm:itm_cannonball_box_3lb/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "item:77",
+        "item:79"
+      ],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_cannon_visible",
+          "itm_cannon_visible_melee",
+          "itm_cannonball_box_3lb"
+        ],
+        "psys": [
+          "psys_cooking_fire_1",
+          "psys_cooking_smoke",
+          "psys_war_smoke_tall",
+          "psys_map_village_fire_smoke",
+          "psys_game_blood"
+        ],
+        "scene_prop": [
+          "spr_city_swad_02"
+        ],
+        "sound": [
+          "snd_enemy_flag_taken",
+          "snd_man_stun",
+          "snd_horse_snort"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis oa1860 itm:itm_cannon_visible/t0",
+        "slot oa1860 item 77 / item 79: read-only, never written",
+        "item_kinds1.txt: itm_cannon_visible = 'Hand_Cannon_CHEAT_(Breech_Loading)'",
+        "refs oa1860 item itm_cannon_visible -> 0 bytecode references (inventory-only item)"
+      ],
+      "overlaps": [
+        "acw.field_artillery",
+        "be.field_artillery_batteries",
+        "laigle.artillery_park",
+        "laigle.field_artillery",
+        "nw.crewed_artillery"
+      ]
+    },
+    {
+      "id": "oa1860.explosive_thrown_weapons",
+      "name": "Exploding grenades, dynamite and shells",
+      "category": "combat-mechanics",
+      "summary": "Thrown grenades and dynamite (and several ammo items) explode where they land, hurting everyone within 2.5 m for 60-100 damage with fire and smoke.",
+      "mechanics": "ti_on_missile_hit trigger (19 stmts, identical block on itm_grenade, itm_dynamite_big, itm_us_grenade (18), itm_blackpowder_barrel, itm_cannonball, itm_cannonball_12lb, itm_arrows, itm_bodkin_arrows): runs on server or single-player; for every agent within 250 cm of the impact, store_agent_hit_points (absolute), subtract 60-99, agent_set_hit_points, and if that reaches 0 agent_deliver_damage_to_agent from the thrower to credit the kill; psys_pistol_smoke + psys_village_fire_big bursts and snd_gun_shoot at the impact.",
+      "hooks": [
+        "itm:itm_grenade/t0",
+        "itm:itm_dynamite_big/t0",
+        "itm:itm_us_grenade/t0",
+        "itm:itm_cannonball/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_grenade",
+          "itm_dynamite_big",
+          "itm_us_grenade"
+        ],
+        "psys": [
+          "psys_pistol_smoke",
+          "psys_village_fire_big"
+        ],
+        "sound": [
+          "snd_gun_shoot"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis oa1860 itm:itm_grenade/t0",
+        "diff of itm_arrows/t0 and itm_cannonball/t0 against itm_grenade/t0 -> identical",
+        "item_kinds1.txt names: 'Ketchum_Grenade_(handle_with_care)', 'Dynamite_(handle_with_care)'"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "awoiaf.fire_arrows_destructible_props",
+        "be.ww1_weapons_mg_gas_grenades",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_and_destructible_props",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "oa1860.explosive_and_destructible_props",
+      "name": "Explosive powder barrels and destructible field cover",
+      "category": "sieges",
+      "summary": "Scene props such as sandbags, sandbag walls, cavalry spikes, doors and earthwork sally gates can be shot or hacked to pieces; black-powder barrels explode when destroyed, damaging everyone within 3 m in proportion to how close they stood.",
+      "mechanics": "Generic destructible set on spr_sandbag, spr_sandbag_wall, spr_cav_spikes, spr_door_destructible, spr_earth_sally_gate_left/right: ti_on_scene_prop_init scene_prop_set_hit_points 10; ti_on_scene_prop_hit dummy sound + psys_dummy_smoke/straw; ti_on_scene_prop_destroy sinks the prop 12 m (prop_instance_animate_to_position). spr_blackpowder_barrel destroy (21 stmts): explosion smoke, sink, then for agents within 300 cm: damage = 300 - distance(cm), applied via agent_set_hit_points + agent_deliver_damage_to_agent (self-credited).",
+      "hooks": [
+        "spr:spr_blackpowder_barrel/t1",
+        "spr:spr_sandbag/t0",
+        "spr:spr_sandbag/t1",
+        "spr:spr_sandbag/t2",
+        "spr:spr_door_destructible/t1"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "scene_prop": [
+          "spr_blackpowder_barrel",
+          "spr_sandbag",
+          "spr_sandbag_wall",
+          "spr_cav_spikes"
+        ],
+        "psys": [
+          "psys_dummy_smoke",
+          "psys_dummy_straw",
+          "psys_map_village_looted_smoke"
+        ],
+        "sound": [
+          "snd_dummy_hit",
+          "snd_dummy_destroyed",
+          "snd_explosion1"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis oa1860 spr:spr_sandbag/t0..t2",
+        "dis oa1860 spr:spr_blackpowder_barrel/t1",
+        "sqlite: spr_door_destructible triggers 2/5/3 stmts in oa1860 vs 8/2/40 in native/cae"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "awoiaf.fire_arrows_destructible_props",
+        "be.ww1_weapons_mg_gas_grenades",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_thrown_weapons",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "oa1860.purchasable_ship",
+      "name": "Buy a ship in port towns",
+      "category": "map-travel",
+      "summary": "In nine coastal towns the player can pay 5000 to put to sea; the party is moved onto nearby water and travels as a ship.",
+      "mechanics": "menu:town/opt:sail_from_port: Native's cheat-only option, re-gated to 9 specific towns (this_or_next chain) and routed through menu_confirm_ship: if gold >= 5000, remove gold, $g_player_icon_state = 2, party_set_flags pf_is_ship (512), map_get_water_position_around_position, party_set_position, change_screen_return.",
+      "hooks": [
+        "menu:town/opt:sail_from_port:cond",
+        "menu:confirm_ship/opt:confirm:conseq"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_confirm_ship"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_player_icon_state"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis oa1860 menu:confirm_ship/opt:confirm:conseq"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "oa1860.firearm_muzzle_effects",
+      "name": "Per-gun muzzle smoke and fire effects",
+      "category": "combat-mechanics",
+      "summary": "Each firearm emits smoke and a muzzle flash from its own barrel position when fired.",
+      "mechanics": "ti_on_weapon_attack item triggers of 4-7 statements on dozens of guns (113 item-trigger blocks in total) (e.g. itm_henry: sound, offset to the lock, psys_cooking_smoke, offset to the muzzle, psys_pistol_smoke + psys_cooking_fire_1).",
+      "hooks": [
+        "itm:itm_henry/t0",
+        "itm:itm_enfield/t0",
+        "itm:itm_spencer_rifle/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis oa1860 itm:itm_henry/t0"
+      ],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects"
+      ]
+    },
+    {
+      "id": "oa1860.renamed_native_menus",
+      "name": "Showdowns, Shootouts and colonial army menus (renamed Native)",
+      "category": "tournaments",
+      "summary": "The 'Showdowns' tournament, 'Shootouts' arena duels and 'colonies army' quest menus look new but are Native's tournament, arena-duel and kingdom-army menus with words replaced.",
+      "mechanics": "Shape-identical to Native: menu_town_Showdowns = menu_town_tournament (incl. 122-stmt join_next_fight), Showdowns_bet/_confirm/_participants = tournament_*, Shootouts_duel_fight/_conclusion = arena_duel_*, colonies_army_* = kingdom_army_*; menu:camp_action/opt:action_rename_colonies = Native rename kingdom.",
+      "hooks": [
+        "menu:town_Showdowns",
+        "menu:Shootouts_duel_fight/opt:continue:conseq",
+        "menu:colonies_army_quest_report_to_army"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_town_Showdowns",
+        "menu_Showdowns_bet",
+        "menu_Shootouts_duel_fight",
+        "menu_Shootouts_duel_conclusion",
+        "menu_colonies_army_quest_report_to_army"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "native-identical",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite: oa1860 menu shape_hash == native menu shape_hash for every Showdowns/Shootouts/colonies block (n_stmts > 3)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "oa1860.cheat_mode_camp_toggle",
+      "name": "Camp-menu cheat-mode toggle (broken)",
+      "category": "qol-ui",
+      "summary": "Camp > Take an action offers 'Enable cheat mode' / 'Disable cheat mode', but the options flip the wrong variable, so cheat mode is not actually toggled.",
+      "mechanics": "menu:camp_action/opt:action_enable_cheat_mode: cond (eq $g_siege_final_menu 0), conseq (assign $g_siege_final_menu 1) and jump back; disable is the mirror. Native cheat options read $cheat_mode, which these never write.",
+      "hooks": [
+        "menu:camp_action/opt:action_enable_cheat_mode:conseq",
+        "menu:camp_action/opt:action_disable_cheat_mode:conseq"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_camp_action"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_siege_final_menu",
+        "cheat_mode"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis oa1860 menu:camp_action/opt:action_enable_cheat_mode:cond/conseq (global resolves to $g_siege_final_menu)",
+        "sqlite: no other module has these option ids"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "oa1860.cae_native_baseline",
+      "name": "Older-Native base shared with L'Aigle and CAE",
+      "category": "other",
+      "summary": "Almost all of 1860s' 155 'modified Native' scripts are not 1860s work: they are an older Native version that the CAE module and L'Aigle also run. 1860s itself only changed about ten scripts, nearly all multiplayer or custom-battle content.",
+      "mechanics": "Shape-hash classification of the 155 modified scripts: 145 have the same shape as CAE's copy - 71 of those are Native-shaped and differ only in renamed resource names, 74 are genuinely older-Native code (60 of them also shared with L'Aigle) - and only 10 differ from both CAE and Native: game_receive_network_message, game_quick_start (custom battles, 'Gabrilduro's special Custom Battles'), game_start, initialize_item_info, determine_team_flags (multiplayer CTF/HQ flags for kingdoms 7-10), money_management_after_agent_death (multiplayer) plus 4 other multiplayer scripts. The one 'new' script, center_change_trade_good_production, is unreachable and also present in L'Aigle.",
+      "hooks": [
+        "script:game_quick_start",
+        "script:determine_team_flags"
+      ],
+      "scripts": [
+        "game_quick_start",
+        "determine_team_flags",
+        "initialize_item_info",
+        "center_change_trade_good_production"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite shape_hash classification oa1860 vs native/cae/laigle (counts above)",
+        "diff native vs oa1860 determine_team_flags (only multiplayer flag props added)"
+      ],
+      "overlaps": []
+    }
+  ]
+}

@@ -1,0 +1,324 @@
+{
+  "_doc": "Groups of feature ids that implement the same mechanic. `overlaps-apply` copies each group into its records' `overlaps` field.",
+  "mechanics": {
+    "field-artillery": [
+      "laigle.field_artillery",
+      "acw.field_artillery",
+      "be.field_artillery_batteries",
+      "nw.crewed_artillery",
+      "oa1860.scripted_ballistic_hand_cannon",
+      "laigle.artillery_park"
+    ],
+    "firearm-shot-effects": [
+      "be.firearm_hit_damage_model",
+      "acw.multi_projectile_firearms",
+      "be.shotgun_pellet_spread",
+      "laigle.musket_item_effects",
+      "be.missile_launch_firing_effects",
+      "nw.missile_launch_effects",
+      "oa1860.firearm_muzzle_effects",
+      "cbl.flintlock_item_triggers"
+    ],
+    "aiming-zoom": [
+      "acw.rifle_iron_sight_zoom",
+      "be.ironsight_aiming",
+      "sw.scope_and_visor_overlays"
+    ],
+    "explosives-destructibles": [
+      "oa1860.explosive_thrown_weapons",
+      "oa1860.explosive_and_destructible_props",
+      "nw.explosives_destructible_props",
+      "sw.scripted_grenade_ballistics",
+      "awoiaf.fire_arrows_destructible_props",
+      "be.ww1_weapons_mg_gas_grenades",
+      "acw.explosive_grenades"
+    ],
+    "formations-battle-ai": [
+      "vc.formations_order_translation",
+      "vc.persistent_division_formations",
+      "pop.formations_battle_ai_kit",
+      "pop.disciplined_faction_ai_gate",
+      "tld.formations_motomataru_pop_lineage",
+      "laigle.pbod_motomataru_stack",
+      "bi.pbod_formations_ai",
+      "be.ai_battle_tactics_presets",
+      "be.infantry_square_and_field_works",
+      "nw.division_gunpowder_ai",
+      "nw.locator_line_formations",
+      "acw.scripted_ai_battle_plan",
+      "sw.ranged_backstep_ai",
+      "acan.vc_battle_stack_inherited",
+      "acan.thrust_only_formation_weapons",
+      "ad457.vc_battle_naval_layer_inherited"
+    ],
+    "morale-rout": [
+      "be.company_discipline_rout",
+      "tld.battle_coherence_rout_rally",
+      "vc.battle_immersion_courage",
+      "nw.morale_rout_rally",
+      "acw.battle_cry_rout",
+      "bi.courage_update_staggering",
+      "acw.bury_the_dead"
+    ],
+    "order-callouts-announcements": [
+      "acw.order_voice_callouts",
+      "nw.voice_commands",
+      "nw.fkey_order_tree",
+      "sw.battle_start_speeches",
+      "bi.battle_event_messages",
+      "nw.objective_markers_hud"
+    ],
+    "exchange-screen-hotkeys": [
+      "tld.exchange_screen_hotkeys",
+      "pop.party_screen_hotkeys",
+      "awoiaf.party_screen_hotkeys"
+    ],
+    "persistent-injuries": [
+      "vc.player_persistent_injuries",
+      "tld.persistent_injuries_permadeath",
+      "acan.player_health_mortality"
+    ],
+    "fief-buildings-management": [
+      "bi.roman_public_buildings",
+      "bi.ai_lords_build",
+      "bi.garrison_building_battle_bonuses",
+      "pop.fief_improvements_expanded",
+      "pop.fief_heartbeat_problems",
+      "pop.fief_stewards_with_skills",
+      "pop.fief_base_income_and_reports",
+      "vc.extended_center_improvements",
+      "sw.recruit_unlock_buildings",
+      "ad457.center_buildings_management",
+      "acan.culture_specific_fief_buildings",
+      "ad457.lord_business_build_hire_upgrade",
+      "acan.latifundium_estates"
+    ],
+    "patrols": [
+      "pop.sheriff_militia_patrols",
+      "pop.order_chapter_knight_patrols",
+      "sw.faction_town_patrols",
+      "tld.strength_scaled_hosts_and_patrols"
+    ],
+    "bandit-and-outlaw-dynamics": [
+      "pop.minor_faction_repression_meter",
+      "pop.renegade_and_merc_warbands",
+      "pop.lord_party_deserters",
+      "pop.unique_signature_heroes",
+      "acw.partisan_bands",
+      "cbl.regional_bandit_spawn_points"
+    ],
+    "prisoner-breakouts-refugees": [
+      "vc.prisoner_revolts",
+      "acw.prisoner_breakouts_and_refugees",
+      "pop.raid_refugees"
+    ],
+    "banking-loans": [
+      "sw.bank_interest_loans_payday",
+      "awoiaf.iron_bank"
+    ],
+    "hunting-wilderness": [
+      "acw.hunting",
+      "awoiaf.hunting_herds",
+      "tld.wilderness_encounters_hide_animal_ambush"
+    ],
+    "naval-and-sea-travel": [
+      "vc.sea_travel_map",
+      "vc.port_passage_travel",
+      "vc.ship_fleet_ownership",
+      "vc.deck_sea_battles",
+      "vc.sea_ai_traffic",
+      "laigle.naval_boarding_battle",
+      "oa1860.purchasable_ship",
+      "sw.starship_upgrades",
+      "acan.ports_ferries_sea_trade"
+    ],
+    "fast-travel": [
+      "acw.fast_travel_network",
+      "vc.port_passage_travel"
+    ],
+    "weather-seasons-time": [
+      "laigle.weather_seasons",
+      "vc.seasons_scene_lighting",
+      "be.campaign_weather_battle_atmosphere",
+      "nw.battle_weather_generator",
+      "tld.battle_condition_modifiers",
+      "tld.day_night_proficiency_shift",
+      "acan.seasonal_light_fog_weather"
+    ],
+    "religion": [
+      "vc.religion_center_conversion",
+      "vc.monasteries_and_hofs",
+      "awoiaf.four_faiths_religion",
+      "ad457.religion_faiths_and_piety",
+      "acan.patron_gods_piety_miracles"
+    ],
+    "diplomacy-extensions": [
+      "bi.diplomacy_suite",
+      "be.infamy_casus_belli_alliances",
+      "be.peace_negotiations_victory_points",
+      "acw.alliance_blocs",
+      "awoiaf.letters_to_lords",
+      "awoiaf.static_wars_scripted_diplomacy",
+      "awoiaf.spy_network_sabotage",
+      "tld.gift_bribe_courier_quest",
+      "ad457.ai_tributary_states_casus_belli",
+      "ad457.minor_tribes_and_tributaries",
+      "acan.conspiracy_treason_trials"
+    ],
+    "military-careers-ranks-orders": [
+      "acw.freelancer_extensions",
+      "bi.freelancer_reassignment",
+      "laigle.military_rank_career",
+      "acw.enlistment_contract_career",
+      "be.enlistment_service_ranks",
+      "tld.faction_rank_influence",
+      "pop.knighthood_order_membership",
+      "acan.ranks_offices_titles",
+      "ad457.court_offices_and_titles",
+      "acan.enlistment_career_events",
+      "ad457.freelancer_variant"
+    ],
+    "random-and-scripted-events": [
+      "awoiaf.random_travel_events",
+      "vc.random_events_and_judgments",
+      "sw.random_town_ambushes",
+      "acw.historical_event_calendar",
+      "awoiaf.canon_story_event_timeline",
+      "ad457.travel_random_events"
+    ],
+    "faction-defeat-and-rebirth": [
+      "vc.faction_restoration_and_adventurers",
+      "tld.faction_defeat_redistribution_last_stand",
+      "ad457.town_rebellions_secession",
+      "acan.civil_war_usurpation_restoration",
+      "ad457.landless_faction_cleanup"
+    ],
+    "recruitment-and-training": [
+      "bi.military_academy_upgrades",
+      "awoiaf.hold_elite_trainers",
+      "pop.garrison_and_lord_training",
+      "pop.noble_recruit_pool",
+      "laigle.typed_volunteer_recruitment",
+      "acw.regional_regiment_recruitment",
+      "acw.conscription",
+      "be.manpower_conscription_dynamic_lords",
+      "tld.town_volunteers_and_reserves",
+      "ad457.barracks_recruitment_screen",
+      "ad457.village_reinforcement_marches",
+      "acan.legions_cohorts_army_organisation"
+    ],
+    "siege-mechanics": [
+      "vc.siege_planning",
+      "bi.siege_town_militia",
+      "awoiaf.siege_ram_assault_and_hostage_surrender",
+      "acw.siege_assault_waves_and_surrender",
+      "acan.siege_planning_inherited",
+      "ad457.vc_siege_planning_and_camp_events_inherited"
+    ],
+    "report-and-viewer-screens": [
+      "be.faction_troop_tree_viewer",
+      "vc.camp_and_report_screens",
+      "bi.world_map_presentation",
+      "acan.troop_detail_and_upgrade_trees"
+    ],
+    "reputation-and-relations": [
+      "awoiaf.commoner_trust",
+      "pop.post_battle_lord_relation_gain",
+      "tld.lord_friendship_gifts",
+      "bi.triumphus"
+    ],
+    "character-traits-goals": [
+      "tld.player_traits",
+      "vc.player_goals"
+    ],
+    "camp-and-troop-review": [
+      "pop.camp_troop_review_drill",
+      "tld.camp_menu_actions",
+      "acw.walkable_party_camp",
+      "acan.player_permanent_camps"
+    ],
+    "campaign-ai-performance": [
+      "be.async_round_robin_campaign_ai",
+      "bi.courage_update_staggering",
+      "ad457.per_faction_ai_recalculation"
+    ],
+    "mercenary-companies": [
+      "pop.king_hired_mercenary_companies",
+      "bi.legion_mercenary_camps"
+    ],
+    "gambling-minigames": [
+      "laigle.faro_card_game",
+      "sw.cantina_blackjack_and_brawls"
+    ],
+    "campaign-start-options": [
+      "acw.play_as_ruler_start",
+      "awoiaf.campaign_setup_options",
+      "laigle.story_start_missions",
+      "tld.in_game_strategy_options",
+      "ad457.royal_and_lord_sandbox_start",
+      "cbl.invasion_date_options"
+    ],
+    "strategic-war-drivers": [
+      "vc.marshal_election",
+      "tld.faction_strength_war_progression",
+      "tld.war_theaters_advance_camps",
+      "be.pas_marshal_campaign_ai"
+    ],
+    "lord-army-composition": [
+      "laigle.lord_army_doctrine",
+      "awoiaf.lord_retinue_heroes",
+      "acw.lord_army_size_and_wages"
+    ],
+    "battlefield-pickups-loot": [
+      "laigle.keep_battlefield_pickups",
+      "vc.town_plunder_and_slaves",
+      "ad457.village_enslavement_and_repopulation",
+      "acan.slave_economy"
+    ],
+    "settlement-events-and-disasters": [
+      "ad457.settlement_disasters_epidemics",
+      "acan.settlement_events_epidemics",
+      "pop.fief_heartbeat_problems"
+    ],
+    "kingdom-treasury-and-governance": [
+      "acan.imperial_treasury_budget",
+      "acan.senate_influence_edicts",
+      "acan.town_decrees",
+      "ad457.dplmc4_tax_inefficiency_and_extras",
+      "be.pps_political_simulation"
+    ],
+    "map-scale-and-world-layout": [
+      "cbl.expanded_calradia_map",
+      "cbl.new_centre_economy_and_arena_wiring",
+      "cbl.twelve_borderland_kingdoms",
+      "cbl.v352_later_version_changes"
+    ],
+    "map-party-icons": [
+      "bi.culture_lord_map_icons",
+      "acw.army_size_map_icons",
+      "cbl.map_icons_by_party_type_and_ships",
+      "acw.besieged_map_smoke_and_caravan_spacing"
+    ],
+    "battle-scene-variety": [
+      "cbl.custom_field_battle_scenes",
+      "laigle.size_aware_battlefields",
+      "tld.region_tracking_and_battle_scenes",
+      "acw.custom_battle_historical_scenarios"
+    ],
+    "companion-roles-and-household": [
+      "acw.companion_bodyguards_and_disguise",
+      "bi.town_bodyguards",
+      "acan.household_staff",
+      "cbl.tavern_mentors"
+    ],
+    "battle-command-and-camera": [
+      "acw.command_all_allies",
+      "acw.death_camera",
+      "be.aerial_command_view"
+    ],
+    "item-quality-and-variety": [
+      "acan.spawn_equipment_variety_and_item_quality",
+      "cbl.campaign_balance_retune"
+    ]
+  }
+}

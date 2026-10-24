@@ -1,0 +1,1321 @@
+{
+  "module": "awoiaf",
+  "features": [
+    {
+      "id": "awoiaf.main_menu_web_links",
+      "name": "Main-menu web link buttons (Steam/Epic/YouTube/Twitter/Discord)",
+      "category": "qol-ui",
+      "summary": "Buttons on the title-screen presentation that open the mod's store pages and social links in the system browser.",
+      "mechanics": "prsnt:game_start t1 (ti_on_presentation_event_state_change) compares the clicked overlay to $g_url/$g_url_epic/$g_youtube/$g_twitter/$g_discord and calls non-vanilla opcode 3029 with a URL quick-string, then closes the presentation. Opcode 3029 is an engine-extension 'open URL' call; vanilla Warband has no way to open a browser.",
+      "hooks": [
+        "prsnt:game_start/t1"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [
+        "prsnt_game_start"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_url",
+        "g_url_epic",
+        "g_youtube",
+        "g_twitter",
+        "g_discord"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "wbsd grep UNKNOWN_op --mods awoiaf -> prsnt:game_start/t1 stmt 3,7,11,15,19 (5x op3029)",
+        "dis prsnt:game_start/t1: each op3029 takes a qstr_https://... URL (steam, epic launcher, youtube, twitter, discord)",
+        "auto report: 3029 x5 total -> all five sites are in this one block"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.background_character_creation",
+      "name": "Westerosi background character creation (nationality x job x reason x religion x trait)",
+      "category": "character-progression",
+      "summary": "A single-screen presentation replaces Native's menu chain for creating the hero: the player picks gender, nationality/build (which sets body type/height), childhood, 14 adult professions (bravo, slave, noble, bard, peasant, merchant, blacksmith, poacher, begging brother, assassin, pirate, Exalted Faceless Man, Sea Raider), reason for adventuring, religion (Seven / Old Gods / R'hllor / Drowned God...) and a trait. Each choice grants attributes, skills, proficiencies, starting gear, renown and honour, and sets faith, literacy and commoner-trust.",
+      "mechanics": "prsnt:player_background (t0 load builds the UI and calls update_strings / randomize_background; t1 state-change) -> script:init_char_stat (663 stmts) which reads $character_gender, $character_nationality (selects troop type/skin via troop_set_type and troop slot 171), $background_childhood/_job/_reason/_religion/_trait/_parent, and applies troop_raise_attribute/skill/proficiency, troop_add_item, change_troop_renown, change_player_honor; writes $g_player_faith, $can_read, $commoner_trust, $player_trait, $character_height, troop slot 7 (Native slot_troop_renown: starting renown by social class). Jobs 12 (Exalted Faceless Man) and 13 (Sea Raider) are 'preset' characters: they call set_troop_level then use non-vanilla opcodes 3708 (set attribute), 3707 (set skill), 3709 (set proficiency) to write ABSOLUTE values and 3701/3703/3705 (inferred: zero the unspent skill/attribute/proficiency point pools). Job 11 (Pirate) also uses one 3707 call (skill 26 := 1).",
+      "hooks": [
+        "prsnt:player_background/t0",
+        "prsnt:player_background/t1"
+      ],
+      "scripts": [
+        "init_char_stat",
+        "update_strings",
+        "randomize_background",
+        "set_troop_level",
+        "change_player_honor",
+        "change_troop_renown"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_player_background"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:7",
+        "troop:171"
+      ],
+      "globals": [
+        "character_gender",
+        "character_nationality",
+        "character_height",
+        "background_childhood",
+        "background_job",
+        "background_reason",
+        "background_religion",
+        "background_trait",
+        "background_parent",
+        "g_player_faith",
+        "can_read",
+        "commoner_trust",
+        "player_trait",
+        "player_honor"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain awoiaf init_char_stat: sole caller prsnt:player_background/t1; NON-VANILLA OPCODES {3707:54,3708:8,3709:10,3703:2,3705:2,3701:2}",
+        "dis init_char_stat: op sites at stmt 482 (job 11 branch) and 500-539, 554-592 (job 12 / job 13 branches, each after set_troop_level)",
+        "strings.txt str_childhood_acolyte..str_job_sea_raider gives job indices: 11 Pirate, 12 Exalted Faceless Man, 13 Sea Raider",
+        "the other 11 job branches use only vanilla troop_raise_* ops"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.campaign_setup_options",
+      "name": "New-game setup choices (naming canon, static vs sandbox wars, commoner trust, wounds, start continent, White Walker date)",
+      "category": "qol-ui",
+      "summary": "Before play starts the player answers a chain of option menus: book vs TV character names, 'Static Wars' (War of the Five Kings diplomacy locked to canon) vs 'Sandbox', commoner-trust reputation on/off, realistic vs basic wound system, start in Westeros (with main quest line) or Essos, and the day the White Walkers invade (600/750/850/1200).",
+      "mechanics": "menu_set_up_game -> menu_set_up_wars (writes $campaign_type = 8 static / 9 sandbox) -> menu_set_up_commoners_trust ($commoners_trust_on) -> menu_set_up_wounds -> menu_set_up_start_location_man/_mouse -> menu_set_up_white_walker_invasion ($whitewalker_invasion_day). Later systems read these globals: strig:52/53/54/55 run only when $campaign_type==9; trig:36-40 and strig:56 only when ==8; trig:41 compares current day to $whitewalker_invasion_day. menu_static_wars_off_menu (from Reports) lets the player switch static->sandbox permanently.",
+      "hooks": [
+        "menu:set_up_game",
+        "menu:set_up_wars",
+        "menu:reports/opt:reset_static_wars"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_set_up_game",
+        "menu_set_up_wars",
+        "menu_set_up_commoners_trust",
+        "menu_set_up_wounds",
+        "menu_set_up_start_location_man",
+        "menu_set_up_start_location_mouse",
+        "menu_set_up_white_walker_invasion",
+        "menu_static_wars_off_menu"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "campaign_type",
+        "commoners_trust_on",
+        "whitewalker_invasion_day"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global awoiaf campaign_type: writers menu:set_up_wars/opt:static_wars|normal_wars, menu:static_wars_off_menu; readers strig:52-56, strig:64, trig:36-40",
+        "texts: menu:set_up_wars 'Static wars: Westerosi factions will be locked in diplomacy according to the Wars of the Five Kings... Sandbox...'",
+        "global awoiaf whitewalker_invasion_day: writers set_up_white_walker_invasion opts day_600..day_1200; reader trig:41:cond"
+      ],
+      "overlaps": [
+        "acw.play_as_ruler_start",
+        "ad457.royal_and_lord_sandbox_start",
+        "cbl.invasion_date_options",
+        "laigle.story_start_missions",
+        "tld.in_game_strategy_options"
+      ]
+    },
+    {
+      "id": "awoiaf.static_wars_scripted_diplomacy",
+      "name": "Static Wars: canon-locked diplomacy with scripted war declarations",
+      "category": "diplomacy-politics",
+      "summary": "In Static Wars mode the AI's free war/peace decisions are switched off and wars start on a scripted timeline that follows the War of the Five Kings (Westerlands attack the Riverlands ~day 50, Ironborn raid the North, Dragonstone vs Westerlands, Riverrun falls, etc.), each announced by a raven-letter menu. The player can later switch to sandbox.",
+      "mechanics": "Native's daily/hourly war-peace drivers are gated on $campaign_type==9 (strig:52 find_neighbors+randomly_start_war_peace_new, strig:54/55 truce & casus-belli counters on faction slots 120+/160+/200+, strig:64 lord politics). With $campaign_type==8, one-shot triggers (trig:36..40, rearm 1e8 = fire once) test day + faction-alive (faction slot 21 = state) and call diplomacy_start_war_between_kingdoms + set_relation, then jump_to_menu menu_westerlands_start_war_riverlands / menu_ironborn_start_war_north / menu_dragonstone_start_war_westerlands / menu_riverrun_taken_by_westerlands; strig:56 keeps kingdom_11 at war with whoever holds town_8.",
+      "hooks": [
+        "strig:52",
+        "strig:54",
+        "strig:55",
+        "strig:56",
+        "trig:36:cond",
+        "trig:37:cond",
+        "trig:38:cond",
+        "trig:39:cond",
+        "trig:40:cond"
+      ],
+      "scripts": [
+        "diplomacy_start_war_between_kingdoms",
+        "randomly_start_war_peace_new",
+        "find_neighbors",
+        "update_faction_notes"
+      ],
+      "menus": [
+        "menu_westerlands_start_war_riverlands",
+        "menu_ironborn_start_war_north",
+        "menu_dragonstone_start_war_westerlands",
+        "menu_westerlands_start_peace_reach",
+        "menu_riverrun_taken_by_westerlands",
+        "menu_static_wars_off_menu"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21",
+        "faction:120",
+        "faction:160",
+        "faction:200",
+        "faction:240"
+      ],
+      "globals": [
+        "campaign_type",
+        "riverrun_taken_by_westerlands"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:52/53: (eq,$campaign_type,9) gate before find_neighbors + randomly_start_war_peace_new/_essos",
+        "dis trig:37: cond day>=50 and factions 18 & 5 alive; conseq diplomacy_start_war_between_kingdoms(18,5) + jump_to_menu westerlands_start_war_riverlands",
+        "dis trig:36, strig:56 gated on $campaign_type==8",
+        "menu texts: menu:ironborn_start_war_north 'Lord Balon Greyjoy has crowned himself... raiding parties to attack the northern coasts'"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "awoiaf.essos_war_peace_driver",
+      "name": "Separate Essos war/peace driver",
+      "category": "diplomacy-politics",
+      "summary": "Essos factions get their own daily random war/peace roll, independent from the Westeros factions, so the two continents run separate political theatres even in Static Wars mode.",
+      "mechanics": "strig:53 (24h, gated $campaign_type==9) calls find_neighbors then randomly_start_war_peace_essos (243 stmts), a copy of VC's randomly_start_war_peace_new (68% similar) restricted to the Essos faction range; strig:55 (1h) is the Essos twin of strig:54: strig:54 loops fac_kingdom_1..10 (Westeros), strig:55 picks a random faction in fac_kingdom_12..kingdoms_end (Essos) and ticks its truce/casus-belli/war-damage counters. find_neighbors fills faction slots 240+N with 1 when any town pair of the two factions is within 25 map units, so war candidates are limited to geographic neighbours.",
+      "hooks": [
+        "strig:53",
+        "strig:55"
+      ],
+      "scripts": [
+        "randomly_start_war_peace_essos",
+        "find_neighbors"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:240"
+      ],
+      "globals": [
+        "campaign_type"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:55: random faction in fac_kingdom_12..fac_kingdoms_end (Essos range) vs strig:54 fac_kingdom_1..10",
+        "similar awoiaf randomly_start_war_peace_essos -> 68% vc randomly_start_war_peace_new",
+        "dis strig:53: (eq,$campaign_type,9),(call find_neighbors),(call randomly_start_war_peace_essos,1)",
+        "dis find_neighbors: faction slot 240+i set to 1 for towns < 25 apart"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.canon_story_event_timeline",
+      "name": "Canon story-event timeline (Red Wedding, Battle of the Bastards, Craster's Keep, Ned's death, Varys/Daenerys invasion...)",
+      "category": "dynamic-world-events",
+      "summary": "Book/show events fire on day thresholds when the involved lords are still alive and the player is not enlisted on the wrong side: the Red Wedding (lords gathered at the Twins, special interior/exterior battle), Battle of the Bastards (choose Jon or Ramsay, Jon Snow duel), mutiny at Craster's Keep, Ned's death, Robb Stark's marriage, the Hound rescue, Aegon/Daenerys landing to claim the throne, Dothraki raids, and 'King of the Seven Kingdoms' when one faction wins. Outcomes change faction ownership, kill or capture lords, and can hand the player rewards.",
+      "mechanics": "One-shot timed triggers (trig:6..33, rearm 1e8) check store_current_day thresholds, faction slot 21 (faction state) and troop slot 2 (lord dead/occupation) and $freelancer_state/$enlisted_lord, then move lord parties (party_attach_to_party to p_castle_39 for the Red Wedding) and jump_to_menu the event menu. Menus offer choices that launch dedicated mission templates (mst_red_wedding_interior/_exterior, mst_battle_of_the_bastards, mst_jon_snow_duel, mst_crasters_keep_mutiny, mst_bridge_of_skulls...) and resolve via scripts red_wedding_rob_lost, battle_of_the_bastards_jon_won/_lost. Varys/Doran/Ellaria quest dialogs advance $invasion_triggered; at value 5 trig:101 (book names: Aegon lands) or trig:102 (TV names: Daenerys) fires the Targaryen invasion. Faith-specific events (trig:6 -> menu_rhllor_event / fos_event / old_gods_event / drowned_god_event) depend on $background_reason and $g_player_faith.",
+      "hooks": [
+        "trig:6:cond",
+        "trig:25:cond",
+        "trig:30:cond",
+        "trig:101:conseq",
+        "trig:102:conseq"
+      ],
+      "scripts": [
+        "red_wedding_rob_lost",
+        "battle_of_the_bastards_jon_won",
+        "battle_of_the_bastards_jon_lost"
+      ],
+      "menus": [
+        "menu_red_wedding_event_menu",
+        "menu_red_wedding_interior",
+        "menu_red_wedding_exterior",
+        "menu_battle_of_the_bastards_part_one",
+        "menu_battle_of_the_bastards_battle",
+        "menu_mutiny_at_crasters_keep_request",
+        "menu_crasters_keep",
+        "menu_ned_dead_event_menu",
+        "menu_robb_stark_marraige",
+        "menu_the_hound_event",
+        "menu_varys_invasion",
+        "menu_varys_invasion_dany",
+        "menu_varys_dual_invasion_dany",
+        "menu_dothraki_event",
+        "menu_king_of_seven_kingdoms",
+        "menu_rhllor_event",
+        "menu_fos_event",
+        "menu_old_gods_event",
+        "menu_drowned_god_event"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_red_wedding_interior",
+        "mst_red_wedding_exterior",
+        "mst_battle_of_the_bastards",
+        "mst_jon_snow_duel",
+        "mst_crasters_keep_mutiny",
+        "mst_bridge_of_skulls"
+      ],
+      "dialogs": [],
+      "slots": [
+        "faction:21",
+        "troop:2",
+        "troop:10"
+      ],
+      "globals": [
+        "red_wedding",
+        "battle_of_the_bastards",
+        "invasion_triggered",
+        "freelancer_state",
+        "enlisted_lord",
+        "g_player_faith",
+        "background_reason"
+      ],
+      "resources": {
+        "scene": [
+          "Twins interior/exterior",
+          "Winterfell field",
+          "Craster's Keep"
+        ],
+        "troop": [
+          "trp_kingdom_4_lord",
+          "trp_kingdom_5_lord",
+          "trp_knight_4_4",
+          "trp_knight_5_2"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis trig:30:cond: day>=150, $red_wedding==0, factions 4/5 alive, lords alive, attaches their parties to p_castle_39",
+        "dis trig:25:cond: day>=340 + Stark lady slots -> marriage event",
+        "dis trig:6: $background_reason==4 then faith-specific event menu",
+        "global awoiaf invasion_triggered: writers Varys/Doran/Ellaria quest dialogs, trig:101/102",
+        "mission templates not in VC/Native: mst_red_wedding_*, mst_battle_of_the_bastards, mst_crasters_keep_mutiny, mst_jon_snow_duel"
+      ],
+      "overlaps": [
+        "acw.historical_event_calendar",
+        "ad457.travel_random_events",
+        "awoiaf.random_travel_events",
+        "sw.random_town_ambushes",
+        "vc.random_events_and_judgments"
+      ]
+    },
+    {
+      "id": "awoiaf.white_walker_invasion",
+      "name": "White Walker invasion waves and the War for the Dawn",
+      "category": "dynamic-world-events",
+      "summary": "On the chosen day an undead army spawns beyond the Wall, followed by further waves near northern villages over the next days. The horde raids and burns villages; when every White Walker party is destroyed the invasion ends and an R'hllor 'War for the Dawn' questline offers rewards. Captured wights are handled as special prisoners.",
+      "mechanics": "trig:41 (check 168h, one-shot): day >= $whitewalker_invasion_day and not disabled -> spawn_around_party p_village_70 pt_whitewalkers_1, $whitewalkers_invaded=1, menu_white_walkers_invade. trig:42-45 then spawn pt_whitewalkers_2/3/5/6 around p_village_11/5/70 on later checks. strig:194 (10h) drives fac_whitewalkers parties (strig:195 is the same raid AI for fac_deserters, not part of this feature): target villages, village_set_state raid, notification menu if the player's fief. strig:7 (48h) counts parties of the 6 templates; when 0 sets $whitewalkers_invaded=2 and start_map_conversation trp_quest_fireborn_warrior_new (R'hllor 'war for the dawn' dialogs, dlg:1108-1113). Auto-resolved fights (script game_event_simulate_battle, menu_total_defeat) route undead through party_add_party_prisoners_wights / party_prisoners_add_party_companions_wights (wights are converted rather than kept as ordinary prisoners).",
+      "hooks": [
+        "trig:41:cond",
+        "trig:42:cond",
+        "trig:43:cond",
+        "trig:44:cond",
+        "trig:45:cond",
+        "strig:7",
+        "strig:194"
+      ],
+      "scripts": [
+        "village_set_state",
+        "add_notification_menu",
+        "party_add_party_prisoners_wights",
+        "party_prisoners_add_party_companions_wights"
+      ],
+      "menus": [
+        "menu_white_walkers_invade",
+        "menu_set_up_white_walker_invasion",
+        "menu_war_for_the_dawn"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "whitewalkers_invaded",
+        "whitewalker_invasion_day",
+        "whitewalker_invasion_off",
+        "pt_whitewalkers_1",
+        "pt_whitewalkers_2",
+        "pt_whitewalkers_3",
+        "pt_whitewalkers_5",
+        "pt_whitewalkers_6"
+      ],
+      "resources": {
+        "pt": [
+          "pt_whitewalkers_1",
+          "pt_whitewalkers_2",
+          "pt_whitewalkers_3",
+          "pt_whitewalkers_4",
+          "pt_whitewalkers_5",
+          "pt_whitewalkers_6"
+        ],
+        "faction": [
+          "fac_whitewalkers"
+        ],
+        "troop": [
+          "trp_quest_fireborn_warrior_new"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis trig:41: spawn_around_party p_village_70 pt_whitewalkers_1; $whitewalkers_invaded=1; jump_to_menu white_walkers_invade",
+        "dis trig:42-45: further waves pt_whitewalkers_2/3/5/6",
+        "dis strig:7: all 6 templates counted; 0 left -> $whitewalkers_invaded=2 + start_map_conversation trp_quest_fireborn_warrior_new",
+        "dis strig:194: fac_whitewalkers parties raid villages (village_set_state 1, notification)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.spy_network_sabotage",
+      "name": "Spy network: plant spies in towns, read reports, order sabotage",
+      "category": "diplomacy-politics",
+      "summary": "The player can plant a spy in any town via the map right-click menu, read periodic spy reports (garrison, prosperity, prisoners, lords present) from Reports, and order the spy to poison the well (wounds the garrison), poison food stores (rats/pox), stir civil unrest (riots, lowered prosperity/recruits), or stand by. Each day the spy risks capture depending on town type, local relation and how long he has been there; capture costs relation with the town and its lord. A spy can also rescue the player from a dungeon.",
+      "mechanics": "Context menu (game_context_menu_get_buttons 'Send Spy'/'Retrieve Spy' -> game_event_context_menu_button_clicked) sets party slot 300 (hour planted) on the town and decrements main-party slot 304 (spies available; seeded by set_town_spycount at game_start). prsnt_sabotage writes party slot 301 (1 poison well, 2 poison food, 3 unrest, 4 hold). strig:38 (24h) loops towns: roll = random(5,300) + town relation + faction relation, modified by center type and pending order; <=100 -> spy captured (slots cleared, -10 lord relation, -20 center relation, dialog_box str_spy_captured); else executes order via poison_well (party_wound_members on every garrison stack, -3 prosperity; for type 13 also lowers the lord's attributes), poison_food, unrest_sabotage (sets rioter walkers, cuts volunteers slot 53 / slot 205, -5 prosperity), then update_center_recon_notes. prsnt_spy_reports -> spy_report_info builds the intelligence text. menu_rescue_defeat uses the spy to escape captivity.",
+      "hooks": [
+        "strig:38",
+        "prsnt:spy_reports/t0",
+        "prsnt:spy_reports/t2",
+        "prsnt:sabotage/t2",
+        "script:game_event_context_menu_button_clicked",
+        "menu:reports/opt:spy_report"
+      ],
+      "scripts": [
+        "spy_report_info",
+        "set_town_spycount",
+        "poison_well",
+        "poison_food",
+        "unrest_sabotage",
+        "update_center_recon_notes",
+        "get_prosperity_for_spy_report",
+        "game_context_menu_get_buttons",
+        "game_event_context_menu_button_clicked"
+      ],
+      "menus": [
+        "menu_spy_report",
+        "menu_spy_confirm",
+        "menu_spy_party",
+        "menu_spy_sabotage",
+        "menu_rescue_defeat"
+      ],
+      "presentations": [
+        "prsnt_spy_reports",
+        "prsnt_sabotage"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:300",
+        "party:301",
+        "party:302",
+        "party:304",
+        "party:53",
+        "party:205"
+      ],
+      "globals": [
+        "spy_target"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:38 (capture roll, order dispatch to poison_well/poison_food/unrest_sabotage)",
+        "slot awoiaf party 300/301/304 writers: context-menu click handler, set_town_spycount, prsnt:sabotage/t2",
+        "roots spy_report_info -> prsnt:spy_reports/t2; qstr 'Send_Spy', 'Retrieve_Spy', 'Your_spy_in_{s5}_has_successfully_poisoned_the_well.'",
+        "dis poison_well: party_wound_members per stack, change_center_prosperity -3"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "awoiaf.letters_to_lords",
+      "name": "Personal letters to lords (insult, duel challenge, demands, bribes) carried by a messenger party",
+      "category": "diplomacy-politics",
+      "summary": "From a presentation the player composes a letter to any lord: choose a tone (friendly / formal / insulting) and up to several demands - challenge to a duel, meet me at a village, attack a party, accept a bribe, etc. A messenger party physically travels to the lord; on arrival the lord's relation-dependent reaction is applied (he may ride out to fight the player, march to the named place, take the bribe) and a written reply is generated and carried back.",
+      "mechanics": "prsnt_compose_message_hero (t1) stores target lord party (slot 309), optional target place (slot 310) and a bitmask of requests (slot 308) on a pt_personal_messenger party and sets $message_tone. strig:35 (every frame) finds an arrived messenger (party_is_in_any_town) and calls personal_messenger: for each set bit it applies change_player_relation_with_troop, describe_player_relations ($fac_relations), and makes the lord's party chase the player (ai behaviour 4 on p_main_party) or move to the target (behaviour 6), or calls bribe_party; failed parts clear the bit. When the messenger meets the player again, game_event_party_encounter -> build_reply assembles the reply from tone x relation x request outcome quick-strings; prsnt_view_message / prsnt_view_reply show the letter. Troop slot 167 stores a 24h 'await' deadline. Separate VC-inherited raven system (prsnt_messenger_system, strig:151) only carries plain orders.",
+      "hooks": [
+        "prsnt:compose_message_hero/t1",
+        "strig:35",
+        "script:game_event_party_encounter"
+      ],
+      "scripts": [
+        "personal_messenger",
+        "build_message_hero",
+        "build_reply",
+        "bribe_party",
+        "describe_player_relations"
+      ],
+      "menus": [
+        "menu_messenger_return"
+      ],
+      "presentations": [
+        "prsnt_compose_message_hero",
+        "prsnt_view_message",
+        "prsnt_view_reply"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:308",
+        "party:309",
+        "party:310",
+        "troop:167"
+      ],
+      "globals": [
+        "message_tone",
+        "fac_relations",
+        "unable_to_duel",
+        "unable_to_pay",
+        "attack_party_answer",
+        "target1",
+        "target_2"
+      ],
+      "resources": {
+        "pt": [
+          "pt_personal_messenger"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:35 + personal_messenger (bitmask loop over party slot 308, chase/target orders, bribe_party)",
+        "dis build_reply ($message_tone x $fac_relations reply strings)",
+        "qstr '_Challenge_{s1}_to_a_duel.', 'Your maester approaches with urgent news: A raven has returned... angered by your insult'"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "awoiaf.iron_bank",
+      "name": "Iron Bank of Braavos: central deposits, loans with deadlines and war tax",
+      "category": "economy-trade",
+      "summary": "One bank in Braavos accepts deposits and grants loans. Interest rates depend on the player's honour, trade skill and the town's prosperity, and a 'war tax' reduces returns while the player's kingdom is at war. Missing a two-week repayment deadline compounds the debt, damages relations with Braavos and eventually with its faction.",
+      "mechanics": "prsnt_lazeras_bank_prsnt (t0) shows rating, rates (bank_report_rates), deposits (bank_report_deposit), cf_bank_war_tax and bank_get_prosperity_extra_to_s49; prsnt_bank handles borrow/repay on party slots 603/604 of $current_town (the bank is only offered in Braavos, p_town_42, which strig:11 polls). strig:11 (1h): if debt (p_town_42 slot 604) > 0 and hour >= deadline (slot 605) -> change_player_relation_with_center -5, debt *= $g_bank_debt_interest_rate/10 (capped 1,000,000), deadline += 336h; at cap -> faction relation -2; deposits (slot 809) accrue via bank_report_rates/bank_report_deposit.",
+      "hooks": [
+        "strig:11",
+        "prsnt:lazeras_bank_prsnt/t0",
+        "prsnt:bank/t0"
+      ],
+      "scripts": [
+        "bank_report_rates",
+        "bank_report_deposit",
+        "cf_bank_war_tax",
+        "bank_get_prosperity_extra_to_s49"
+      ],
+      "menus": [
+        "menu_lazeras_banking_menu"
+      ],
+      "presentations": [
+        "prsnt_lazeras_bank_prsnt",
+        "prsnt_bank",
+        "prsnt_bank_quickview"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:603",
+        "party:604",
+        "party:605",
+        "party:806",
+        "party:809"
+      ],
+      "globals": [
+        "g_bank_debt_interest_rate",
+        "g_bank_deposit_interest_rate",
+        "g_apply_kaoses_bank_report_to_gold"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:11 (deadline, interest compounding, relation penalties on p_town_42)",
+        "explain prsnt:lazeras_bank_prsnt/t0: callees cf_bank_war_tax, bank_report_rates, bank_report_deposit; text 'Rating', 'Poor/Average/Rich'"
+      ],
+      "overlaps": [
+        "sw.bank_interest_loans_payday"
+      ]
+    },
+    {
+      "id": "awoiaf.random_travel_events",
+      "name": "Random travel events (renown-gated choice events + weekly minor incidents)",
+      "category": "dynamic-world-events",
+      "summary": "While travelling the player periodically gets a random event: a bard sings of your deeds, beggars swarm your famous procession, freeriders or young nobles ask to join for extra pay, Red Priests burning a man, etc. Each offers choices with gold/honour/relation/troop outcomes. Separately, once a week a small incident pops up (training accident, toothache, found a gold bag, contaminated water, wagon of mead) that nudges health, morale, gold or items.",
+      "mechanics": "Six simple triggers on long, staggered periods (strig:166 194h, 167 310h, 168 284h, 169 260h, 170 224h, 171 170h) share a guard block (not enlisted, not in camp/siege/village-work, not captive, main-party slot 500 == 0, player troop slot 8 (Native slot_troop_leaded_party) < 0) and a renown threshold (player troop slot 7 > 330 etc.), roll store_random_in_range and jump_to_menu one of menu_event_01..42/101..103 (some guarded by one-shot globals like $kurkelet). strig:165 (168h) rolls one of 11 minor incidents (avoids repeating $g_lyx_last_random_event) applying change_troop_health, change_player_party_morale, troop_add_gold/item via dialog_box. strig:172 (315h, $player_is_king) walks the VC-inherited court-judgement menus (menu_event_NN_juicio) in order via $g_juicio.",
+      "hooks": [
+        "strig:165",
+        "strig:166",
+        "strig:167",
+        "strig:168",
+        "strig:169",
+        "strig:170",
+        "strig:171",
+        "strig:172"
+      ],
+      "scripts": [
+        "change_troop_health",
+        "change_player_party_morale"
+      ],
+      "menus": [
+        "menu_event_01",
+        "menu_event_02",
+        "menu_event_03",
+        "menu_event_23",
+        "menu_event_30",
+        "menu_event_101",
+        "menu_event_102",
+        "menu_event_103",
+        "menu_event_01_juicio"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:7",
+        "troop:8",
+        "party:500"
+      ],
+      "globals": [
+        "g_lyx_last_random_event",
+        "g_juicio",
+        "player_is_king",
+        "kurkelet",
+        "freelancer_state",
+        "g_camp_mode",
+        "g_empieza_asedio"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:166: guard block + renown>330 + random pick of menu_event_01/23/24/26/02/03/07",
+        "dis strig:165: 11 minor incidents with change_troop_health / morale / gold",
+        "dis strig:172: $player_is_king gate, $g_juicio sequence through menu_event_0N_juicio",
+        "texts menu:event_01 'A bard composed a song about your noble deeds.', menu:event_101 'young nobles wish to join you... more pay'",
+        "98 menu_event_* menus in awoiaf; vc has only event_siege_* and event_NN_juicio"
+      ],
+      "overlaps": [
+        "acw.historical_event_calendar",
+        "ad457.travel_random_events",
+        "awoiaf.canon_story_event_timeline",
+        "sw.random_town_ambushes",
+        "vc.random_events_and_judgments"
+      ]
+    },
+    {
+      "id": "awoiaf.hold_elite_trainers",
+      "name": "Paid elite-troop training at great houses",
+      "category": "recruitment-troops",
+      "summary": "At ~40 seats (Winterfell/Stark, Karstark, Bolton, Lannister, Casterly, Frey, Riverrun, Pyke, King's Landing, Braavos, Volantis, Qohor, Thenn, giants beyond the Wall...) a trainer offers to raise a company of that house's elite soldiers for a lump sum (5,000 stags in both houses checked, Stark and Lannister). Two weeks later the player returns and receives a company of that house's recruits (40 in both houses checked).",
+      "mechanics": "Each house has a pair of globals <house>_train / next_recruit_time_<house> (40 pairs). Trainer dialog condition checks gold >= price and sets next_recruit_time = now + 336h; consequence sets <house>_train = 1 and removes gold. A later greeting (cond: hours >= next_recruit_time) adds 40 of the house's recruit troop (e.g. party_add_members p_main_party trp_north_stark_recruit 40) and resets the timer. Separate event menus (menu_special_wildling_recruitment via strig:4, menu_special_dorne_recruitment) offer unique units (giants) when renown is high.",
+      "hooks": [
+        "dlg:634:dlga_start:stark_trainer_lord:cond",
+        "dlg:641:dlga_start:stark_trainer_lord.1:cond",
+        "strig:4"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_special_wildling_recruitment",
+        "menu_special_dorne_recruitment"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_stark_trainer_lord",
+        "dlga_start:stark_trainer_lord.1"
+      ],
+      "slots": [],
+      "globals": [
+        "stark_train",
+        "next_recruit_time_stark",
+        "lannister_train",
+        "next_recruit_time_lannister",
+        "bolton_train",
+        "giant_amount",
+        "bloodrider_train",
+        "thenn_elite_guard_train"
+      ],
+      "resources": {
+        "troop": [
+          "trp_north_stark_recruit",
+          "per-house recruit troops"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global awoiaf stark_train / next_recruit_time_stark: writers/readers are the stark_trainer_lord dialogs",
+        "dis dlg:639 cond (gold>=5000, timer = now+336) / conseq (stark_train=1, remove 5000)",
+        "dis dlg:641 conseq: party_add_members p_main_party trp_north_stark_recruit 40",
+        "dis dlg:678/680 (Lannister): same 5000 price, +336h, trp_westerlands_lannister_recruit x40",
+        "sqlite: 40 globals named *_train in awoiaf",
+        "refs menu_special_wildling_recruitment <- strig:4"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "awoiaf.commoner_trust",
+      "name": "Commoner trust: a kingdom-wide peasant reputation",
+      "category": "reputation-relations",
+      "summary": "Every relation gain or loss with a village also moves a single 'commoner trust' score shown on the character screen as a title from 'Reaper of peasants' to 'The People's King'. High trust slowly raises relation with every village each week and lets villagers host you for free rest; very low trust erodes relations everywhere.",
+      "mechanics": "Modified Native change_player_relation_with_center: when $commoners_trust_on and the center is a village (party slot 0 == 4) the delta is added to $commoner_trust. strig:39 (168h): trust in 400..1000 decays by 1; >400 -> +1 relation with every village; < -600 -> -1 with every village. peasant_approval maps the score to 10 titles for prsnt_character_screen_main. menu:village/opt:village_guest_wait requires trust >= 600 (rest_for_hours_interactive 168h for free). trig:61/62 (one-shot) congratulate the player at trust > 400 (str_peasant_trusted_friend) and >= 1000 (str_peasant_patron_saint). init_char_stat and set_town_spycount seed the starting value from background.",
+      "hooks": [
+        "strig:39",
+        "trig:61:cond",
+        "trig:62:cond",
+        "menu:village/opt:village_guest_wait:cond"
+      ],
+      "scripts": [
+        "change_player_relation_with_center",
+        "peasant_approval"
+      ],
+      "menus": [
+        "menu_set_up_commoners_trust"
+      ],
+      "presentations": [
+        "prsnt_character_screen_main"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:0"
+      ],
+      "globals": [
+        "commoner_trust",
+        "commoners_trust_on"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "global awoiaf commoner_trust: writers change_player_relation_with_center, strig:39, init_char_stat; readers peasant_approval, village_guest_wait, trig:61/62",
+        "dis change_player_relation_with_center stmt 21-33: val_add $commoner_trust by delta when village",
+        "dis strig:39 weekly drift",
+        "dis peasant_approval: 10 title bands"
+      ],
+      "overlaps": [
+        "bi.triumphus",
+        "pop.post_battle_lord_relation_gain",
+        "tld.lord_friendship_gifts"
+      ]
+    },
+    {
+      "id": "awoiaf.lord_execution_succession",
+      "name": "Executing captured lords, with honour/relation fallout and royal succession",
+      "category": "prisoners",
+      "summary": "The player can execute a captured lord from the prisoner chat. The lord dies permanently, his gear is looted, every other lord and kingdom reacts (scaled by the victim's personality and by whether they are his allies or enemies), honour and renown change, and if the victim was a king the highest-renown surviving lord of his faction becomes king; his fiefs pass to his faction (or to the player's rebel faction / no faction if none remains).",
+      "mechanics": "dlg:6457 (prisoner_chat_treason_execute) -> kill_prisoner_dialogue($g_talk_troop, faction): troop slot 2 := 1 (dead), slots 55/14 := fac_no_faction, loot_hero_items; base penalty = renown(slot 7)/-33 scaled by reputation type (troop slot 52: x1 martial/quarrelsome/..., /3 or /4 for some, x2 for others); loops all lords and kingdoms applying change_player_relation_with_troop/_faction by allegiance; change_player_honor, change_troop_renown; if faction slot 11 (leader) == victim, picks max-renown living lord of that faction -> faction slot 11 and 'X is the new King'; then give_center_to_faction for each of his centers; remove_troop_from_prison. The dialog also sets quest flags (brog_kills_tywin etc.).",
+      "hooks": [
+        "dlg:6457:dlga_prisoner_chat_treason_execute:close_window:conseq"
+      ],
+      "scripts": [
+        "kill_prisoner_dialogue",
+        "loot_hero_items",
+        "change_player_relation_with_troop",
+        "change_player_relation_with_faction",
+        "change_player_honor",
+        "change_troop_renown",
+        "give_center_to_faction",
+        "remove_troop_from_prison"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:2",
+        "troop:7",
+        "troop:14",
+        "troop:52",
+        "troop:55",
+        "troop:181",
+        "faction:11",
+        "faction:21"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "roots kill_prisoner_dialogue -> dlg:6457 prisoner_chat_treason_execute",
+        "dis kill_prisoner_dialogue: slot 2:=1, relation loops, faction slot 11 succession with qstr '{s1}_is_the_new_King', give_center_to_faction loop"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.nights_watch_rules",
+      "name": "Night's Watch as a neutral sworn order: take the black, send prisoners to the Wall, rangers and free-folk raiders",
+      "category": "religion-culture",
+      "summary": "The Night's Watch (fac_kingdom_10) is not a normal kingdom: it stays out of the Westeros war/peace churn, the player can swear the oath and serve as a brother (deserting makes every Westeros realm hostile), captured lords can be sent to the Wall instead of executed (they become Watch members with black gear, their fiefs revert and succession runs if they were king), common prisoners can be donated to the Watch for coin and honour (they reappear as Watch recruits in its commander's army), and every 72 h a ranger patrol and a free-folk raiding party are kept alive north of the Wall.",
+      "mechanics": "strig:54 loops fac_kingdom_1..fac_kingdom_10 with an exclusive upper bound, so the Watch never accrues truce/casus-belli; kill_prisoner_dialogue skips fac_kingdom_10 when spreading relation penalties. Joining: dlga_lord_request_enlistment nw_join_* dialogs (freelancer-style enlistment; price = commander level x10 via faction slot 101/41) - leaving/deserting runs event_player_deserts_nw (set_player_relation_with_faction -75 with kingdoms 1,2,4,5,6,8,9,10...). Take the black: dlg:6448/6458 prisoner_chat_treason_execute_wall -> change_troop_faction(lord, fac_kingdom_10), +50 relation with the Watch leader (faction slot 11), loot_hero_items + nightswatch gear, renown/relation penalties with his old faction, king succession by max renown, give_center_to_faction for his fiefs. Donation: dlga_lord_wall_prisoners / wandering crows / Ramun -> sell_all_prisoners_nw (pays game_get_prisoner_price, party_add_members <Watch leader party> trp_nw_recruit = number sold, +1 Watch relation, +1 honour). strig:106 (72h): if factions 11 / 10 alive, spawn_ff_raiding_parties / spawn_nw_patrol_parties keep one pt_ff_raiding_party and one pt_nw_ranger_patrol on the map.",
+      "hooks": [
+        "strig:106",
+        "strig:54",
+        "dlg:6458:dlga_prisoner_chat_treason_execute_wall1:close_window:conseq",
+        "dlg:4175:dlga_lord_wall_prisoners:lord_talk:conseq",
+        "dlg:4166:dlga_lord_talk:lord_request_enlistment.1:cond"
+      ],
+      "scripts": [
+        "sell_all_prisoners_nw",
+        "event_player_deserts_nw",
+        "freelancer_event_player_revolts_nw",
+        "spawn_nw_patrol_parties",
+        "spawn_ff_raiding_parties",
+        "change_troop_faction",
+        "loot_hero_items"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_nw_join_06",
+        "dlga_lord_wall_prisoners",
+        "dlga_prisoner_chat_treason_execute_wall1",
+        "dlga_wandering_crows_sell_prisoners_all_2"
+      ],
+      "slots": [
+        "faction:11",
+        "faction:21",
+        "faction:41",
+        "faction:101"
+      ],
+      "globals": [
+        "leftnightswatch",
+        "freelancer_state",
+        "enlisted_lord"
+      ],
+      "resources": {
+        "faction": [
+          "fac_kingdom_10 (Night's Watch)",
+          "fac_kingdom_11 (free folk)"
+        ],
+        "pt": [
+          "pt_nw_ranger_patrol",
+          "pt_ff_raiding_party"
+        ],
+        "troop": [
+          "trp_nw_recruit",
+          "trp_wandering_crow_1.."
+        ],
+        "item": [
+          "itm_nightswatch_d_cloaked"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "refs awoiaf faction fac_kingdom_10: 117 refs incl. nw_join dialogs, prisoner_chat_treason_execute_wall, sell prisoners, event_player_deserts_nw",
+        "dis dlg:6458 conseq (change_troop_faction -> fac_kingdom_10, NW gear, succession, fief transfer)",
+        "dis sell_all_prisoners_nw (gold + trp_nw_recruit added to Watch leader party)",
+        "dis strig:106 + spawn_nw_patrol_parties / spawn_ff_raiding_parties",
+        "dis strig:54: try_for_range fac_kingdom_1..fac_kingdom_10 (exclusive bound)",
+        "texts menu:set_up_wars '...all factions (except the Night's Watch) are free to declare war and peace'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.fire_arrows_destructible_props",
+      "name": "Fire arrows and burnable/destructible siege props",
+      "category": "combat-mechanics",
+      "summary": "In siege battles archers can switch to fire arrows; arrows hitting flammable scene props (palisades, towers, houses, tents, belfries, the battering ram) spawn fire and smoke, wear down the prop's durability and finally destroy it - burning a belfry or ram stops that line of assault.",
+      "mechanics": "Siege templates (mst_castle_attack_walls_belfry/_ladder/_ram, t118/t120 every 0.01s) run fire_arrow_routine / flame_routine; initialize_agents_use_fire_arrow + toggle_fire_arrow_mode flip $g_fire_arrow_mode. 14 bows have ti_on_weapon_attack item triggers -> cf_set_fire_arrow (attaches flame to the missile while the mode is on). 386 scene props carry ti_on_scene_prop_hit -> cf_flammable_object_hit: hit_prop resolves damage, particle bursts (psys_fire_glow_1, cooking_fire, torch sparks), durability is stored in parallel troop arrays (trp_object_instance_no / trp_object_durability / trp_scene_prop_id indexed up to $g_flammable_object_slot); at 0 -> object_destroy, and for spr_belfry_* / spr_ram_body also destroys their platforms/wheels and sets $g_belfry_was_destroyed / $g_ram_was_destroyed. flammable_object_initialize / destructible_object_initialize register props at mission start.",
+      "hooks": [
+        "mst:castle_attack_walls_belfry/t120:conseq",
+        "mst:castle_attack_walls_ladder/t118:conseq",
+        "mst:castle_attack_walls_ram/t120:conseq",
+        "itm:itm_war_bow/t0",
+        "spr:spr_castle_z_tower/t1"
+      ],
+      "scripts": [
+        "fire_arrow_routine",
+        "flame_routine",
+        "cf_set_fire_arrow",
+        "toggle_fire_arrow_mode",
+        "initialize_agents_use_fire_arrow",
+        "cf_flammable_object_hit",
+        "hit_prop",
+        "object_destroy",
+        "flammable_object_initialize",
+        "destructible_object_initialize",
+        "cf_object_set_damage"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_attack_walls_ram"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_fire_arrow_mode",
+        "g_flammable_object_slot",
+        "g_flame_slot",
+        "g_belfry_was_destroyed",
+        "g_ram_was_destroyed"
+      ],
+      "resources": {
+        "troop": [
+          "trp_object_instance_no",
+          "trp_object_durability",
+          "trp_scene_prop_id",
+          "trp_frame_tick_count",
+          "trp_global_value"
+        ],
+        "psys": [
+          "psys_fire_glow_1",
+          "psys_cooking_fire_1",
+          "psys_war_smoke_tall"
+        ],
+        "item": [
+          "14 bows with ti_on_weapon_attack"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "roots cf_flammable_object_hit -> 386 spr:*/t1 [ti_on_scene_prop_hit]",
+        "roots cf_set_fire_arrow -> 14 itm:*/t0 [ti_on_weapon_attack]",
+        "roots fire_arrow_routine -> mst:castle_attack_walls_* t118/t120 + multiplayer msts",
+        "dis cf_flammable_object_hit: durability arrays, belfry/ram destruction messages"
+      ],
+      "overlaps": [
+        "acw.explosive_grenades",
+        "be.ww1_weapons_mg_gas_grenades",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_and_destructible_props",
+        "oa1860.explosive_thrown_weapons",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "awoiaf.siege_ram_assault_and_hostage_surrender",
+      "name": "Battering-ram assaults, and using a captured lord to force a surrender",
+      "category": "sieges",
+      "summary": "Besiegers can spend hours building a battering ram (time scales with the best Engineer skill); the assault then uses a ram scene where AI soldiers push the ram to the gate and the player can join them. Alternatively, if the player holds the castle's own lord prisoner, he can persuade the garrison to surrender with the lord's help, or offer the lord's safe return in exchange for the castle - success depends on relations and skills.",
+      "mechanics": "menu:siege_assault/opt:build_battering_ram -> menu_battering_ram (engineer-based build hours) -> mst_castle_attack_walls_ram; its mission triggers t112 (siege_init_ai_and_ram), t113 (cf_siege_move_ram: moves ram props along stored path, $ram_num_men_pushing, $cur_ram_pos, scene slot 25), t115 (cf_siege_assign_men_to_ram: picks attackers to push), plus the fire-arrow routines (the ram can be burnt, $g_ram_was_destroyed). Surrender: menu:castle_guard options persuade_center_surrender_with_town_lord / take_lord_as_hostage -> menu_persuade_center_surrender / _2 ({reg30?...surrendered without bloodshed...}) -> menu_castle_taken_without_bloodshed.",
+      "hooks": [
+        "menu:siege_assault/opt:build_battering_ram:conseq",
+        "mst:castle_attack_walls_ram/t112:cond",
+        "mst:castle_attack_walls_ram/t113:cond",
+        "mst:castle_attack_walls_ram/t115:cond",
+        "menu:castle_guard/opt:take_lord_as_hostage:conseq",
+        "menu:castle_guard/opt:persuade_center_surrender_with_town_lord:conseq"
+      ],
+      "scripts": [
+        "siege_init_ai_and_ram",
+        "cf_siege_move_ram",
+        "cf_siege_assign_men_to_ram"
+      ],
+      "menus": [
+        "menu_battering_ram",
+        "menu_persuade_center_surrender",
+        "menu_persuade_center_surrender_2",
+        "menu_castle_taken_without_bloodshed"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_castle_attack_walls_ram"
+      ],
+      "dialogs": [],
+      "slots": [
+        "scene:25"
+      ],
+      "globals": [
+        "ram_positioned",
+        "cur_ram_pos",
+        "ram_num_men_pushing",
+        "last_ram_object_pos",
+        "ram_rotating_objects_begin",
+        "g_ram_was_destroyed"
+      ],
+      "resources": {
+        "scene_prop": [
+          "spr_ram_body",
+          "spr_ram_shaft",
+          "spr_ram_wheel"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "refs mt mst_castle_attack_walls_ram <- menu:siege_assault, besiegers_camp_with_allies, siege_started_defender",
+        "roots siege_init_ai_and_ram / cf_siege_move_ram / cf_siege_assign_men_to_ram -> mst:castle_attack_walls_ram t112/t113/t115",
+        "texts menu:battering_ram 'As the party member with the highest Engineer skill... will take {reg4} hours'",
+        "refs menu_persuade_center_surrender(_2) <- menu:castle_guard opts persuade_center_surrender_with_town_lord / take_lord_as_hostage"
+      ],
+      "overlaps": [
+        "acan.siege_planning_inherited",
+        "acw.siege_assault_waves_and_surrender",
+        "ad457.vc_siege_planning_and_camp_events_inherited",
+        "bi.siege_town_militia",
+        "vc.siege_planning"
+      ]
+    },
+    {
+      "id": "awoiaf.hunting_herds",
+      "name": "Wild animal herds on the map and hunting battles",
+      "category": "other",
+      "summary": "Deer, boar, wolf, goat and wild-donkey herds roam the campaign map. Encountering one opens a menu to hunt; the hunt is a small mission where animals flee as mounted 'agents'. Kills yield meat and raw leather.",
+      "mechanics": "spawn_bandits keeps N herds alive per type (store_num_parties_of_template pt_deer_herd < 3 -> spawn_around_party p_deer_spawn_point; pt_boar_herd < 2, ...). game_event_party_encounter routes herd encounters to menu_deer_herd / boar_herd / wolf_herd / coat(b)_herd / wilddonkey_herd; 'Hunt' launches mst_deer_hunting etc., where trp_deer riders on itm_deer 'horse' items act as the animals; the herd menus hand out itm_deer_meat / itm_raw_leather; *_kill_end menus just return.",
+      "hooks": [
+        "script:game_event_party_encounter",
+        "menu:deer_herd/opt:deer_kill:conseq"
+      ],
+      "scripts": [
+        "spawn_bandits",
+        "game_event_party_encounter"
+      ],
+      "menus": [
+        "menu_deer_herd",
+        "menu_boar_herd",
+        "menu_wolf_herd",
+        "menu_coat_herd",
+        "menu_coatb_herd",
+        "menu_wilddonkey_herd"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_deer_hunting",
+        "mst_boar_hunting",
+        "mst_wolf_hunting",
+        "mst_coat_hunting",
+        "mst_coatb_hunting",
+        "mst_wilddonkey_hunting"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_deer_herd",
+          "pt_boar_herd",
+          "pt_wolf_herd"
+        ],
+        "troop": [
+          "trp_deer"
+        ],
+        "item": [
+          "itm_deer",
+          "itm_deer_meat",
+          "itm_raw_leather"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis spawn_bandits stmt 262-275 (pt_deer_herd / pt_boar_herd spawn caps)",
+        "refs menu_deer_herd <- game_event_party_encounter; refs mst_deer_hunting <- menu:deer_herd/opt:deer_kill",
+        "sqlite refs: mst:deer_hunting uses itm_deer/trp_deer; menu:deer_herd references itm_deer_meat, itm_raw_leather"
+      ],
+      "overlaps": [
+        "acw.hunting",
+        "tld.wilderness_encounters_hide_animal_ambush"
+      ]
+    },
+    {
+      "id": "awoiaf.lord_retinue_heroes",
+      "name": "Named retainers riding in lords' armies",
+      "category": "lord-behavior",
+      "summary": "Notable non-lord characters (e.g. Sandor Clegane with his liege, Brax and Crakehall knights) are added as hero troops to specific lords' parties whenever those parties are (re)created, so they appear and fight in that lord's army; story events can remove them.",
+      "mechanics": "Modified Native create_kingdom_hero_party: after hire_men_to_kingdom_hero_party, an if-chain keyed on the leader troop calls give_companion_to_lord(hero, $pout_party) (145 call sites) which adds the hero only if alive (troop slot 2 != 1), not leading a party (slot 8 < 1) and not already present. remove_companion_from_lord is used by the Hound event menus. Also called from game_start, strig:80 and the invasion triggers trig:101/102.",
+      "hooks": [
+        "script:create_kingdom_hero_party",
+        "strig:80"
+      ],
+      "scripts": [
+        "give_companion_to_lord",
+        "remove_companion_from_lord",
+        "create_kingdom_hero_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:2",
+        "troop:8"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "callers give_companion_to_lord: 145 sites, mostly create_kingdom_hero_party",
+        "dis create_kingdom_hero_party stmt 43-57 (knight_18_1 -> trp_sandor_clegane ...)",
+        "dis give_companion_to_lord (alive / not leading / not present guard)",
+        "callers remove_companion_from_lord: menu:the_hound_event_*"
+      ],
+      "overlaps": [
+        "acw.lord_army_size_and_wages",
+        "laigle.lord_army_doctrine"
+      ]
+    },
+    {
+      "id": "awoiaf.four_faiths_religion",
+      "name": "Four-faith religion (Seven, Old Gods, R'hllor, Drowned God) - extends VC's religion",
+      "category": "religion-culture",
+      "summary": "The player's faith (chosen at creation or by conversion with a priest) gates temple visits, faith-specific recruits (red priests, old-gods worshippers, drowned men), religious loot choices after plundering, holy-man party encounters that attack non-believers, fief buildings (sept, weirwood grove, R'hllor temple, Drowned God shrine) and faith events; each center's mix of faiths drifts weekly.",
+      "mechanics": "inherits vc.religion ($g_player_faith, priest dialogs dlga_sacerdote_talk/pagano_talk, regular_member_talk faith actions) and extends it from VC's two faiths to four: added dlga_rhllor_talk / dlga_drowned_god_talk conversions, prsnt_rhllor_yesorno / old_gods_yesorno / drowned_god_yesorno, prsnt_loot_choice_fos/_old_gods/_rhllor/_drowned_god, menu_recruit_red_priests / recruit_old_gods / recruit_drowned_men, faith buildings in the chamberlain build list (dlg:2493-2500), and strig:161 (168h) that rebalances per-center faith shares in party slots 340-343 and writes $g_sod_global_faith.",
+      "hooks": [
+        "strig:161",
+        "dlg:5711:dlga_rhllor_talk:rhllor_ayuda.1:conseq",
+        "dlg:5724:dlga_drowned_god_talk:drowned_god_ayuda.1:conseq"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_recruit_red_priests",
+        "menu_recruit_old_gods",
+        "menu_recruit_drowned_men",
+        "menu_temple_visit",
+        "menu_godswood_visit",
+        "menu_driftwood_alter_visit",
+        "menu_septry_visit"
+      ],
+      "presentations": [
+        "prsnt_loot_choice_fos",
+        "prsnt_loot_choice_old_gods",
+        "prsnt_loot_choice_rhllor",
+        "prsnt_loot_choice_drowned_god",
+        "prsnt_rhllor_yesorno",
+        "prsnt_old_gods_yesorno",
+        "prsnt_drowned_god_yesorno"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:340",
+        "party:341",
+        "party:342",
+        "party:343"
+      ],
+      "globals": [
+        "g_player_faith",
+        "g_sod_global_faith"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "global awoiaf g_player_faith: writers priest conversion dialogs (Seven, Old Gods, R'hllor, Drowned God) + yes/no presentations + init_char_stat",
+        "explain strig:161: party slots 340-343 + g_sod_global_faith"
+      ],
+      "overlaps": [
+        "acan.patron_gods_piety_miracles",
+        "ad457.religion_faiths_and_piety",
+        "vc.monasteries_and_hofs",
+        "vc.religion_center_conversion"
+      ]
+    },
+    {
+      "id": "awoiaf.party_screen_hotkeys",
+      "name": "Party/loot exchange screen hotkeys (take all, drop all prisoners, move stacks)",
+      "category": "qol-ui",
+      "summary": "While the party-exchange or loot screen is open, keyboard shortcuts act on whole stacks: Ctrl+A takes every prisoner from the loot/defeated party, Ctrl+S takes all freed troops, Up/Down/PageUp/PageDown reorder or move a troop stack between garrison and party, Right/Left Ctrl+arrow transfer whole groups to/from the other party, Ctrl+D hands all non-hero prisoners to the other party.",
+      "mechanics": "Trick: the engine calls game_get_troop_wage for every stack while the party screen is drawn, so AWOIAF's game_get_troop_wage first calls initialize_exchange_screen_extensions(troop). That script polls key_is_down combos and, depending on which screen is open (trp_globals_troop slot 12: 10 = loot/temp party, 12 = garrison/encounter exchange; slot 11 = troop under the cursor), moves stacks with party_add_prisoners/party_remove_prisoners/party_add_members using p_temp_party, $current_town or $g_encountered_party, respecting free capacity.",
+      "hooks": [
+        "script:game_get_troop_wage"
+      ],
+      "scripts": [
+        "initialize_exchange_screen_extensions",
+        "game_get_troop_wage",
+        "party_add_party_companions"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:11",
+        "troop:12"
+      ],
+      "globals": [
+        "current_town",
+        "g_encountered_party"
+      ],
+      "resources": {
+        "troop": [
+          "trp_globals_troop"
+        ],
+        "party": [
+          "p_temp_party"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "callers initialize_exchange_screen_extensions: game_get_troop_wage @1 (only call site)",
+        "dis initialize_exchange_screen_extensions: key_left_control+key_a / +key_s / key_up / key_down / key_page_up / key_page_down / right_control+right / +left / left_control+key_d branches",
+        "slot awoiaf troop 12 used as screen-mode flag (const 10/12)"
+      ],
+      "overlaps": [
+        "pop.party_screen_hotkeys",
+        "tld.exchange_screen_hotkeys"
+      ]
+    },
+    {
+      "id": "awoiaf.tournament_invitations_tpe",
+      "name": "Tournament invitations and noble reactions (Floris/TPE tournament layer)",
+      "category": "tournaments",
+      "summary": "Once the player has 200+ renown, lords invite him to the nearest friendly tournament (a timed quest); winning raises relations with the lords and ladies present and gives renown scaled by current fame; an options menu toggles an 'Expert' difficulty and faction-appropriate tournament gear.",
+      "mechanics": "strig:184 (12h, renown slot 7 >= 200): scans towns whose party slot 156 (tournament countdown) >= 3 and are friendly, starts qst_floris_active_tournament for the nearest, and fails/ends it when the tournament expires. menu_town_tournament_won -> tpe_noble_reaction_to_win, tpe_rep_gain_lords / tpe_rep_gain_ladies, tpe_determine_scaled_renown; set_items_for_tournament_new / set_items_for_tournament_by_factions choose gear; menu_torneo_opciones toggles expert difficulty.",
+      "hooks": [
+        "strig:184",
+        "menu:town_tournament_won",
+        "menu:town_tournament/opt:tournament_opciones:conseq"
+      ],
+      "scripts": [
+        "tpe_noble_reaction_to_win",
+        "tpe_rep_gain_lords",
+        "tpe_rep_gain_ladies",
+        "tpe_determine_scaled_renown",
+        "tpe_store_town_faction_to_reg0",
+        "quest_floris_active_tournament_hook_1",
+        "set_items_for_tournament_new",
+        "set_items_for_tournament_by_factions"
+      ],
+      "menus": [
+        "menu_torneo_opciones"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:156",
+        "troop:7"
+      ],
+      "globals": [],
+      "resources": {
+        "quest": [
+          "qst_floris_active_tournament"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis strig:184 (renown>=200, nearest friendly tournament town, qst_floris_active_tournament)",
+        "roots tpe_noble_reaction_to_win -> menu:town_tournament_won",
+        "refs menu_torneo_opciones <- menu:town_tournament/opt:tournament_opciones"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "awoiaf.side_jobs_and_camp_activities",
+      "name": "Odd jobs and camp activities (mines, village labour, music, gambling, fishing, smoking food)",
+      "category": "economy-trade",
+      "summary": "Low-tier ways to earn coin or supplies: volunteer to work in iron/salt/obsidian mines (needs tools), do day-labour in villages, perform music in taverns for income based on the Entertain skill, play 'find the lady' three-card gambling with tavern keepers, fish from camp (chance of treasure, risk of bandits), and smoke food to make it keep longer.",
+      "mechanics": "menu:iron_mine/salt_mine opt work_mines -> mine_work/mine_work2 (cf_player_has_tools_for_mine); menu_village_basic_work / menu_work_for_village_option; menu_perform_music -> entertain_income; dlga_tavern_tk_3cards -> prsnt_three_card; menu_camp_fishing; menu_camp_smoking_food -> rigale_smoke_food. Prisoners deposited in the salt and iron mines generate weekly slave-labour income with escape rolls (strig:75/76 -> menu_slave_labor).",
+      "hooks": [
+        "menu:iron_mine/opt:work_mines:conseq",
+        "menu:salt_mine/opt:work_mines:conseq",
+        "menu:perform_music",
+        "dlg:1011:dlga_tavern_tk_3cards:close_window:conseq",
+        "strig:75",
+        "strig:76"
+      ],
+      "scripts": [
+        "mine_work",
+        "mine_work2",
+        "cf_player_has_tools_for_mine",
+        "entertain_income",
+        "rigale_smoke_food"
+      ],
+      "menus": [
+        "menu_iron_mine",
+        "menu_obsidian_mine",
+        "menu_village_basic_work",
+        "menu_perform_music",
+        "menu_camp_fishing",
+        "menu_camp_smoking_food",
+        "menu_slave_labor",
+        "menu_slave_labor2"
+      ],
+      "presentations": [
+        "prsnt_three_card"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_num_prisoners",
+        "g_earnings",
+        "g_num_escapees",
+        "g_num_prisoners2"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "roots mine_work -> menu:iron_mine/salt_mine opt work_mines",
+        "roots entertain_income -> menu:perform_music",
+        "refs prsnt_three_card <- dlga_tavern_tk_3cards",
+        "dis strig:75 (salt-mine slave labour: 12 coin/prisoner/week, escape roll, -2 honour)"
+      ],
+      "overlaps": []
+    }
+  ]
+}

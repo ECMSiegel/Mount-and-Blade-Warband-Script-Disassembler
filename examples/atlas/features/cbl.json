@@ -1,0 +1,588 @@
+{
+  "module": "cbl",
+  "features": [
+    {
+      "id": "cbl.expanded_calradia_map",
+      "name": "Enlarged Calradia map (Native kept, borderlands added)",
+      "category": "map-travel",
+      "summary": "The campaign map keeps Native Calradia almost untouched (175 of Native's 180 towns/castles/villages sit at the same coordinates) and adds new lands around it: 23 more towns, 54 more castles and 136 more villages, for 45/102/246 in total. The playable area grows from -180..180 x -145..145 to -230..305 x -240..205 (about 2.2x Native's land).",
+      "mechanics": "Pure data plus centre setup. map.txt keeps Native's mesh topology (20,791 vertices, 41,387 faces) but 10,654 faces are recoded and 1,589 vertices moved (new coasts, mountains, 1,259 'bridge' (code 7) faces used as sea lanes). module.ini widens map_min/max_x/y. parties.txt inserts the new towns after p_town_22 (towns idx 22..66, numbered 1-22 and 24-46; there is no town 23), castles after them (67..168) and villages after them (169..414), so every Native range loop (p_town_1..p_castle_1, p_village_1..p_salt_mine, etc.) covers the new centres automatically. Every per-centre parallel array is extended in the same order: 9 per-town troop arrays (seneschal, arena master, armorer, weaponsmith, tavernkeeper, merchant, horse merchant, mayor, master craftsman) at 45 each, 102 castle seneschals, 246 village elders, 8 per-town scene arrays at 45 each, 102 castle scene triples and 246 village scenes. game_start's offset loops (store_sub town p_town_1 -> scn_town_1_center + offset, trp_town_1_mayor + offset, ...) then wire scenes and NPCs for all centres. Villages are bound to the nearest castle (one each) and then the nearest town by distance, so no per-village list is needed. All new-centre map icons are Native ones (town, town_desert, castle_a..d, village_a/c, ...).",
+      "hooks": [
+        "script:game_start"
+      ],
+      "scripts": [
+        "game_start",
+        "initialize_trade_routes",
+        "initialize_economic_information",
+        "initialize_town_arena_info",
+        "give_center_to_faction_aux",
+        "give_center_to_lord"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:0",
+        "party:10",
+        "party:11",
+        "party:12",
+        "party:13",
+        "party:14",
+        "party:16",
+        "party:17",
+        "party:18",
+        "party:20",
+        "party:21",
+        "party:22",
+        "party:23",
+        "party:24",
+        "party:25",
+        "party:60",
+        "party:62",
+        "party:120"
+      ],
+      "globals": [],
+      "resources": {
+        "file": [
+          "map.txt",
+          "module.ini (map_min_x -230, map_max_x 305, map_min_y -240, map_max_y 205)",
+          "SceneObj (490 new-centre .sco, 114.7 MB)"
+        ],
+        "party": [
+          "p_town_24..p_town_46",
+          "p_castle_49..p_castle_102",
+          "p_village_111..p_village_246"
+        ],
+        "scene": [
+          "scn_town_24_*..scn_town_46_*",
+          "scn_castle_49_*..scn_castle_102_*",
+          "scn_village_111..scn_village_246"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "parties.txt parse: cbl towns idx 22..66 (45, numbered 1-22,24-46), castles 67..168 (102), villages 169..414 (246), each contiguous",
+        "point-in-triangle test: all 393 cbl centres on land in cbl map.txt; Native bridges test as code 7 (method check)",
+        "script:game_start @441-520 offset loops (scn_town_1_center+off, trp_town_1_mayor+off, scn_castle_1_exterior+3*off, scn_village_1+off, trp_village_1_elder+off); @413-440 distance-based village binding (party slot 120)"
+      ],
+      "overlaps": [
+        "cbl.new_centre_economy_and_arena_wiring",
+        "cbl.twelve_borderland_kingdoms",
+        "cbl.v352_later_version_changes"
+      ]
+    },
+    {
+      "id": "cbl.new_centre_economy_and_arena_wiring",
+      "name": "Trade routes, production and arenas for the new centres",
+      "category": "economy-trade",
+      "summary": "The new towns and villages are wired into the economy: 102 extra land trade routes between town pairs, per-town and per-village production levels for the new centres, and arena/tournament data for the new towns.",
+      "mechanics": "All by explicit per-centre statements, not loops: initialize_trade_routes (195 stmts vs the base module 93) adds 102 set_trade_route_between_centers calls (e.g. p_town_24 <-> p_town_5/31/10/22/20/19/2); initialize_economic_information (559 vs 345) adds ~122 party_set_slot statements on new centres in the production slots 214-230 (one Native line moved from p_town_19 to p_town_20); initialize_town_arena_info (275 vs 137) adds arena layouts for the new towns. initialize_sea_trade_routes is emptied (0 statements; the base module has 22 that set coastal-town slots 63/450 and 7 sea routes), so cbl has no sea trade. Native's distance-based village binding (game_start) gives every new village a bound centre and owner automatically.",
+      "hooks": [
+        "script:game_start"
+      ],
+      "scripts": [
+        "initialize_trade_routes",
+        "initialize_economic_information",
+        "initialize_town_arena_info",
+        "initialize_sea_trade_routes",
+        "set_trade_route_between_centers"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:63",
+        "party:214",
+        "party:215",
+        "party:219",
+        "party:221",
+        "party:222",
+        "party:223",
+        "party:224",
+        "party:225",
+        "party:226",
+        "party:227",
+        "party:228",
+        "party:229",
+        "party:230",
+        "party:450"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "cbl.expanded_calradia_map",
+        "cbl.twelve_borderland_kingdoms",
+        "cbl.v352_later_version_changes"
+      ]
+    },
+    {
+      "id": "cbl.custom_field_battle_scenes",
+      "name": "93 hand-made field battle scenes by terrain",
+      "category": "other",
+      "summary": "Field battles no longer always use a randomly generated terrain: depending on the terrain under the player's party, the battle loads one of 93 hand-built scenes (11 steppe, 20 plain, 10 plain-mountain, 5 plain-river, 11 plain-forest, 10 desert, 5 desert-forest, 11 snow, 5 snow-forest, 5 steppe-forest).",
+      "mechanics": "setup_random_scene (350 stmts vs the base module 34) reads party_get_current_terrain p_main_party, rolls 1..99 and picks scn_random_scene_<terrain>_custom_N by probability band (e.g. steppe: 10% each for 1-9, 5% for 10 and 11; plain: 3% bands across 20 plain and 10 plain-mountain scenes ...). Unhandled terrains fall back to the Native scn_random_scene_<terrain> generators; terrain 0 -> scn_water; terrain 7 (sea lane) -> mst_ship_battle on scn_sea_1/2/4 by battle size (same as the base module). Called from the 9 battle-start menu options (simple_encounter, join_battle, camp walk-around).",
+      "hooks": [
+        "menu:simple_encounter/opt:encounter_attack:conseq",
+        "menu:simple_encounter/opt:follow:conseq",
+        "menu:simple_encounter/opt:hold:conseq",
+        "menu:simple_encounter/opt:do_orders:conseq",
+        "menu:join_battle/opt:join_attack:conseq",
+        "menu:join_battle/opt:follow:conseq",
+        "menu:join_battle/opt:hold:conseq",
+        "menu:join_battle/opt:do_orders:conseq",
+        "menu:camp_action/opt:action_walk_around:conseq"
+      ],
+      "scripts": [
+        "setup_random_scene"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "scene": [
+          "scn_random_scene_steppe_custom_1..11",
+          "scn_random_scene_plain_custom_1..20",
+          "scn_random_scene_plain_mountain_custom_1..10",
+          "scn_random_scene_plain_river_custom_1..5",
+          "scn_random_scene_plain_forest_custom_1..11",
+          "scn_random_scene_desert_custom_1..10",
+          "scn_random_scene_desert_forest_custom_1..5",
+          "scn_random_scene_snow_custom_1..11",
+          "scn_random_scene_snow_forest_custom_1..5",
+          "scn_random_scene_steppe_forest_custom_1..5"
+        ],
+        "file": [
+          "SceneObj/scn_random_scene_*_custom_*.sco (93)"
+        ]
+      },
+      "native_relation": "replaces-native",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "acw.custom_battle_historical_scenarios",
+        "laigle.size_aware_battlefields",
+        "tld.region_tracking_and_battle_scenes"
+      ]
+    },
+    {
+      "id": "cbl.twelve_borderland_kingdoms",
+      "name": "Twelve borderland kingdoms with ten new cultures",
+      "category": "kingdom-management",
+      "summary": "Twelve new factions hold the new lands: Braetynia, Sudestria, Xothay, Jumne, Phoessanid Empire (4-5 towns each), the city-states of Wunden, Blackstone and Su'undi, two knightly orders (White Knights, Golden Crusaders) and two clans (Hisu, Suju). Each has a king, 3-20 lords, its own five-tier troop line, banner block, tournament gear and encounter picture; six have pretenders.",
+      "mechanics": "factions.txt INSERTS culture_9..20 after culture_6 and kingdom_9..20 after kingdom_6 (kingdom_1 moves from idx 16 in the base module to 28; fac_kingdoms_end 23 -> 47), so the Native kingdom range loops cover them. game_start: culture slots 41-45 (recruit..elite) and 53-58 (walkers), kingdom slot 10 (culture) / 11 (leader) / 15 (banner mesh) / 22 (adjective string), leader renown troop slot 7, 23 town and 54 castle grants, 23 town lords, claim slots party:62 on 21 centres (incl. Native ones such as p_town_2 for kingdom 9), pretender home slot troop:60 for kingdoms 9-13 and 15; lord banners via spr_banner_a + per-kingdom offsets 126..268. Hardcoded faction numbers elsewhere are bumped (encounter_init_variables/add_routed_party ranges 16..23 -> 28..47, get_default_formation, field_tactics). Per-kingdom tournament gear (menu:town_tournament/opt:tournament_join_next_fight) and encounter backgrounds (menu:simple_encounter, mesh_pic_kingdomN_encounter). The Dark Knights invasion (strig:134/135) sets -40 relations with kingdoms 9-13/17/18 and names the Dark lords; strig:139 gives kingdom-specific armour for kingdoms 9-13. Lords: kingdoms 9-13 one king + 20 knights + pretender; 14-16 king + 8; 17-18 king + 5; 19-20 king + 3.",
+      "hooks": [
+        "script:game_start",
+        "strig:134",
+        "strig:135",
+        "strig:139",
+        "menu:simple_encounter",
+        "menu:town_tournament/opt:tournament_join_next_fight:conseq"
+      ],
+      "scripts": [
+        "game_start",
+        "initialize_faction_troop_types",
+        "initialize_banner_info",
+        "initialize_aristocracy",
+        "initialize_npcs",
+        "get_culture_with_faction_for_music",
+        "encounter_init_variables",
+        "add_routed_party",
+        "get_default_formation",
+        "field_tactics",
+        "create_kingdom_hero_party_dk",
+        "dplmc_start_alliance_between_kingdoms",
+        "dplmc_start_defensive_between_kingdoms",
+        "dplmc_start_nonaggression_between_kingdoms",
+        "dplmc_start_trade_between_kingdoms"
+      ],
+      "menus": [
+        "menu_simple_encounter",
+        "menu_town_tournament"
+      ],
+      "presentations": [
+        "prsnt_banner_selection",
+        "prsnt_game_profile_banner_selection",
+        "prsnt_culture_troop_tree"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:10",
+        "faction:11",
+        "faction:15",
+        "faction:22",
+        "faction:41",
+        "faction:42",
+        "faction:43",
+        "faction:44",
+        "faction:45",
+        "faction:53",
+        "faction:54",
+        "faction:55",
+        "faction:56",
+        "faction:57",
+        "faction:58",
+        "party:62",
+        "troop:7",
+        "troop:13",
+        "troop:60"
+      ],
+      "globals": [
+        "$players_kingdom"
+      ],
+      "resources": {
+        "faction": [
+          "fac_culture_9..fac_culture_20",
+          "fac_kingdom_9..fac_kingdom_20"
+        ],
+        "troop": [
+          "trp_kingdom_9_lord..trp_kingdom_20_lord",
+          "trp_knight_9_1..",
+          "trp_brettonian_*",
+          "trp_sudestrian_*",
+          "trp_eastern_*",
+          "trp_jumne_*",
+          "trp_phoessanid_*",
+          "trp_wunden_*",
+          "trp_blackstone_*",
+          "trp_suundi_*",
+          "trp_paladin_*",
+          "trp_ninja_*"
+        ],
+        "mesh": [
+          "mesh_banner_kingdom_h..l",
+          "mesh_banner_kingdom_14..20",
+          "mesh_pic_kingdom9_encounter.."
+        ],
+        "spr": [
+          "~180 extra banner props"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "troop name scan: kingdoms 9-13 20 knights, 14-16 8, 17-18 5, 19-20 3"
+      ],
+      "overlaps": [
+        "cbl.expanded_calradia_map",
+        "cbl.new_centre_economy_and_arena_wiring",
+        "cbl.v352_later_version_changes"
+      ]
+    },
+    {
+      "id": "cbl.tavern_mentors",
+      "name": "Tavern mentors: pay to train attributes",
+      "category": "character-progression",
+      "summary": "Five mentors sit in the taverns of the five city-state/clan capitals and sell attribute training (Strength, Agility, Intelligence, Charisma, and a 'jack of all trades' option): basic 5,000 denars for +1, advanced 12,500 for +3, intensive 20,000 for +5, for the player or for a companion in the party. Training costs 12/24/36 hours of rest.",
+      "mechanics": "update_tavern_itemsellers (run by game_start and strig:68 every 72h) puts trp_tavern_mentor_strength/agility/intelligence/charisma/jack into party slot 102 (tavern item-seller slot) of p_town_44/46/45/43/42 and keeps random item sellers to p_town_1..p_town_41 range. 95 dialog blocks (dlga_start:tavern_mentor_*_talk -> *_introduction -> *_basic/medium/intensive -> *_select) check gold, list eligible heroes with a repeat-for-party-members option (companions: troop range trp_npc1..trp_heroes_end, slot 8 == -1), take the gold, rest_for_hours 12/24/36, troop_raise_attribute by 1/3/5 and finish_mission.",
+      "hooks": [
+        "script:update_tavern_itemsellers",
+        "strig:68",
+        "dlg:166:dlga_start:tavern_mentor_strength_talk:cond",
+        "dlg:186:dlga_start:tavern_mentor_agility_talk:cond",
+        "dlg:206:dlga_start:tavern_mentor_intelligence_talk:cond",
+        "dlg:226:dlga_start:tavern_mentor_charisma_talk:cond",
+        "dlg:246:dlga_start:tavern_mentor_jack_talk:cond"
+      ],
+      "scripts": [
+        "update_tavern_itemsellers"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_start:tavern_mentor_*_talk",
+        "dlga_tavern_mentor_*_introduction",
+        "dlga_tavern_mentor_*_basic_select",
+        "dlga_tavern_mentor_*_medium_select",
+        "dlga_tavern_mentor_*_intensive_select"
+      ],
+      "slots": [
+        "party:102",
+        "troop:8"
+      ],
+      "globals": [
+        "$temp",
+        "$g_leave_town"
+      ],
+      "resources": {
+        "troop": [
+          "trp_tavern_mentor_strength",
+          "trp_tavern_mentor_agility",
+          "trp_tavern_mentor_intelligence",
+          "trp_tavern_mentor_charisma",
+          "trp_tavern_mentor_jack"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis cbl update_tavern_itemsellers @7-11 sets party slot 102 to the five mentors",
+        "dlg:174/175/178/179/182/183 strength select blocks: troop_remove_gold 5000/12500/20000, rest_for_hours 12/24/36, troop_raise_attribute +1/+3/+5",
+        "roots cbl update_tavern_itemsellers: game_start, strig:68"
+      ],
+      "overlaps": [
+        "acan.household_staff",
+        "acw.companion_bodyguards_and_disguise",
+        "bi.town_bodyguards"
+      ]
+    },
+    {
+      "id": "cbl.map_icons_by_party_type_and_ships",
+      "name": "Map icons by party type, ship icon on sea lanes",
+      "category": "map-travel",
+      "summary": "On the world map, bandits, caravans, patrols, farmers, lords and other parties get type-specific figures (axeman, grey knight, mule, peasant, khergit rider, woman, flag-bearer), and any party - including the player - switches to a ship icon while crossing the sea lanes.",
+      "mechanics": "strig:62 (interval 0 = every map tick): the player's icon becomes 'ship' when party_get_current_terrain p_main_party == 7; then try_for_parties over every party whose template is between pt_looters and pt_kingdom_1_reinforcements_a (plus Diplomacy recruiter/spouse/gift caravan) maps a hard-coded template list to an icon and calls party_set_icon (ship on terrain 7, type icon elsewhere). cbl's map uses terrain code 7 ('bridge') for 1,259 sea-lane faces, which parties can cross; setup_random_scene sends battles on code 7 to mst_ship_battle (shared with the base module).",
+      "hooks": [
+        "strig:62"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "$g_player_party_icon"
+      ],
+      "resources": {
+        "icon": [
+          "icon_ship",
+          "icon_axeman",
+          "icon_gray_knight",
+          "icon_woman",
+          "icon_peasant",
+          "icon_mule",
+          "icon_khergit",
+          "icon_vaegir_knight",
+          "icon_flagbearer_a"
+        ],
+        "pt": [
+          "pt_looters..pt_kingdom_1_reinforcements_a range, 40+ named templates"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis cbl setup_random_scene @336-347: terrain 7 -> mst_ship_battle"
+      ],
+      "overlaps": [
+        "acw.army_size_map_icons",
+        "acw.besieged_map_smoke_and_caravan_spacing",
+        "bi.culture_lord_map_icons"
+      ]
+    },
+    {
+      "id": "cbl.regional_bandit_spawn_points",
+      "name": "Bandit spawn points for the new regions",
+      "category": "bandits-outlaws",
+      "summary": "Bandits also appear in the new lands: six extra spawn points (second forest/mountain/taiga/desert points, a third forest point and a third sea-raider point) feed the existing bandit types into the borderlands.",
+      "mechanics": "parties.txt inserts p_forest_bandit_spawn_point2 (17,-148), p_mountain_bandit_spawn_point2 (198,69), p_sea_raider_spawn_point_3 (-193,4), p_taiga_bandit_spawn_point2 (142,161), p_forest_bandit_spawn_point3 (219,-141), p_desert_bandit_spawn_point2 (-80,-190) after p_desert_bandit_spawn_point. spawn_bandits (328 stmts; the base module 374) registers them in party-template slot 5 and adds one spawn block per point (cap 16 per template). cbl's spawn_bandits does NOT contain the base module's sea-raider ship and pirate ship spawns (p_ship_raider_spawn_point_1..3), which cbl lacks.",
+      "hooks": [
+        "script:spawn_bandits"
+      ],
+      "scripts": [
+        "spawn_bandits"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "pt:5"
+      ],
+      "globals": [],
+      "resources": {
+        "party": [
+          "p_forest_bandit_spawn_point2",
+          "p_mountain_bandit_spawn_point2",
+          "p_sea_raider_spawn_point_3",
+          "p_taiga_bandit_spawn_point2",
+          "p_forest_bandit_spawn_point3",
+          "p_desert_bandit_spawn_point2"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "parties.txt parse cbl idx 448-453"
+      ],
+      "overlaps": [
+        "acw.partisan_bands",
+        "pop.lord_party_deserters",
+        "pop.minor_faction_repression_meter",
+        "pop.renegade_and_merc_warbands",
+        "pop.unique_signature_heroes"
+      ]
+    },
+    {
+      "id": "cbl.invasion_date_options",
+      "name": "Dark Knights invasion: 100/250/500-day options",
+      "category": "dynamic-world-events",
+      "summary": "The 'when does the Dark Knights invasion start' preference gains fixed choices of 100, 250 or 500 days after the start, and the 'unknown date' option now draws from up to ~540 days instead of ~200.",
+      "mechanics": "menu:set_invasion adds options 100days/250days/500days writing $setting_invasion_time = 2400/6000/12000 hours, shows the matching label, and opt:unknown uses store_random_in_range 1..13000 (base 1..4800). The hourly invasion trigger reads $setting_invasion_time unchanged.",
+      "hooks": [
+        "menu:set_invasion"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_set_invasion"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "$setting_invasion_time"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "acw.play_as_ruler_start",
+        "ad457.royal_and_lord_sandbox_start",
+        "awoiaf.campaign_setup_options",
+        "laigle.story_start_missions",
+        "tld.in_game_strategy_options"
+      ]
+    },
+    {
+      "id": "cbl.campaign_balance_retune",
+      "name": "Campaign balance retune (party size, food, morale, rewards)",
+      "category": "other",
+      "summary": "A set of number changes against its base module: much larger parties from leadership and renown, far lower food use, stronger leadership morale, bigger tournament prizes, a stronger starting character, lords tolerating worse relations before leaving, a changed village-improvement cost/time formula and thinner merchant stock.",
+      "mechanics": "game_get_party_companion_limit: leadership x8 (base x5), renown/12 (base /25). strig:59 food: daily, one food item per 12 men (base every 14 h, per 3 men). get_player_party_morale_values: leadership morale x30/x20 (base x15/x12). faction_follows_controversial_policy: -15 instead of -3/-3. strig:35: lord relation threshold -90 (base -50). menu:town_tournament_won: 8000 denars, +30 renown, +15 relation, 2000 xp (base 200/25/10/1000). menu:choose_skill begin_adventuring: +4 to all four attributes, inventory management +6 and several skills. menu:center_improve: changed cost/time formula. refresh_center_weaponsmiths/stables: merchandise counts cut (e.g. 15 -> 5, horses 35 -> 15). strig:27 drops the truce/alliance/defensive/trade/casus-belli expiry notification pop-ups (log only).",
+      "hooks": [
+        "strig:59",
+        "strig:35",
+        "strig:27",
+        "menu:town_tournament_won",
+        "menu:choose_skill/opt:begin_adventuring:conseq",
+        "menu:center_improve"
+      ],
+      "scripts": [
+        "game_get_party_companion_limit",
+        "get_player_party_morale_values",
+        "faction_follows_controversial_policy",
+        "refresh_center_weaponsmiths",
+        "refresh_center_stables"
+      ],
+      "menus": [
+        "menu_town_tournament_won",
+        "menu_choose_skill",
+        "menu_center_improve"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "$g_player_party_morale_modifier_leadership"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [],
+      "overlaps": [
+        "acan.spawn_equipment_variety_and_item_quality"
+      ]
+    },
+    {
+      "id": "cbl.flintlock_item_triggers",
+      "name": "Flintlock pistols and muskets with firing triggers",
+      "category": "combat-mechanics",
+      "summary": "Eleven 'dd_' black-powder weapons (pistols, escopettes, musketoon, blunderbusses, arquebuses) carry item triggers for their firing effects.",
+      "mechanics": "item_kinds1 itm_dd_firecracker_pistol .. itm_dd_spadassin_arquebus each have one item trigger block (itm:<item>/t0) - the usual smoke/sound on-attack pattern of firearm packs.",
+      "hooks": [
+        "itm:itm_dd_blunderbuss/t0",
+        "itm:itm_dd_arquebus/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_dd_firecracker_pistol",
+          "itm_dd_blackpowder_pistol",
+          "itm_dd_elite_pistol",
+          "itm_dd_assassin_pistol",
+          "itm_dd_escopette",
+          "itm_dd_musketoon",
+          "itm_dd_blunderbuss",
+          "itm_dd_doubleshot_blunderbuss",
+          "itm_dd_heavy_escopette",
+          "itm_dd_arquebus",
+          "itm_dd_spadassin_arquebus"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [],
+      "overlaps": [
+        "acw.multi_projectile_firearms",
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "cbl.v352_later_version_changes",
+      "name": "Calradia Borderlands V3.52: what the later version adds",
+      "category": "map-travel",
+      "summary": "The later V3.52 build (compiled tables only, no map) grows to 58 towns, 127 castles, 316 villages and 18 new kingdoms (adds Czaloca, Quetzal, Vhonylor, Trapegea, Tigrayand, New-Zendar), relocates several cbl regions, rewrites the random war/peace roll, and gives regions their own town pictures and burnt-village icons.",
+      "mechanics": "Script delta vs cbl: 826 identical, 32 modified, 1 new (randomly_start_war_peace_new_ooold = the old version). randomly_start_war_peace_new (206 stmts, 22% similar) now walks every kingdom pair once with a 50% roll instead of picking a random start offset. set_town_picture and process_village_raids use hard-coded centre sub-ranges per region (e.g. p_town_31..35 + p_town_46 -> mesh_pic_town_jap; p_village_301..312 -> village_zim icons), which also fixes cbl and the base module's 'every village after p_village_91 burns like a desert village' quirk. game_get_party_prisoner_limit x20 (cbl x10); coloured morale/honour messages; party_calculate_loot rewritten. Tables: 641 parties, 71 factions, 2,487 troops, 1,430 scenes. 58 spawn/forest points added (forest_smalla..bigab around x -230..-310) for the western continent.",
+      "hooks": [
+        "script:randomly_start_war_peace_new",
+        "script:set_town_picture",
+        "script:process_village_raids"
+      ],
+      "scripts": [
+        "randomly_start_war_peace_new",
+        "set_town_picture",
+        "process_village_raids",
+        "game_get_party_prisoner_limit",
+        "party_calculate_loot",
+        "change_player_party_morale",
+        "change_player_honor"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "diff cbl352 cbl: identical 826, modified 32, only in cbl352 1",
+        "parties parse cbl352: towns 22..79 (58), castles 80..206 (127), villages 207..522 (316)",
+        "cbl352land.py: point-in-triangle of cbl352 centres on cbl map.txt"
+      ],
+      "overlaps": [
+        "cbl.expanded_calradia_map",
+        "cbl.new_centre_economy_and_arena_wiring",
+        "cbl.twelve_borderland_kingdoms"
+      ]
+    }
+  ]
+}

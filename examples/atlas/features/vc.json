@@ -1,0 +1,1818 @@
+{
+  "module": "vc",
+  "features": [
+    {
+      "id": "vc.sea_travel_map",
+      "name": "Sailing on the campaign map (land/sea switching, wind-and-navigation speed)",
+      "category": "naval",
+      "summary": "Parties can leave the coast and move across open water on the world map. When a party enters a water face it becomes a fleet (ship icon, at-sea flag); its speed then depends on the Navigation skill, ship types, crew and the current wind ($beaufort). Reaching land near a port/jetty/landing point disembarks it again.",
+      "mechanics": "Engine callback script:game_get_party_speed_multiplier (187 stmts, VC-new) reads party_get_current_terrain; terrain 0/7/8 (water) -> calls calculate_party_speed_water (navigation skill skl_navigation, crew/ship types, $beaufort wind) and, for AI parties, sets party slot 296=1 + party flag 512 and calls update_party_icon (ship icon). Back on land it clears slot 296/flag 512. For the player, sea travel is gated by slot 296: if the player is on water without being 'at sea' it snaps him to the nearest ferry/jetty (p_ferry_1a..p_jetty_1) or port town (party slot 241 = coastal) and sets $auto_enter_town, else get_next_land_position. Embark/disembark run switch_to_water_consequences / switch_to_land_consequences from menus (landet_ships_encounter, landing_point_encounter, port_encounter, ferry_encounter, player_lair_menus embark). It also clamps the player inside the map bounds. strig:136 (every 2.1h, only while slot 296=1) applies at-sea morale loss at night or with low Navigation and storm damage to ships.",
+      "hooks": [
+        "script:game_get_party_speed_multiplier",
+        "strig:136",
+        "menu:landet_ships_encounter",
+        "menu:landing_point_encounter",
+        "menu:port_encounter",
+        "menu:ferry_encounter",
+        "menu:player_lair_menus/opt:embarkre:conseq"
+      ],
+      "scripts": [
+        "game_get_party_speed_multiplier",
+        "calculate_party_speed_water",
+        "get_next_water_position",
+        "get_next_land_position",
+        "switch_to_water_consequences",
+        "switch_to_land_consequences",
+        "get_closest_port",
+        "cf_is_port_party",
+        "update_party_icon",
+        "add_jetty_system",
+        "add_jetty_system_2"
+      ],
+      "menus": [
+        "menu_landet_ships_encounter",
+        "menu_landing_point_encounter",
+        "menu_port_encounter",
+        "menu_ferry_encounter"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:296",
+        "party:241",
+        "party:297"
+      ],
+      "globals": [
+        "beaufort",
+        "auto_enter_town",
+        "travel_town",
+        "cattle_in_ship",
+        "followers_on"
+      ],
+      "resources": {
+        "party": [
+          "p_ferry_1a..p_jetty_1 (ferries/jetties)",
+          "p_landing_point",
+          "p_transporter",
+          "p_the_fleet"
+        ],
+        "skill": [
+          "skl_navigation (repurposed skill: +5% sea speed per level)"
+        ],
+        "map": [
+          "VC map.txt with navigable sea faces"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc game_get_party_speed_multiplier: terrain 0/7/8 branch -> calculate_party_speed_water, slot 296 set/clear, party_set_flags 512, update_party_icon",
+        "slot vc party 296: 211 accesses in 149 blocks (game_start, map_sea_ai_2, switch_to_* scripts, encounter menus)",
+        "dis vc strig:136: requires party_slot_eq p_main_party 296 1; morale -1 at night / low navigation; storm damage scales with $beaufort",
+        "skills.txt: skl_navigation 'Party map speed on sea is increased by 5% per skill level'"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "vc.ship_fleet_ownership",
+      "name": "Owning a fleet: ship types, crew capacity, hull damage, buying/building/capturing ships",
+      "category": "naval",
+      "summary": "The player owns up to 7 ships, each with a type (Busse, Skeid, Karvi, Snekkja, Knorr, Byrding and more), a name, a hull condition and build quality/material. Ship capacity limits how many troops you can carry to sea; storms can damage or sink ships and excess crew is lost. Ships are bought or built (choosing wood) from port chiefs, captured after sea battles and managed in a ship screen.",
+      "mechanics": "Ships are a struct array on the party: slots 301-307 = ship type, 311-317 = name (pseudo-troop or string), 321-327 = hull condition, 331-337 = encoded modifiers (decoded by decode_value / encode_values_to_reg0). get_ship_properties(type) returns the stat table in reg1..reg7 (speed, ?, ?, price, hit points, crew capacity reg6, name string). cf_crew_fit_in_ships sums reg6 over slots 301-307 and fails if party size exceeds it (used by embark menus/dialogs). strig:136 rolls storm damage per ship by $beaufort, compacts the array when a ship sinks, and removes random non-hero troops that no longer fit. Port chief dialogs (port_chief_buy_ship, port_chief_build_ship_main_*) and prsnt_vc_submenu_ships / prsnt_vc_submenu_ships_customize sell/customise ships; menu_ship_capture adds an enemy ship after victory; give_ships_to_towns (trig:6) seeds port inventories; calculate_ship_value prices them; merge_ships_from_party_to_party / give_player_ships_from_party_to_party move ships between the player and landed-ship parties.",
+      "hooks": [
+        "strig:136",
+        "trig:6:conseq",
+        "menu:ship_capture",
+        "dlg:42:dlga_port_chief3:port_chief_buy_ship:cond",
+        "dlg:92:dlga_port_chief_build_ship_main_4:port_chief_build_ship_main_5:cond",
+        "prsnt:vc_submenu_ships"
+      ],
+      "scripts": [
+        "get_ship_properties",
+        "cf_crew_fit_in_ships",
+        "calculate_ship_value",
+        "give_ships_to_towns",
+        "merge_ships_from_party_to_party",
+        "give_player_ships_from_party_to_party",
+        "condition_check_merging_ships",
+        "print_party_ship_info_to_s0",
+        "decode_value",
+        "encode_values_to_reg0",
+        "set_ship_materials"
+      ],
+      "menus": [
+        "menu_ship_capture",
+        "menu_primer_barco"
+      ],
+      "presentations": [
+        "prsnt_vc_submenu_ships",
+        "prsnt_vc_submenu_ships_customize"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_port_chief_buy_ship",
+        "dlga_port_chief_build_ship_main_4",
+        "dlga_port_chief_info_main_1"
+      ],
+      "slots": [
+        "party:301-307",
+        "party:311-317",
+        "party:321-327",
+        "party:331-337",
+        "party:300",
+        "party:302"
+      ],
+      "globals": [
+        "beaufort",
+        "build_ship_type",
+        "build_ship_wood",
+        "build_ship_days",
+        "ship_menu",
+        "ship_menu_state",
+        "ship_menu_current_ship_price",
+        "ship_management_explained"
+      ],
+      "resources": {
+        "string": [
+          "str_busse",
+          "str_skeid",
+          "str_karvi",
+          "str_snekkja",
+          "str_knorr",
+          "str_byrding"
+        ],
+        "troop": [
+          "trp_pseudo_troop_01..trp_pseudo_troop_end (ship names)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc get_ship_properties: per-type reg1..reg7 table, reg7=str_busse/skeid/karvi/snekkja/knorr/byrding",
+        "dis vc cf_crew_fit_in_ships: sums reg6 over party slots 301..307 vs party_get_num_companions",
+        "dis vc strig:136: slots 301+10/+20/+30 struct, storm sinking compacts the array, removes troops if crew no longer fits",
+        "texts: dlg 42 'I want to buy a ship.', dlg 53-55 port chief explains ship types/wood/wind"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map"
+      ]
+    },
+    {
+      "id": "vc.deck_sea_battles",
+      "name": "Ship-to-ship deck battles with boarding",
+      "category": "naval",
+      "summary": "When the player's fleet meets an enemy at sea the fight happens on real ships on water: each side's ships are spawned as moving scene-prop hulls, agents ride on deck, ships sail, rock in the waves, collide, run aground and board each other. Weather (storm scenes, wind prop) and wave shaders are set per battle.",
+      "mechanics": "menu:simple_encounter/opt:encounter_attack:conseq (and join_battle) branch on party slot 296=1 (player at sea): prepare_party_ships_for_team copies the player's ship array to a team, randomize_ships_for_team_war_party / _civilian (called through a local variable) give the enemy ships, setup_random_sea_scene picks scn_sea_battle* and set_jump_mission(mst_sea_battle). mst_sea_battle has 140 trigger blocks / 2491 stmts: spawn_ship (spawns spr_dyn_ship_* parts for 9 hull types), put_the_klabautermann_into_the_ships (635 stmts, per-frame ship physics: movement, rocking, collision, docking, aground), ship_ai (196, AI helmsman), boarding_for_ship3 / ai_decide_stop_boarding / calculate_dockingpoint/meetingpoint_to_pos1, give_agent_position_on_ship + keep_crew_on_board, set_wave_shader/get_wave_properties (waves), prsnt_naval_ui. mst_ships_attack_port (menu:port_attack lead_attack) is the coastal-assault variant used on the port scenes.",
+      "hooks": [
+        "menu:simple_encounter/opt:encounter_attack:conseq",
+        "menu:join_battle/opt:join_attack:conseq",
+        "menu:port_attack/opt:lead_attack:conseq",
+        "mst:sea_battle"
+      ],
+      "scripts": [
+        "prepare_party_ships_for_team",
+        "randomize_ships_for_team",
+        "randomize_ships_for_team_war_party",
+        "randomize_ships_for_team_civilian",
+        "setup_random_sea_scene",
+        "spawn_ship",
+        "put_the_klabautermann_into_the_ships",
+        "ship_ai",
+        "check_aground",
+        "check_collision",
+        "calculate_movement_to_pos1",
+        "calculate_rocking_to_pos1",
+        "calculate_dockingpoint_to_pos1",
+        "calculate_meetingpoint_to_pos1",
+        "boarding_for_ship3",
+        "ai_decide_stop_boarding",
+        "give_agent_position_on_ship",
+        "keep_crew_on_board",
+        "make_crew",
+        "set_crew_free",
+        "check_player_ship",
+        "check_ship_team",
+        "set_wave_shader",
+        "get_wave_properties",
+        "set_wave_timer",
+        "spawn_sea_battle_visitors"
+      ],
+      "menus": [
+        "menu_port_attack",
+        "menu_ship_capture"
+      ],
+      "presentations": [
+        "prsnt_naval_ui"
+      ],
+      "mission_templates": [
+        "mst_sea_battle",
+        "mst_ships_attack_port",
+        "mst_quick_battle_sea_battle",
+        "mst_quick_battle_coastal_battle",
+        "mst_camp_on_sea"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:296",
+        "party:301-337",
+        "scene_prop:6-48 (ship part state)",
+        "agent:28",
+        "agent:38",
+        "agent:44"
+      ],
+      "globals": [
+        "player_team_in_sea_battle",
+        "startup_battle_size",
+        "team_0_ship_counter",
+        "team_1_ship_counter",
+        "Amplitude_x",
+        "Amplitude_y",
+        "wavespeed_y",
+        "wind_strenght",
+        "wave_timer"
+      ],
+      "resources": {
+        "scene": [
+          "scn_sea_battle",
+          "scn_sea_battle_storm",
+          "scn_sea_battle_fjord_1",
+          "scn_sea_battle_cliffs_1",
+          "scn_sea_battle_hills_1",
+          "scn_town_3_coastal"
+        ],
+        "spr": [
+          "spr_dyn_ship_* (136 records: 14 parts x busse/byrding/curragh/karvi/knorr/skeid/skeid2...)",
+          "spr_wind",
+          "spr_barrier_ship"
+        ],
+        "shader": [
+          "VC wave shader (set_wave_shader)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc menu:simple_encounter/opt:encounter_attack:conseq stmts 24-57: slot 296 branch -> set_jump_mission mst_sea_battle",
+        "sqlite blocks: mst:sea_battle = 140 blocks / 2491 stmts; callees include spawn_ship, put_the_klabautermann_into_the_ships, set_wave_shader",
+        "sqlite refs: mst_ships_attack_port launched only by menu:port_attack/opt:lead_attack"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "vc.port_passage_travel",
+      "name": "Paid passage between ports",
+      "category": "map-travel",
+      "summary": "A port chief can sell the player passage to another port: the party is carried by a transporter ship and auto-enters the destination town on arrival. Marshals with a whole army are refused unless a big enough passenger ship is in port.",
+      "mechanics": "Port chief dialogs (dlga_port_chief3 'I want to travel to another port' -> port_chief_travel_5 'Follow me!') read $travel_town/$current_town, move p_transporter and jump to menu_start_sea_travel (dlg:68 conseq). game_get_party_speed_multiplier gives p_transporter a fixed speed 15 while $travel_town is a town. strig:132 (every 0.7h) watches $travel_town / $auto_enter_town (and party slot 297 = linked jetty) and calls map_sea_ai_2; on arrival the player is placed in the town. Ferries (menu_ferry_encounter, p_ferry_*) are the short-hop equivalent across firths/rivers for a fee ({reg7}).",
+      "hooks": [
+        "strig:132",
+        "dlg:56:dlga_port_chief3:port_chief_travel:cond",
+        "dlg:68:dlga_port_chief_travel_5:close_window:conseq",
+        "menu:ferry_encounter/opt:continue:conseq"
+      ],
+      "scripts": [
+        "game_get_party_speed_multiplier",
+        "map_sea_ai_2",
+        "get_closest_port"
+      ],
+      "menus": [
+        "menu_ferry_encounter",
+        "menu_start_sea_travel"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_port_chief_travel",
+        "dlga_port_chief_travel_5"
+      ],
+      "slots": [
+        "party:297",
+        "party:296"
+      ],
+      "globals": [
+        "travel_town",
+        "auto_enter_town",
+        "g_player_is_captive"
+      ],
+      "resources": {
+        "party": [
+          "p_transporter",
+          "p_ferry_1a..",
+          "p_jetty_1..p_jetty_5"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite refs strig:132: p_transporter, $travel_town, $auto_enter_town, party slot 297",
+        "dis vc game_get_party_speed_multiplier stmt 94-97: p_transporter speed 15 when $travel_town > p_castle_1",
+        "texts dlg 56/57: 'I want to travel to another port.' / refusal for a marshal and his whole army",
+        "slot vc party 296: menu:ferry_encounter writes it",
+        "sqlite refs dlg:68 conseq: menu_start_sea_travel, p_transporter x6; globals read travel_town/current_town"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "acw.fast_travel_network",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "vc.formations_order_translation",
+      "name": "Formations v2 with on/off toggle and native-rank fallback",
+      "category": "battle-ai-formations",
+      "summary": "VC ships a newer Motomataru 'complex formations' build: complex formations can be switched off in VC's options screen; when on, formation orders form true formations (ranks, shield wall, wedge, column); when off, the same orders fall back to Warband's native spacing orders. A first-use dialog explains the system.",
+      "mechanics": "Keyboard entry: mst:lead_charge/t133 (game_key_clicked 26 = order key) reads $FormAI_off (written only by prsnt:vc_options/t2): when on it sets $gk_order=26, shows prsnt_order_display (when $controller_in_use=0) and a one-time dialog_box (str_formations, bit 1024 of $first_time); when off it prints 'Formations turned OFF'; t129 (F1 hold-timer, $when_f1_first_detected >=250 ms), t136 (key_f7) and t137 (key_f8) dispatch to the formation scripts. Each formation key calls player_order_extended_formations (if $FormAI_off=0 -> player_attempt_formation per listening division) or player_order_regular_formations (-> formation_to_native_order). formation_to_native_order issues team_give_order stand_closer (7) N times to reach the requested spacing; its rank orders (mordr_form_1..5_row = 22..26) sit behind an always-true (eq,0,0) branch and are therefore dead code in this build. pick_native_formation -> calculate_default_ranks picks a rank count from division size. Support: form_infantry (536), form_cavalry, form_archers, battlegroup_place_around_pos1, store_battlegroup_data (486), formation_end, agent_fix_division. Wired into lead_charge, village_attack_bandits, village_raid, quick_battle_battle and VC story battles.",
+      "hooks": [
+        "mst:lead_charge/t133:conseq",
+        "mst:lead_charge/t129:conseq",
+        "mst:lead_charge/t137:conseq",
+        "mst:lead_charge/t126:conseq"
+      ],
+      "scripts": [
+        "player_order_formations",
+        "player_order_extended_formations",
+        "player_order_regular_formations",
+        "formation_to_native_order",
+        "pick_native_formation",
+        "calculate_default_ranks",
+        "player_attempt_formation",
+        "form_infantry",
+        "form_cavalry",
+        "form_archers",
+        "formation_end",
+        "store_battlegroup_data",
+        "battlegroup_place_around_pos1",
+        "get_default_formation",
+        "cf_valid_formation_member",
+        "switch_to_noswing_weapons",
+        "switch_from_noswing_weapons"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_order_display",
+        "prsnt_vc_options"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_village_attack_bandits",
+        "mst_village_raid",
+        "mst_quick_battle_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "team:14+div",
+        "team:194+div",
+        "team:203+div",
+        "team:221+div",
+        "team:293+div"
+      ],
+      "globals": [
+        "FormAI_off",
+        "gk_order",
+        "when_f1_first_detected",
+        "fplayer_team_no",
+        "FormAI_autorotate",
+        "FormAI_AI_no_defense",
+        "FormAI_player_in_division",
+        "first_time",
+        "controller_in_use"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc mst:lead_charge/t133:cond = game_key_clicked 26; conseq branches on $FormAI_off ($gk_order=26, prsnt_order_display, dialog_box str_formations) else 'Formations turned OFF'; sqlite globals: $FormAI_off written only in prsnt:vc_options/t2",
+        "dis vc formation_to_native_order: (eq,0,0) makes the form_N_row branches unreachable; only stand_closer(7) loop runs",
+        "dis vc player_order_regular/extended_formations: per listening class, team slots 293/14/194/221"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "vc.persistent_division_formations",
+      "name": "Remembered per-division formations and placements across battles",
+      "category": "deployment",
+      "summary": "The player can save how each division should be formed and spaced; at the start of every later battle VC automatically re-applies those formations and spacing to each division and reports it ('Division N <class> formed ...').",
+      "mechanics": "memorize_division_placements (34 stmts) stores, per division 0-8, the current formation type and spacing into fac_player_faction slots 300+div (formation), 309+div (spacing) and 318+div (has-data flag); default_division_placements clears them. memorize is reached from the keyboard via mst:lead_charge/t136 (key_clicked key_f7, which also calls player_order_extended_formations) and from the gamepad division menu (t140 rows 5/6, which also offers default_division_placements); the same pair of triggers is repeated in village_attack_bandits, village_raid, quick_battle_battle and the story battles. mst:lead_charge/t150 fires once when $battle_phase=1 and cf_division_data_available: for each division with stored data it issues spread_out(8)/stand_closer(7) orders to reach the saved spacing, then player_attempt_formation (complex formation) or formation_to_native_order + battlegroup_place_around_leader, printing a per-division message.",
+      "hooks": [
+        "mst:lead_charge/t150:conseq",
+        "mst:lead_charge/t136:conseq",
+        "mst:lead_charge/t140:conseq"
+      ],
+      "scripts": [
+        "memorize_division_placements",
+        "default_division_placements",
+        "cf_division_data_available",
+        "division_reset_places",
+        "field_start_position",
+        "player_attempt_formation",
+        "formation_to_native_order",
+        "battlegroup_place_around_leader",
+        "process_player_division_positioning",
+        "process_place_divisions"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_console_division_menu"
+      ],
+      "mission_templates": [
+        "mst_lead_charge"
+      ],
+      "dialogs": [],
+      "slots": [
+        "faction:300-308 (fac_player_faction)",
+        "faction:309-317",
+        "faction:318-326",
+        "team:194+div",
+        "team:203+div"
+      ],
+      "globals": [
+        "battle_phase",
+        "g_division_order_processing",
+        "fplayer_team_no",
+        "fplayer_agent_no"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc mst:lead_charge/t150: cond $battle_phase=1 + cf_division_data_available; reads fac_player_faction slots 300+/309+/318+div, loops team_give_order 7/8, calls player_attempt_formation",
+        "dis vc mst:lead_charge/t140 rows 5/6 -> memorize_division_placements / default_division_placements",
+        "sqlite cmp: memorize/default_division_placements vc+awoiaf only",
+        "dis vc mst:lead_charge/t136:cond = key_clicked key_f7; calls memorize_division_placements + player_order_extended_formations"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation"
+      ]
+    },
+    {
+      "id": "vc.gamepad_order_menus",
+      "name": "Gamepad (Xbox d-pad) battle command menus",
+      "category": "qol-ui",
+      "summary": "Battle orders, division formations and player functions can be driven from a controller d-pad via small on-screen console menus.",
+      "mechanics": "mst:lead_charge/t140 (rearm 0.15 s) fires on key_is_down key_xbox_dpad_right while the hero is alive; it sets $controller_in_use=1 and steps a small state machine in $dpad_menu/$dpad_menu_row that opens prsnt_console_main_menu_extended, then prsnt_console_division_menu, using omit_key_once on the other d-pad keys and close_order_menu; the selected row calls player_order_extended_formations / player_order_regular_formations / player_order_formations / memorize_division_placements / default_division_placements. prsnt_console_player_functions is the third panel.",
+      "hooks": [
+        "mst:lead_charge/t140:conseq"
+      ],
+      "scripts": [
+        "player_order_regular_formations",
+        "player_order_extended_formations",
+        "memorize_division_placements",
+        "default_division_placements"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_console_main_menu_extended",
+        "prsnt_console_division_menu",
+        "prsnt_console_player_functions"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_sea_battle"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "controller_in_use",
+        "controller_keys",
+        "dpad_menu",
+        "dpad_menu_row",
+        "switch_presentation_new"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc mst:lead_charge/t140:cond = key_is_down key_xbox_dpad_right, neg|main_hero_fallen",
+        "dis vc mst:lead_charge/t140:conseq: $dpad_menu state machine, prsnt_console_* switches, omit_key_once",
+        "sqlite refs prsnt_console_player_functions in mst:sea_battle"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.religion_center_conversion",
+      "name": "Christian/pagan religion of settlements, slow conversion and player faith",
+      "category": "religion-culture",
+      "summary": "Every town, fort and village has an official religion (Christian or pagan) and a Christian-population percentage that drifts over time. Religious buildings, the lord's own faith and the nearest monastery or hof push it; when the minority grows past a threshold the settlement flips. The player picks a faith at character creation and can convert later; whether a settlement shares the holder's faith changes its relation with the player, and the player's minister reports kingdom-wide conversion progress. Faith also scales weekly fief income: strig:116 multiplies a player-owned center's rent by the share of people who share the player's faith.",
+      "mechanics": "strig:103 (every 0.62h) picks one random center (p_town_1..p_salt_mine) that is not plundered (party slot 344=0): party slot 235 = Christian share 0-100 is nudged by religion buildings (improvement slots 134 Christian Monastery / 140 Christian Church, 136 Temple to Odin / 142 Shrine to Norse Gods), the holder lord's faith (troop slot 16: 1=Christian, 2=pagan) and the closest unplundered monastery (p_monasterio1..) or hof (p_paganholysites1..) within 20 map units, with log messages; improvement 145 (Merchants' Rest Hall) also adds prosperity (slot 50), 146 (Scriptorium) can raise the player's reading and 141 (Brewery) relation. For centers the player owns, slot 26 (relation) moves up or down depending on $g_player_faith vs slot 234 (official religion 1/2) and the share; slot 397 modifies it. Above 80% share a pagan center may flip slot 234 to Christian (and the mirror case). $faith_conversion accumulates when centers of the player's kingdom move toward the player's faith and is reported by the minister (dlga_minister_faith). menu_village_force_convert1 lets the player forcibly convert a village (5 hours; success from persuasion, power strike, attributes, character-creation virtue/defect, the share), and the center_manage options center_build_religion1-4 build churches/hofs. Faith is chosen in menu_start_game_2/4 ($religion_type -> $g_player_faith) and changed at monasteries/hofs (vc.monasteries_and_hofs). cf_troop_religion_matches_players gates recruitment and some dialogs.",
+      "hooks": [
+        "strig:103",
+        "menu:village_force_convert1",
+        "menu:village_force_convert_confirm",
+        "menu:center_manage/opt:center_build_religion1:conseq",
+        "dlg:1327:dlga_minister_talk:minister_faith:cond",
+        "strig:116"
+      ],
+      "scripts": [
+        "cf_troop_religion_matches_players",
+        "change_player_relation_with_center"
+      ],
+      "menus": [
+        "menu_village_force_convert1",
+        "menu_village_force_convert_confirm",
+        "menu_center_manage",
+        "menu_start_game_2",
+        "menu_start_game_4"
+      ],
+      "presentations": [
+        "prsnt_player_sheet_bio"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_minister_faith",
+        "dlga_sacerdote_talk",
+        "dlga_pagano_talk"
+      ],
+      "slots": [
+        "party:234",
+        "party:235",
+        "party:134",
+        "party:136",
+        "party:140",
+        "party:142",
+        "party:145",
+        "party:146",
+        "party:26",
+        "party:50",
+        "party:397",
+        "party:344",
+        "troop:16"
+      ],
+      "globals": [
+        "g_player_faith",
+        "faith_conversion",
+        "religion_type",
+        "virtue_type",
+        "defect_type"
+      ],
+      "resources": {
+        "faction": [
+          "fac_christians",
+          "fac_pagans"
+        ],
+        "party": [
+          "p_monasterio1..p_yourlair (monasteries)",
+          "p_paganholysites1..p_oldpagan_hut (hofs)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc strig:103 (249 stmts): slot 235 drift from buildings/lord faith/nearest monastery or hof, slot 26 relation by $g_player_faith vs slot 234, flip slot 234 when share >80",
+        "dis vc menu:village_force_convert1: success = persuasion/power strike/attributes scaled by slot 235 and $g_player_faith",
+        "sqlite globals g_player_faith: 55 reads incl. enter_court, set_goal_lord_reward, center_build_religion1-4 conds; writers game_start, start_game_4, monastery/hof convert options, priest dialogs",
+        "dis vc strig:116 (168h): center income x f(slot 235, $g_player_faith) for player-owned centers, reduced when plundered (slot 344)"
+      ],
+      "overlaps": [
+        "acan.patron_gods_piety_miracles",
+        "ad457.religion_faiths_and_piety",
+        "awoiaf.four_faiths_religion",
+        "vc.monasteries_and_hofs"
+      ]
+    },
+    {
+      "id": "vc.monasteries_and_hofs",
+      "name": "Monasteries and pagan hofs as visitable map sites (donate, learn to read, convert, recruit, pillage)",
+      "category": "religion-culture",
+      "summary": "Monasteries and hofs are their own map locations. The player can visit the monks or the hof, donate 500 for a blessing, pay 4000 to learn to read, convert to that faith, recruit (monks/priests at monasteries, berserkers at hofs), or pillage the site for silver and goods - which leaves it ruined and smoking for weeks and stops it influencing local religion.",
+      "mechanics": "menu:monasterio_visit / menu:paganholysites_visit options: entermo/enter_hofho -> mst_monasterio / mst_paganholysite walk-around scenes; donatemo/donate_hofho set $g_rezar_monasterio (cooldown cleared by strig:106, every 90h); aprender_leermo teaches reading; convertirmo/convertir_norsegho write $g_player_faith; monasterio_recruitm / hof_recruitho recruit; pillage_monasterymo / pillage_hofho launch mst_monasterio_atacado / mst_paganholysites_atacado and then menu:saquear_monasterio / saquear_paganholysite: prisoners screen, loot screen built from trade goods (wine, ale, jewelry, amber, silver, food) scaled by skl_looting, gold reward, quest hook qst_blank_quest_3, and party slot 344 (plunder timer) + slot 38 (burning particle). strig:135 (every 23.7h) counts slot 344 down for towns, monasteries and hofs, clears the smoke particle and restores the icon via change_party_icon_loot_state. strig:103 ignores plundered sites when computing conversion pressure.",
+      "hooks": [
+        "menu:monasterio_visit",
+        "menu:paganholysites_visit",
+        "menu:saquear_monasterio",
+        "menu:saquear_paganholysite",
+        "strig:135",
+        "strig:106"
+      ],
+      "scripts": [
+        "change_party_icon_loot_state",
+        "party_add_wounded_members_as_prisoners",
+        "troop_add_gold"
+      ],
+      "menus": [
+        "menu_monasterio_visit",
+        "menu_paganholysites_visit",
+        "menu_saquear_monasterio",
+        "menu_saquear_paganholysite"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_monasterio",
+        "mst_monasterio_interior",
+        "mst_paganholysite",
+        "mst_monasterio_atacado",
+        "mst_paganholysites_atacado"
+      ],
+      "dialogs": [
+        "dlga_pagano1_action"
+      ],
+      "slots": [
+        "party:344",
+        "party:38"
+      ],
+      "globals": [
+        "g_rezar_monasterio",
+        "g_player_faith",
+        "capture_screen_shown",
+        "loot_screen_shown"
+      ],
+      "resources": {
+        "party": [
+          "p_monasterio1..p_yourlair",
+          "p_paganholysites1..p_oldpagan_hut"
+        ],
+        "item": [
+          "itm_wine",
+          "itm_ale",
+          "itm_jewelry",
+          "itm_amber",
+          "itm_silver"
+        ],
+        "skill": [
+          "skl_looting"
+        ],
+        "scene": [
+          "monastery and hof scenes"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite texts mopt: 'Make a donation to the monastery (500 peningas)', 'Learn how to read (4000 peningas)', 'Convert to Christianity', 'Try to recruit a berserker', 'Pillage the monastery/Hof'",
+        "sqlite refs: mst_monasterio_atacado <- monasterio_visit/opt:pillage_monasterymo, mst_paganholysites_atacado <- paganholysites_visit/opt:pillage_hofho",
+        "dis vc menu:saquear_monasterio: loot from trade goods scaled by skl_looting, gold, qst_blank_quest_3",
+        "dis vc strig:135: slot 344 countdown for towns/monasteries/hofs, party_clear_particle_systems"
+      ],
+      "overlaps": [
+        "acan.patron_gods_piety_miracles",
+        "ad457.religion_faiths_and_piety",
+        "awoiaf.four_faiths_religion",
+        "vc.religion_center_conversion"
+      ]
+    },
+    {
+      "id": "vc.siege_planning",
+      "name": "Siege planning: blockade, sanitation, treachery, sabotage, burning fields, starvation and siege equipment",
+      "category": "sieges",
+      "summary": "Besieging becomes a multi-day operation. From a siege-planning menu the player can build a blockade (circumvallation) that protects the camp and starves the town, dig latrines to avoid disease, send men to find a traitor inside, send infiltrators to burn food stores or poison wells, and burn the surrounding fields (results depend on harvest season). Defenders run out of food, may sally out or surrender starving, can be asked for tribute or hostages, and the assault needs ladders/mantlets brought up first.",
+      "mechanics": "menu:castle_besiege offers siege_warfare_p -> menu:siege_plan, which summarises state into s15-s20 from party slot 400 (blockade 0/1 building/2 done), $g_traicion_interna (betrayal 1-4), $g_campos_cercanos (fields 1-3), $g_infiltracion_interna (infiltration 1-4), $g_siege_saneamiento (sanitation, timed off slot 403 hours) and offers build_circunvalation / close_circunvalation / build_varios / traicion_interna / infiltracion_interna / destruir_campos_a/b / town_investigar. Outcome menus: traicion_resultado1-5 / traicion_lucha, infiltracion_resultado1-5 (+_c variants), campos_cercanos1-4 (season-dependent food), construct_saneamiento, construct_circunvalation. prsnt_infiltrationandsabotage picks the sabotage target (writes slot 405). Starvation: $g_days_spent_starving / $g_next_sally_at / $g_sally_timer advanced in menu:castle_besiege -> menu_nofood_siege_defenders_sally or menu_surrender_siege_defenders_starved. Assault prep: menu:siege_assault with $g_listos_para_asalto, $g_mantlets_1, build_mantlet / build_ladders, menu_poner_escaleras(_mantlets); mst castle_attack_walls_belfry/t95 and _ladder/t69 read $g_mantlets_1. Negotiation dialogs player_siege_ask_surrender / player_hostage_surrender / player_siege_tributo read starvation state. lift_siege and castle_taken reset everything.",
+      "hooks": [
+        "menu:castle_besiege/opt:siege_warfare_p:conseq",
+        "menu:siege_plan",
+        "menu:castle_besiege",
+        "menu:siege_assault",
+        "prsnt:infiltrationandsabotage/t1",
+        "dlg:1547:dlga_player_siege_tributo:player_siege_tributo2:cond"
+      ],
+      "scripts": [
+        "lift_siege",
+        "process_sieges"
+      ],
+      "menus": [
+        "menu_siege_plan",
+        "menu_siege_assault",
+        "menu_construct_circunvalation",
+        "menu_construct_saneamiento",
+        "menu_traicion_interna2",
+        "menu_traicion_resultado1",
+        "menu_traicion_lucha",
+        "menu_infiltracion_resultado1",
+        "menu_campos_cercanos1",
+        "menu_poner_escaleras",
+        "menu_poner_escaleras_mantlets",
+        "menu_build_mantles2",
+        "menu_nofood_siege_defenders_sally",
+        "menu_surrender_siege_defenders_starved",
+        "menu_castle_attack_walls_simulate2"
+      ],
+      "presentations": [
+        "prsnt_infiltrationandsabotage",
+        "prsnt_camp_screen_siege"
+      ],
+      "mission_templates": [
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_ladder"
+      ],
+      "dialogs": [
+        "dlga_player_siege_ask_surrender",
+        "dlga_player_hostage_surrender",
+        "dlga_player_siege_tributo"
+      ],
+      "slots": [
+        "party:400",
+        "party:401",
+        "party:402",
+        "party:403",
+        "party:404",
+        "party:405"
+      ],
+      "globals": [
+        "g_siege_saneamiento",
+        "g_traicion_interna",
+        "g_infiltracion_interna",
+        "g_campos_cercanos",
+        "g_listos_para_asalto",
+        "g_mantlets_1",
+        "g_cabezas_dentro",
+        "g_days_spent_starving",
+        "g_next_sally_at",
+        "g_sally_timer",
+        "g_empieza_asedio"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite texts menus: construct_circunvalation, construct_saneamiento, traicion_resultado1-5, infiltracion_resultado1-5, campos_cercanos1-4, nofood_siege_defenders_sally, surrender_siege_defenders_starved",
+        "sqlite globals: g_days_spent_starving/g_next_sally_at written by castle_besiege, read by siege surrender/tribute dialogs"
+      ],
+      "overlaps": [
+        "acan.siege_planning_inherited",
+        "acw.siege_assault_waves_and_surrender",
+        "ad457.vc_siege_planning_and_camp_events_inherited",
+        "awoiaf.siege_ram_assault_and_hostage_surrender",
+        "bi.siege_town_militia"
+      ]
+    },
+    {
+      "id": "vc.town_plunder_and_slaves",
+      "name": "Plundering captured towns, loot choices, recovery time and slave-taking",
+      "category": "economy-trade",
+      "summary": "When a town or fort falls the player can sack it (a street-fighting plunder scene and a lump of silver, keeping or not keeping control), which leaves it 'plundered' for weeks with a changed map icon. Raided villagers can be hunted down as slaves, slave traders operate in towns (and can be banned), and after battle a loot-options menu decides how the spoils are split.",
+      "mechanics": "menu:castle_taken offers castle_taken_plunder / castle_taken_keepplunder / castle_taken_native; plunder variants run mst_center_plunder, pay {reg7} silver and set party slot 344 (plunder timer, days) + change_party_icon_loot_state; strig:135 counts slot 344 down daily and restores the icon; menu_saqueo_loot_continue blocks re-looting. strig:103/check_town_menu_conditions read slot 344 (no conversion, reduced services). Village raids: menu_village_raid_villagers_toslaves / village_loot_no_resist_population_flee add slaves; slave market building (center_manage center_build_slavemarket / center_kill_slavemarket -> menu_remove_slaves, which warns it reduces income; it touches Native party slot 48 = accumulated tariffs) and sell_prisoners (adventurer AI, strig:109). menu_loot_options (loot_0..loot_3), reached from menu:total_victory after battle, with $loot_option / $loot_value_before / $loot_options_shown.",
+      "hooks": [
+        "menu:castle_taken",
+        "menu:castle_taken_plunder",
+        "menu:castle_taken_keepplunder",
+        "strig:135",
+        "menu:village_raid_villagers_toslaves",
+        "menu:loot_options",
+        "menu:remove_slaves"
+      ],
+      "scripts": [
+        "change_party_icon_loot_state",
+        "sell_prisoners",
+        "check_town_menu_conditions"
+      ],
+      "menus": [
+        "menu_castle_taken_plunder",
+        "menu_castle_taken_keepplunder",
+        "menu_castle_taken_native",
+        "menu_saqueo_loot_continue",
+        "menu_village_raid_villagers_toslaves",
+        "menu_village_loot_no_resist_population_flee",
+        "menu_loot_options",
+        "menu_remove_slaves"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_center_plunder"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:344",
+        "party:48"
+      ],
+      "globals": [
+        "player_is_looting_town",
+        "plunder_battle_shown",
+        "loot_option",
+        "loot_options_shown",
+        "loot_value_before"
+      ],
+      "resources": {
+        "troop": [
+          "trp_slave"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite refs: mst_center_plunder <- menu:castle_taken_plunder, menu:castle_taken_keepplunder",
+        "sqlite texts: 'The {town/fort} is plundered. You have collected {reg7} peningas.'; 'Do you want to hunt the villagers down like animals and make them slaves?'; 'The battle is over. What do you want to do with the loot?'",
+        "dis vc strig:135: slot 344 countdown + change_party_icon_loot_state",
+        "slot vc party 344: writers castle_taken_plunder/keepplunder, saquear_*; readers town, castle_outside, port_encounter, check_town_menu_conditions",
+        "sqlite refs: menu_loot_options referenced from menu:total_victory"
+      ],
+      "overlaps": [
+        "acan.slave_economy",
+        "ad457.village_enslavement_and_repopulation",
+        "laigle.keep_battlefield_pickups"
+      ]
+    },
+    {
+      "id": "vc.player_persistent_injuries",
+      "name": "Lasting battle wounds on the player (head/face/body), healing and permanent scars",
+      "category": "character-progression",
+      "summary": "A heavy blow in any battle can give the player a serious wound to a body location that temporarily costs attribute points. Each day the wound either heals (helped by Wound Treatment) or worsens toward a permanent scar; a wound report and character-screen section list healing wounds and scars, and barbers/physicians in larger towns can cure them for a fee. Can be turned off.",
+      "mechanics": "Every SP battle template has a ti_on_agent_hit trigger (e.g. mst:lead_charge/t21, village_attack_bandits/t37, sea_battle/t45 - ~50 templates) that, when $vc_wounds_on=1, the victim is the player and damage >= 20 (scaled by options_get_damage_to_player), rolls 20% and a further check against existing wounds and character level, picks a location from the hit bone (head/face/body), removes attribute points and records them in qst_vc_wounds quest slots: 31-34 = per-location timer (positive = days until permanent, negative = healing), 41-44 = attribute points lost, 51-54 = scars; increments $wounded_today / $total_wounds_ever. strig:133 (every 23.8h) advances each timer using party Wound Treatment x5 %: healed wounds give the attributes back (troop_raise_attribute: slot 41->INT, 42->CHA, 43->STR, 44->AGI); expired ones become permanent scars; posts a Wound Report dialog. store_wound_report builds the text for prsnt_character_screen_main and battle_debrief. Barber dialogs (dlga_barber_cureh_*) test slots 31-34 and cure.",
+      "hooks": [
+        "mst:lead_charge/t21:conseq",
+        "strig:133",
+        "dlg:2062:dlga_barber_talk:barber_cureh_1:cond",
+        "prsnt:character_screen_main/t0"
+      ],
+      "scripts": [
+        "store_wound_report"
+      ],
+      "menus": [
+        "menu_battle_debrief"
+      ],
+      "presentations": [
+        "prsnt_character_screen_main"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_village_attack_bandits",
+        "mst_village_raid",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_ladder",
+        "mst_bandit_lair",
+        "mst_sea_battle"
+      ],
+      "dialogs": [
+        "dlga_barber_talk",
+        "dlga_barber_cureh_1",
+        "dlga_barber_cureh_3"
+      ],
+      "slots": [
+        "quest:31-34",
+        "quest:41-44",
+        "quest:51-54"
+      ],
+      "globals": [
+        "vc_wounds_on",
+        "wounded_today",
+        "total_wounds_ever"
+      ],
+      "resources": {
+        "quest": [
+          "qst_vc_wounds (used as a data store)"
+        ],
+        "skill": [
+          "skl_wound_treatment"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc mst:lead_charge/t21:conseq (ti_on_agent_hit): $vc_wounds_on, damage>=20, 20% roll, quest slots 41-44, $total_wounds_ever",
+        "dis vc strig:133: daily healing vs worsening with skl_wound_treatment*5, troop_raise_attribute on heal, Wound Report dialog_box",
+        "sqlite slots quest obj qst_vc_wounds: get/set 41-44,51-54 across ~50 templates; barber dialogs test 31-34",
+        "sqlite refs store_wound_report <- menu:battle_debrief, prsnt:character_screen_main/t2"
+      ],
+      "overlaps": [
+        "acan.player_health_mortality",
+        "tld.persistent_injuries_permadeath"
+      ]
+    },
+    {
+      "id": "vc.battle_immersion_courage",
+      "name": "Battle immersion: war cries, horns, shield taunts, berserker rage and morale spreading from nearby events",
+      "category": "morale",
+      "summary": "Morale in battle becomes local: kills, wounds and hits shake or steel the troops standing near them, with stronger effects close by. The player (and AI troops) can bellow a war cry, sound a horn or bang shields to raise nearby allies' courage, and the player can enter a timed berserker rage (more damage and speed, worse accuracy) with a cooldown and on-screen bar.",
+      "mechanics": "change_courage_around_agent(amount, agent) adds amount x 50/40/30/20/10 to agent slot 16 (Native's courage score) of every same-side human within 20/40/70/110/160 m; called from ti_on_agent_killed_or_wounded (mst:lead_charge/t72) and ti_on_agent_hit (t29) triggers in ~56 templates, on top of a modified apply_effect_of_other_people_on_courage_scores (189 vs Native 186 stmts) and apply_death_effect_on_courage_scores. Player actions: t56 (key_clicked key_t, rearm 3 s) and its gamepad twin t57 (key_xbox_x when $controller_keys=1) -> agent_perform_warcry / shield_taunt_trigger / berserk_trigger; berserk_trigger: once $berserk_cooldown=0 sets it to 180, damage x125%, speed 110% (advanced_agent_set_speed_modifier), accuracy and reload 50%, agent slots 46/42, $is_berserk, prsnt_staminabar shows the meter; berserk_cooldown_trigger / berserk_cooldown_modeai_tigger count down. AI: t94 (every 0.7 s) agent_perform_horn / agent_perform_warcry when cf_any_fighting; t46 horn_sp_trigger; t163 opening war cry. Changelog 2.049 'redo battle immersion to avoid sound overload'.",
+      "hooks": [
+        "mst:lead_charge/t29:conseq",
+        "mst:lead_charge/t72:conseq",
+        "mst:lead_charge/t56:conseq",
+        "mst:lead_charge/t57:conseq",
+        "mst:lead_charge/t94:conseq",
+        "mst:lead_charge/t46:conseq",
+        "mst:lead_charge/t163:conseq"
+      ],
+      "scripts": [
+        "change_courage_around_agent",
+        "apply_effect_of_other_people_on_courage_scores",
+        "apply_death_effect_on_courage_scores",
+        "agent_perform_warcry",
+        "agent_perform_horn",
+        "agent_perform_shield_taunt",
+        "shield_taunt_trigger",
+        "horn_sp_trigger",
+        "berserk_trigger",
+        "berserk_cooldown_trigger",
+        "berserk_cooldown_modeai_tigger",
+        "berserkermode_fortroop_on",
+        "advanced_agent_set_speed_modifier",
+        "cf_any_fighting",
+        "reset_bonus_effect"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_staminabar"
+      ],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_village_attack_bandits",
+        "mst_village_raid",
+        "mst_sea_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:16",
+        "agent:42",
+        "agent:46"
+      ],
+      "globals": [
+        "berserk_cooldown",
+        "is_berserk",
+        "courage_influence"
+      ],
+      "resources": {
+        "sound": [
+          "snd_man_warcry",
+          "snd_woman_yell",
+          "horn sounds"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc change_courage_around_agent: distance bands 2000/4000/7000/11000/16000 cm -> x50..x10 into agent slot 16",
+        "dis vc berserk_trigger: $berserk_cooldown 180, agent_set_damage_modifier 125, speed 110, accuracy/reload 50",
+        "sqlite blocks meta: lead_charge t29 ti_on_agent_hit, t72 ti_on_agent_killed_or_wounded, t94 check 0.7s, t56/t57 rearm 3 s/0",
+        "dis vc mst:lead_charge/t56:cond = key_clicked key_t + neg|main_hero_fallen; t57:cond = key_clicked key_xbox_x + $controller_keys=1"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "acw.bury_the_dead",
+        "be.company_discipline_rout",
+        "bi.courage_update_staggering",
+        "nw.morale_rout_rally",
+        "tld.battle_coherence_rout_rally"
+      ]
+    },
+    {
+      "id": "vc.combat_extras_dehorse_bash",
+      "name": "Dehorsing, horse blunt damage, falling, AI shield bash and weapon-dependent casualties",
+      "category": "combat-mechanics",
+      "summary": "Riders can be knocked off their horses by heavy hits, blunt blows hurt horses differently, AI infantry use shield bashes, and whether a downed man is killed or only wounded depends on what hit him (spears, axes and stones kill; clubs and sticks knock out).",
+      "mechanics": "ti_on_agent_hit triggers (mst:lead_charge/t45 etc., ~62 templates) call check_dehorsing (35 stmts) / check_falling_from_horse / check_horse_blunt_damage. Shield bash: shield_bash_trigger (player key, t48 delay 0.35 s rearm 1 s) and shield_bash_ai_trigger -> shield_bash_script (78 stmts) in ~66 templates; cf_agent_is_in_parrying_animation guards it. ti_on_agent_killed_or_wounded (t7) runs cf_casulties_complication_1 (missile kills: darts/long bow/stones/torch) and cf_casulties_complication_2 (wielded weapon: thrusting spear swings, piercing one-handers, stones, club/stick) to decide kill vs wound. Gore decals (cf_goredec, goredec_special_effects, goredec_player_bonus) attach blood on hit.",
+      "hooks": [
+        "mst:lead_charge/t45:conseq",
+        "mst:lead_charge/t48:conseq",
+        "mst:lead_charge/t7:conseq",
+        "mst:lead_charge/t29:conseq"
+      ],
+      "scripts": [
+        "check_dehorsing",
+        "check_falling_from_horse",
+        "check_horse_blunt_damage",
+        "shield_bash_trigger",
+        "shield_bash_ai_trigger",
+        "shield_bash_script",
+        "cf_agent_is_in_parrying_animation",
+        "cf_casulties_complication_1",
+        "cf_casulties_complication_2",
+        "cf_goredec",
+        "cf_goredec_probability",
+        "goredec_special_effects",
+        "goredec_player_bonus"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_village_attack_bandits",
+        "mst_sea_battle"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "goredec_player_bonus"
+      ],
+      "resources": {
+        "item": [
+          "itm_stones",
+          "itm_stones_siege",
+          "itm_club_hard",
+          "itm_wooden_stick",
+          "itm_light_spear1..itm_standard (spear range)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis vc cf_casulties_complication_2: wielded-item tests -> kill flag",
+        "sqlite blocks meta: lead_charge t45 ti_on_agent_hit -> check_dehorsing; t48 -> shield_bash_trigger; t7 ti_on_agent_killed_or_wounded -> cf_casulties_complication_1/2"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.extended_center_improvements",
+      "name": "Expanded fief buildings (church/temple, mead hall, brewery, scriptorium, guild hall, slave market, blacksmith)",
+      "category": "settlements-villages",
+      "summary": "Fief owners get many more buildings than Native's six: Christian monastery or church, temple/shrine to the Norse gods, mead hall, brewery, merchants' rest hall, scriptorium, blacksmith and slave market, each with a price and an effect on religion, prosperity, relation, income or the player's learning.",
+      "mechanics": "Modified get_improvement_details (77 vs Native 32 stmts) maps improvement ids to names and costs: 130 Mead Hall 8000, 131 Mill 6000, 132 Watchtower 5000, 133 School 9000, 138 Messenger Post 4000, 139 Prison Tower 7000, 134 Christian Monastery 9000, 136 Temple to Odin 9000, 140 Christian Church 14000, 142 Shrine to Norse Gods 14000, 144 Blacksmith 4000, 145 Merchants' Rest Hall 8000, 146 Scriptorium 16000, 143 Slave Market 14000, 141 Brewery 5000. Built via menu:center_manage options (center_build_*). Effects live in other triggers: strig:103 (134/140 push Christian share, 136/142 pagan share, 145 +prosperity, 146 scriptorium may raise the player's reading, 141 raises relation), strig:116 weekly income, slave-market removal menu.",
+      "hooks": [
+        "menu:center_manage",
+        "strig:71",
+        "strig:103",
+        "strig:116"
+      ],
+      "scripts": [
+        "get_improvement_details"
+      ],
+      "menus": [
+        "menu_center_manage",
+        "menu_center_improve"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:130-146"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc get_improvement_details: id->name->cost table (15 buildings)",
+        "sqlite blocks: menu:center_manage options center_build_brewery/fish_pond/guilds/herreria/library/manor/religion1-4/slavemarket/...",
+        "dis vc strig:103 reads 134/136/140/141/142/145/146"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings"
+      ]
+    },
+    {
+      "id": "vc.recruitment_permissions",
+      "name": "Recruiting requires the local lord's permission, which can be revoked",
+      "category": "recruitment-troops",
+      "summary": "Players cannot freely recruit in other lords' towns and villages: they ask the lord for permission. If the lord's (or the village's) opinion of the player drops too low the permission is revoked with a message; ownership changes also reset it.",
+      "mechanics": "Party slot 239 per center = permission state (0 none/allowed-by-default, 1 revoked/denied, 2/3 transient). dlga_reclutar_permiso1 (lord_talk) grants it; strig:161 (every 48h) resets transient states, and when $recruitment_on=0 revokes permission in towns whose lord's relation with the player is < -10 (50%), villages with center relation < -20, or lord relation < -25, printing '{lord} revokes your right to recruit'. give_center_to_lord clears it on new owners. prsnt_vc_submenu_recruits2 writes it from the recruit UI.",
+      "hooks": [
+        "strig:161",
+        "dlg:3123:dlga_reclutar_permiso1:lord_talk:conseq",
+        "prsnt:vc_submenu_recruits2/t1"
+      ],
+      "scripts": [
+        "give_center_to_lord",
+        "troop_get_player_relation"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_vc_submenu_recruits",
+        "prsnt_vc_submenu_recruits2"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_reclutar_permiso1",
+        "dlga_village_elder_recruit3",
+        "dlga_village_elder_recruit4_3"
+      ],
+      "slots": [
+        "party:239",
+        "party:26",
+        "party:7"
+      ],
+      "globals": [
+        "recruitment_on"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc strig:161: slot 239 transitions, relation thresholds -10/-20/-25, 'revokes your right to recruit' message",
+        "slot vc party 239: 41 accesses, writers give_center_to_lord, dlga_reclutar_permiso1, village elder recruit dialogs",
+        "Changelog 2.024 'player loses permission to recruit in center that gets new owner'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.prisoner_revolts",
+      "name": "Prisoner revolts in over-stretched AI parties",
+      "category": "prisoners",
+      "summary": "Lords, bandits, sea raiders and farmers who carry far more prisoners than guards risk a revolt: the prisoners break free and become a roaming deserter band (with a leader if large), so big prisoner trains don't stay locked up forever.",
+      "mechanics": "strig:166 (every 36h) iterates all parties whose type is a lord party (party slot 0 = 13) or whose template is in the looters..kidnapped_girl, sea_raiders_ships..chimney_smoke or village_farmers ranges; if prisoners exceed fighting members by more than 4 (20 for ship raiders) all non-hero prisoner stacks are moved into one or two temp parties, spawned as pt_deserters near the party (sea raiders: near a random coastal point p_battle_stones..p_bjorn_camp), set to fac_deserters, patrol radius 40, and given trp_looter_leader2 if > 25 men. strig:169 (every 20h) then caps/splits oversize deserter parties (removes > 1000, thresholds 190/220/300).",
+      "hooks": [
+        "strig:166",
+        "strig:169"
+      ],
+      "scripts": [
+        "party_add_party"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:0"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_deserters"
+        ],
+        "troop": [
+          "trp_looter_leader2"
+        ],
+        "faction": [
+          "fac_deserters"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc strig:166: prisoners vs guards test, spawn_around_party pt_deserters, party_set_faction fac_deserters, leader if >25",
+        "dis vc strig:169: deserter size thresholds 190/220/300/1000"
+      ],
+      "overlaps": [
+        "acw.prisoner_breakouts_and_refugees",
+        "pop.raid_refugees"
+      ]
+    },
+    {
+      "id": "vc.player_refuge",
+      "name": "Player-built refuge (hideout) that grows into a fortified base",
+      "category": "settlements-villages",
+      "summary": "Without owning a fief, the player can build a personal hidden refuge on the map: a base to rest, store troops, hold banquets, hire staff (captain, priest, bard, tavernkeeper, trainer, smith, armorer, barber, cook) and train recruits. The captain can expand it in stages and add jetties so ships can dock there; it can be demolished.",
+      "mechanics": "menu_build_refuge_new -> make_lair: relocates p_yourlair near the player, give_center_to_lord(player), enable_party, $lair_on=1, slot 390=0 (construction stage) and resets ten staff globals. menu_player_lair_menus offers hall/mead hall scenes, banquet, rename (prsnt_set_playerlair_name), staff hiring (prsnt_lair_hire_staff), garrison, ships/embark (if slot 241 coastal), demolish (demoler_lairm). Lair captain dialogs (lair_captain_improve*, lair_captain_add_port_*) start upgrades: slot 390 1->2->3->4 timed by slot 399 + strig:113 (every 24h: stage 1->2 once 160 h have passed since slot 399; strig:114 is the parallel later-stage timer, not disassembled); add_jetty_system sets slot 297. Training: trainer staff + strig:121 cf_process_training_fail (up to tier-3 troops). Battles near the refuge use scn_player_hideout_1/3/5 by stage (simple_encounter attack branch).",
+      "hooks": [
+        "menu:build_refuge_new/opt:refuge_here:conseq",
+        "menu:player_lair_menus",
+        "strig:113",
+        "strig:121",
+        "dlg:2083:dlga_lair_captain:lair_captain_improve:cond",
+        "dlg:2087:dlga_lair_captain:lair_captain_add_port_0:cond"
+      ],
+      "scripts": [
+        "make_lair",
+        "remove_lair",
+        "add_jetty_system",
+        "cf_process_training_fail",
+        "texto_refuge_construir"
+      ],
+      "menus": [
+        "menu_build_refuge_new",
+        "menu_player_lair_menus",
+        "menu_demoler_lairm"
+      ],
+      "presentations": [
+        "prsnt_lair_hire_staff",
+        "prsnt_set_playerlair_name"
+      ],
+      "mission_templates": [
+        "mst_lair_interior",
+        "mst_lair_visit"
+      ],
+      "dialogs": [
+        "dlga_lair_captain",
+        "dlga_lair_captain_improve3",
+        "dlga_lair_captain_add_port_2"
+      ],
+      "slots": [
+        "party:390",
+        "party:399",
+        "party:297",
+        "party:241"
+      ],
+      "globals": [
+        "lair_on",
+        "captain_ok",
+        "hire_priest1",
+        "hire_trainer1",
+        "captain_hired_on",
+        "priest_hired_on",
+        "trainer_hired_on",
+        "smith_hired_on",
+        "armorer_hired_on",
+        "barber_hired_on",
+        "cook_hired_on",
+        "g_trainerlair_training_center",
+        "g_trainerlair_training_type",
+        "banquete_refuge"
+      ],
+      "resources": {
+        "party": [
+          "p_yourlair"
+        ],
+        "scene": [
+          "scn_player_hideout_1",
+          "scn_player_hideout_3",
+          "scn_player_hideout_5"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc make_lair: relocate/enable p_yourlair, give_center_to_lord player, staff globals",
+        "dis vc strig:113: slot 399 + 160 h -> slot 390 1->2",
+        "sqlite texts mopt menu:player_lair_menus: banquet, rename, hall, mead hall, captain, hire staff, garrison, demolish, ships, embark",
+        "dis vc menu:simple_encounter attack conseq: refuge stage selects scn_player_hideout_1/3/5",
+        "Changelog 2.023 'Fix refuge training. Limit it to produce only up to L3 troops'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.sea_ai_traffic",
+      "name": "AI sea traffic: traders, fishers, slavers, travellers and sea kings sailing between ports",
+      "category": "naval",
+      "summary": "The seas are populated by AI ships - fishing boats, slave traders, passenger ships, walrus hunters and Norse sea-king fleets - that embark at ports, sail to destination ports and land; raiders can land at coastal landing points. Pools are refilled over time and parties stranded on land are cleaned up.",
+      "mechanics": "trig:9 (every 10.2h) calls refill_sea_party_template (spawns pt_fisher_ship / pt_slave_trader_ship / pt_traveller_ship up to $pin_limit, marks party slot 296=1 at sea, slot 123 home) and refill_sea_king_partys (pt_sea_king_norweg / _danish). map_sea_ai_1 (strig:131, 33.3h) assigns destinations; map_sea_ai_2 (strig:132, 0.7h) moves embarked parties between ports, embarks/disembarks them (pt_landet_ships / pt_port) and handles player auto-travel; map_sea_ai_3 (strig:79, 3h) handles landed raiders/priest/pagan/routed parties. AI-party travel state lives in party slots 331-334 (target port, phase, timers) plus 297 (port link) and 73. remove_sea_parties_on_land (strig:131) deletes sea-only parties that end up ashore. Spawn points carry party slot 44 (sea zone 1/2) used by spawn_lairs / sea spawning.",
+      "hooks": [
+        "trig:9:conseq",
+        "strig:131",
+        "strig:132",
+        "strig:79"
+      ],
+      "scripts": [
+        "refill_sea_party_template",
+        "refill_sea_king_partys",
+        "map_sea_ai_1",
+        "map_sea_ai_2",
+        "map_sea_ai_3",
+        "remove_sea_parties_on_land",
+        "get_closest_port",
+        "store_random_eastern_port_to_reg0",
+        "store_random_western_port_to_reg0",
+        "cf_party_is_eastern_port",
+        "cf_party_is_western_port"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:296",
+        "party:297",
+        "party:331",
+        "party:332",
+        "party:333",
+        "party:334",
+        "party:73",
+        "party:123",
+        "party:44"
+      ],
+      "globals": [
+        "pin_limit",
+        "pin_party_template",
+        "vc_debug_mode"
+      ],
+      "resources": {
+        "pt": [
+          "pt_fisher_ship",
+          "pt_slave_trader_ship",
+          "pt_traveller_ship",
+          "pt_walrus_hunter",
+          "pt_sea_king_norweg",
+          "pt_sea_king_danish",
+          "pt_landet_ships",
+          "pt_port"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite calls: trig:9 -> refill_sea_party_template/refill_sea_king_partys; strig:131 -> map_sea_ai_1/remove_sea_parties_on_land; strig:132 -> map_sea_ai_2; strig:79 -> map_sea_ai_3",
+        "sqlite refs: map_sea_ai_2 references pt_fisher_ship, pt_slave_trader_ship, pt_traveller_ship, pt_walrus_hunter, pt_sea_king_*, pt_landet_ships, pt_port",
+        "sqlite slots: map_sea_ai_* read/write party 296/297/331-334"
+      ],
+      "overlaps": [
+        "acan.ports_ferries_sea_trade",
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "vc.faction_restoration_and_adventurers",
+      "name": "Defeated kingdoms can be reborn; their landless lords roam as 'adventurers'",
+      "category": "diplomacy-politics",
+      "summary": "When a kingdom is destroyed its lords do not just vanish: they become adventurers who roam, sell prisoners and seek service, and may defect into other kingdoms. Over time, rumours of rebellion grow and a destroyed kingdom can rise again by retaking a walled center, with its old king and supporting lords rejoining (about one restoration a month late in the game).",
+      "mechanics": "fac_adventurers (referenced in 39 blocks: party_get_ideal_size, calculate_troop_ai, npc_decision_checklist_party_ai, process_village_raids, spawn_bandits, strig:22/32/47/49...) is the holding faction for lords of defeated factions. strig:109 (every 0.05h) drives adventurer parties: wander near towns (patrol radius 35), sell prisoners via sell_prisoners, or hole up in their faction's center. strig:154 (every 30h): if the player's leadership + charisma/2 roll fails, picks a random defeated kingdom (faction slot 21 set, ruler troop without a party), counts its former lords now serving elsewhere and their fiefs, drops their relation with their current liege (-30) and posts '(Possible Rebellion) Rumors...' messages that escalate; on success the faction is restored (menu_notification_kingdom_reborn, change_troop_faction for leader + supporters). trig:51 (60h) handles center restoration (menu_notification_center_restoration, give_center_to_faction). Modified lord_find_alternative_faction / strig:49 run defections, now preferring culture and liege relation.",
+      "hooks": [
+        "strig:154",
+        "strig:109",
+        "trig:51:conseq",
+        "strig:49"
+      ],
+      "scripts": [
+        "sell_prisoners",
+        "change_troop_faction",
+        "lord_find_alternative_faction",
+        "troop_get_relation_with_troop",
+        "add_notification_menu",
+        "give_center_to_faction"
+      ],
+      "menus": [
+        "menu_notification_kingdom_reborn",
+        "menu_notification_center_restoration",
+        "menu_notification_lord_defects"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21",
+        "troop:8",
+        "troop:14",
+        "party:7"
+      ],
+      "globals": [],
+      "resources": {
+        "faction": [
+          "fac_adventurers"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis vc strig:154: leadership/charisma gate, defeated faction pick, lords of that faction elsewhere, -30 liege relation, 'Possible Rebellion' messages, menu_notification_kingdom_reborn",
+        "dis vc strig:109: fac_adventurers lord parties, sell_prisoners in towns, patrol behaviour",
+        "sqlite refs fac_adventurers: 39 blocks",
+        "Changelog 2.025 FACTION RESTORATION section (one faction at a time, ~1/month, escalating rumours, supporting lords)"
+      ],
+      "overlaps": [
+        "acan.civil_war_usurpation_restoration",
+        "ad457.landless_faction_cleanup",
+        "ad457.town_rebellions_secession",
+        "tld.faction_defeat_redistribution_last_stand"
+      ]
+    },
+    {
+      "id": "vc.marshal_election",
+      "name": "Marshal elections with candidates and lord votes",
+      "category": "kingdom-management",
+      "summary": "Instead of the king silently picking a marshal, a faction periodically holds an election: two candidates are put forward, lords give their support, the player can be asked to stand as a candidate (accept or decline) and sees a screen with each candidate's supporters.",
+      "mechanics": "strig:33 (every 24h) checks the player's faction and opens prsnt_marshal_selection (candidates #1/#2, 'Number of Supporters', 'Whom do you wish to support', '{s1} gives his support...'); globals $g_presentation_marshal_selection_max_renown_1/_2 (+_troop) hold the top-renown candidates. menu_marshal_selection_candidate_ask (accept / reject) when the player is suggested. The winner is installed by appoint_faction_marshal (a renamed copy of Native appoint_faction_marshall, 64 stmts: party_set_marshall, relation changes for disappointed lords, log entry 32).",
+      "hooks": [
+        "strig:33",
+        "menu:marshal_selection_candidate_ask"
+      ],
+      "scripts": [
+        "appoint_faction_marshal",
+        "party_count_fit_for_battle",
+        "party_get_ideal_size"
+      ],
+      "menus": [
+        "menu_marshal_selection_candidate_ask"
+      ],
+      "presentations": [
+        "prsnt_marshal_selection"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:8",
+        "faction:11",
+        "troop:157"
+      ],
+      "globals": [
+        "g_presentation_marshal_selection_max_renown_1",
+        "g_presentation_marshal_selection_max_renown_1_troop",
+        "g_presentation_marshal_selection_max_renown_2",
+        "g_presentation_marshal_selection_max_renown_2_troop",
+        "total_promotion_changes"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis vc script:appoint_faction_marshal = Native appoint_faction_marshall logic (64 stmts both)",
+        "sqlite refs: prsnt_marshal_selection <- strig:33, menu:marshal_selection_candidate_ask options",
+        "sqlite refs strig:33/prsnt: qstr Candidate_#1/#2, Number_of_Supporters, Whom_do_you_wish_to_..."
+      ],
+      "overlaps": [
+        "be.pas_marshal_campaign_ai",
+        "tld.faction_strength_war_progression",
+        "tld.war_theaters_advance_camps"
+      ]
+    },
+    {
+      "id": "vc.player_goals",
+      "name": "Player ambitions ('Set goal') with tracked metrics and rewards",
+      "category": "character-progression",
+      "summary": "The player chooses a life goal - raider, warrior, lord, king, expand the realm, or a custom target - and sets sliders for renown, wealth, army size, reputation, marriage etc. The game tracks progress, reports success as an event and grants a goal-specific reward.",
+      "mechanics": "prsnt_set_goal (opened by button_open_set_goal_prsnt from the camp/character screens or menus) stores $goal_type and slider targets (goal_slider_values); prsnt_view_current_goal shows progress via view_goal_metric. trig:50 (every 25h) calls set_goal_check_success_event -> set_goal_check_metrics_progress, which tests cf_goal_renown_completed / cf_goal_wealth_completed / cf_goal_armysize_completed / cf_goal_reputation_completed / cf_goal_married_completed / cf_goal_rtr_completed / cf_goal_special_case_lord_king; on success set_goal_rewards: raider = +5 mountain bandits, warrior = +30 to all weapon proficiencies, lord/king/expand call set_goal_lord_reward / set_goal_king_reward / set_goal_expand_reward. update_savegame_to_content_update sets $set_goal_new_game_trigger for old saves.",
+      "hooks": [
+        "trig:50:conseq",
+        "prsnt:set_goal/t1",
+        "prsnt:view_current_goal/t1"
+      ],
+      "scripts": [
+        "button_open_set_goal_prsnt",
+        "set_goal_check_success_event",
+        "set_goal_check_metrics_progress",
+        "set_goal_rewards",
+        "set_goal_lord_reward",
+        "set_goal_king_reward",
+        "set_goal_expand_reward",
+        "cf_goal_renown_completed",
+        "cf_goal_wealth_completed",
+        "cf_goal_armysize_completed",
+        "cf_goal_reputation_completed",
+        "cf_goal_married_completed",
+        "cf_goal_rtr_completed",
+        "cf_goal_special_case_lord_king",
+        "goal_slider_values",
+        "view_goal_metric"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_set_goal",
+        "prsnt_view_current_goal"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "goal_type",
+        "set_goal_new_game_trigger"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc set_goal_rewards: $goal_type 1..6 -> custom/raider(+5 trp_mountain_bandit)/warrior(+30 proficiency)/lord/king/expand",
+        "sqlite calls: trig:50:conseq -> set_goal_check_success_event; cf_goal_* reached from menu4,prsnt1,trig1 (auto report)",
+        "sqlite texts: str_view_goal_hint_renown 'Renown: you desire fame above all...', str_set_goal_warrior_hint"
+      ],
+      "overlaps": [
+        "tld.player_traits"
+      ]
+    },
+    {
+      "id": "vc.savegame_content_update",
+      "name": "On-load savegame repair and content-update migration",
+      "category": "performance-bugfix",
+      "summary": "Every time the game returns to the world map, VC runs a large maintenance trigger: it repairs known save corruptions (banners, item info, a v2.049 bug with a dedicated 'your save is ruined' menu) and, once per save, migrates old saves to a content update (new globals, parties, troops, items) so players don't need a new game.",
+      "mechanics": "strig:165 has interval -75, which is the ti_on_switch_to_map event (not a periodic timer). Its 932 statements reset mission globals, re-run initialize_item_info, fix banners (give_troop_next_banner, 'fixing banners'), re-apply titles, food consumption, marshal checks, jump to menu_reconstruct_pre2049 when a known-corrupted state is detected, and finally - when neither $game_started_with_content_update nor $game_updated_to_content_update is 1 - call update_savegame_to_content_update (138 stmts: sets ~20 new globals, fixes p_ferry_4a/4b, jetties, tunics, ransom brokers, qst_vc_menu, prints 'Content update applied').",
+      "hooks": [
+        "strig:165",
+        "strig:137"
+      ],
+      "scripts": [
+        "update_savegame_to_content_update",
+        "initialize_item_info",
+        "give_troop_next_banner",
+        "troop_set_title_according_to_faction",
+        "appoint_faction_marshal",
+        "add_jetty_system_2",
+        "setup_debug_log"
+      ],
+      "menus": [
+        "menu_reconstruct_pre2049"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:29",
+        "party:44",
+        "party:72",
+        "party:74",
+        "party:75"
+      ],
+      "globals": [
+        "game_started_with_content_update",
+        "game_updated_to_content_update",
+        "savegame_id",
+        "g_sgfix"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc strig:165 header: interval -75.0 (= ti_on_switch_to_map); stmt 78 jump_to_menu menu_reconstruct_pre2049; stmts 928-930 content-update gate -> update_savegame_to_content_update",
+        "sqlite refs/globals update_savegame_to_content_update: writes savegame_id, goal_type, g_sgfix...; refs p_ferry_4a/4b, qst_vc_menu",
+        "Changelog 2.025 'reinitialize item info (wiped out in someone's save game by unknown cause)'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.seasons_scene_lighting",
+      "name": "Seasons that change scene lighting/shaders and map time",
+      "category": "other",
+      "summary": "The year has seasons; every ten days a trigger advances the season, and every scene (towns, villages, battles) adjusts sun/ambient colours and season shader for spring, summer, autumn or winter. Season also feeds gameplay text such as harvest-time results when burning fields during a siege.",
+      "mechanics": "strig:138 (every 240.1h) advances $shader_season (also set at game_start; cheat menu option 'season'; menu_season_change). calculate_season_light (30 stmts, reads only $shader_season) is called from 85 mission templates' load triggers (town_default/t7, town_center/t9, lead_charge/t66...) and adjusts scene lighting per season. Siege menus campos_cercanos1-4 branch on harvest season. MP equivalent: scene_init_weather_and_sounds (MP templates only).",
+      "hooks": [
+        "strig:138",
+        "mst:lead_charge/t66:conseq",
+        "mst:town_center/t9:conseq"
+      ],
+      "scripts": [
+        "calculate_season_light",
+        "z_code_season",
+        "game_get_date_text"
+      ],
+      "menus": [
+        "menu_season_change"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "shader_season"
+      ],
+      "resources": {
+        "shader": [
+          "VC season-aware shaders (mb.fx)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite globals shader_season: 102 reads, writers game_start, strig:138, z_code_season, cheat option",
+        "sqlite calls: calculate_season_light called from 85 templates"
+      ],
+      "overlaps": [
+        "acan.seasonal_light_fog_weather",
+        "be.campaign_weather_battle_atmosphere",
+        "laigle.weather_seasons",
+        "nw.battle_weather_generator",
+        "tld.battle_condition_modifiers",
+        "tld.day_night_proficiency_shift"
+      ]
+    },
+    {
+      "id": "vc.camp_and_report_screens",
+      "name": "Camp, character, faction and troop-tree report screens",
+      "category": "reports-info",
+      "summary": "A presentation-based camp menu replaces many Native report menus: tabbed screens for the character (bio, wounds, honour, goal), followers/companions (morale, opinions), kingdom (lords, relations, armies, economy, centres, diplomacy, orders), ships, a full troop upgrade tree, and a troop detail screen that shows a troop's equipment and stats on a 3D model.",
+      "mechanics": "menu:camp opens prsnt_camp_screen_main (also _siege and _sea variants); tabs build text via ~30 texto_* scripts (texto_kingdomlords_info 154, texto_lords_relation 153, texto_partysize_morale 163, texto_kingdom_economy 100, texto_kingdom_armies 59, texto_companions_report 246, texto_global_camp_info 128...). prsnt_character_screen_main (engine-hooked via game_character_screen_requested) and prsnt_faction_screen_main. prsnt_troop_tree / prsnt_game_troop_tree draw upgrade trees with troop_tree_precurse/recurse; prsnt_troop_detail uses troop_detail_* (layout, stats, inventory, tooltips, dummy agent tableaux) to inspect any troop. prsnt_show_companions + companions_camp_conversation for companion talk.",
+      "hooks": [
+        "menu:camp",
+        "script:game_character_screen_requested",
+        "prsnt:camp_screen_main/t1"
+      ],
+      "scripts": [
+        "game_character_screen_requested",
+        "texto_kingdomlords_info",
+        "texto_lords_relation",
+        "texto_partysize_morale",
+        "texto_kingdom_economy",
+        "texto_kingdom_armies",
+        "texto_companions_report",
+        "texto_global_camp_info",
+        "troop_tree_precurse",
+        "troop_tree_recurse",
+        "troop_detail_layout",
+        "troop_detail_stats",
+        "troop_detail_inventory",
+        "troop_detail_update_dummy",
+        "companions_camp_conversation",
+        "store_wound_report"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_camp_screen_main",
+        "prsnt_camp_screen_siege",
+        "prsnt_camp_screen_sea",
+        "prsnt_character_screen_main",
+        "prsnt_faction_screen_main",
+        "prsnt_followers_screen_camp",
+        "prsnt_troop_tree",
+        "prsnt_game_troop_tree",
+        "prsnt_troop_detail",
+        "prsnt_show_companions"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite refs: prsnt_camp_screen_main <- menu:camp; prsnt_troop_tree <- camp_screen_main/siege/sea; prsnt_troop_detail <- troop_tree/t3; prsnt_character_screen_main <- game_character_screen_requested",
+        "auto report: texto_* scripts each reached from one presentation"
+      ],
+      "overlaps": [
+        "acan.troop_detail_and_upgrade_trees",
+        "be.faction_troop_tree_viewer",
+        "bi.world_map_presentation"
+      ]
+    },
+    {
+      "id": "vc.second_outfit",
+      "name": "Civilian second outfit worn automatically in towns and halls",
+      "category": "qol-ui",
+      "summary": "The player keeps a second (civilian) outfit that is worn automatically when walking around towns, courts and certain quest scenes, instead of full battle gear; its shield still counts for skill modifiers.",
+      "mechanics": "init_second_outfit (26 stmts) swaps the player's equipment with a stored set (pseudo troop trp_pseudo_troop_end used as wardrobe) when entering mst_visit_town_castle and other civilian scenes; cf_player_use_second_outfit decides by $current_town and active quests (qst_hunt_down_fugitive etc.); called from 37 menu blocks and dialogs. Modified game_get_skill_modifier_for_troop (272 vs Native 20 stmts) accounts for the second outfit's shield.",
+      "hooks": [
+        "script:cf_player_use_second_outfit",
+        "script:init_second_outfit"
+      ],
+      "scripts": [
+        "init_second_outfit",
+        "cf_player_use_second_outfit",
+        "game_get_skill_modifier_for_troop"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_visit_town_castle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "quest:1"
+      ],
+      "globals": [
+        "current_town"
+      ],
+      "resources": {
+        "troop": [
+          "trp_pseudo_troop_end (wardrobe store)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "sqlite refs init_second_outfit: mst_visit_town_castle, trp_pseudo_troop_end, itm_wooden_shield",
+        "auto report: cf_player_use_second_outfit 9 callers (dlg2, menu37, mst1)",
+        "Changelog 2.072 'consider shield in second outfit for skill modifiers'; 2.054 'fix skill modifiers from second outfit'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "vc.random_events_and_judgments",
+      "name": "Random camp/siege events and lord's-court judgment cases",
+      "category": "dynamic-world-events",
+      "summary": "Two families of choice events: siege-camp events (rats in the provisions, dysentery, sabotage of supplies, poisoned water, deserters - mostly avoidable by building sanitation/blockade) and, for fief holders, court cases where the player judges villagers' disputes (a disputed calf, theft, a missionary and a holy tree, fake relics, tax refusal, riots) with consequences for relations, money, prosperity and religion.",
+      "mechanics": "strig:155-158 (every 24-60h) roll siege-camp events (menu_event_siege_01..08) while the player besieges, keyed to the siege-plan state (sanitation, blockade). Judgments: menu:town offers event_01_juicio..event_22_juicio and event_juicio_end when $lord_event_possible/$event_oneuse allow (reset by strig:106); options test the center's religion (slot 234) and $g_player_faith, can change the Christian share (slot 235), and call change_player_relation_with_center, change_center_prosperity, change_player_honor, change_troop_renown, change_player_relation_with_faction, troop_add_gold, change_player_party_morale; menu_random_juice_events / prsnt_random_event_solution show outcomes.",
+      "hooks": [
+        "strig:155",
+        "strig:156",
+        "strig:157",
+        "strig:158",
+        "menu:town",
+        "menu:random_juice_events"
+      ],
+      "scripts": [
+        "change_player_relation_with_center",
+        "change_center_prosperity",
+        "change_player_honor",
+        "change_troop_renown",
+        "troop_add_gold",
+        "change_player_party_morale"
+      ],
+      "menus": [
+        "menu_event_siege_01",
+        "menu_event_01_juicio",
+        "menu_event_juicio_end",
+        "menu_random_juice_events",
+        "menu_riots_02",
+        "menu_nobody_want_paytax"
+      ],
+      "presentations": [
+        "prsnt_random_event_solution",
+        "prsnt_random_event_normalsolution"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:234",
+        "party:235",
+        "party:53"
+      ],
+      "globals": [
+        "event_oneuse",
+        "lord_event_possible"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "sqlite refs: menu_event_siege_* <- strig:155..158; menu_event_01_juicio <- menu:town",
+        "sqlite texts: event_siege_01 'rats in the provisions', event_siege_02 'dysentery... could have been prevented', event_01_juicio 'Two farmers... ownership of a calf'",
+        "sqlite globals event_oneuse/lord_event_possible: r menu:town, w game_start/menu:town/strig:106",
+        "82 distinct menu:event_* records (sqlite texts)",
+        "sqlite slots/calls for menu:event_*_juicio: party 234 eq x11, 235 get/set; calls change_player_relation_with_center, change_center_prosperity, change_player_honor ..."
+      ],
+      "overlaps": [
+        "acw.historical_event_calendar",
+        "ad457.travel_random_events",
+        "awoiaf.canon_story_event_timeline",
+        "awoiaf.random_travel_events",
+        "sw.random_town_ambushes"
+      ]
+    },
+    {
+      "id": "vc.weekly_trade_ledger",
+      "name": "Weekly trade ledger in the budget report and anti-exploit price formulas",
+      "category": "economy-trade",
+      "summary": "Everything the player buys or sells is tallied for the week, split into trade goods and other items, and shown as its own lines in the weekly budget report. The buy/sell price formulas were also reworked so that buying and selling the same item repeatedly no longer makes money.",
+      "mechanics": "Modified engine-called game_event_buy_item / game_event_sell_item (58 vs Native 23 stmts) price the transaction via game_get_item_buy_price_factor / game_get_item_sell_price_factor (57/89 vs Native 18/20) and accumulate $num_buyed_goods_in_week / $buyed_goods_in_week_for (trade goods itm_mead..itm_siege_supply) or $num_buyed_items_in_week / $buyed_items_in_week_for (other items), with the mirror $num_selled_* / $selled_* on sales. They still push the town's trade-good price slot (party slot 251 + good index) up by 14 (buy) or 21 (buy-back), capped at 10000. prsnt:budget_report/t0 reads and resets the ledger weekly.",
+      "hooks": [
+        "script:game_event_buy_item",
+        "script:game_event_sell_item",
+        "prsnt:budget_report/t0"
+      ],
+      "scripts": [
+        "game_event_buy_item",
+        "game_event_sell_item",
+        "game_get_item_buy_price_factor",
+        "game_get_item_sell_price_factor"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:251+good"
+      ],
+      "globals": [
+        "num_buyed_goods_in_week",
+        "buyed_goods_in_week_for",
+        "num_buyed_items_in_week",
+        "buyed_items_in_week_for",
+        "num_selled_goods_in_week",
+        "selled_goods_in_week_for",
+        "num_selled_items_in_week",
+        "selled_items_in_week_for"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis vc game_event_buy_item: price factor, goods/items split into $num_buyed_*/$buyed_*_in_week_for, price slot 251+good +14/+21",
+        "sqlite globals buyed_goods_in_week_for etc.: r/w game_event_buy_item, game_event_sell_item, prsnt:budget_report/t0; reset in update_savegame_to_content_update",
+        "sqlite cmp: vc 58/58/57/89 vs native 23/23/18/20",
+        "Changelog 2.023 'Alter price adjustment formulas to avoid player from making money just by buying/selling a single item over and over again'; 2.025 'adjust pricing formulas'"
+      ],
+      "overlaps": []
+    }
+  ]
+}

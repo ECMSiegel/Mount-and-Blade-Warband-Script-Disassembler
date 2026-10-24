@@ -1,0 +1,671 @@
+{
+  "module": "perisno",
+  "features": [
+    {
+      "id": "perisno.exchange_screen_extensions",
+      "name": "Party-exchange screen extensions (hover hotkeys on the troop screens)",
+      "category": "qol-ui",
+      "summary": "While a party/loot/garrison exchange screen is open, extra keyboard shortcuts and automatic stack handling are active. The shortcuts are not named in the compiled tables; the script is a 563-statement input handler.",
+      "mechanics": "The engine calls game_get_troop_wage for every troop row it draws while a party screen is open. Perisno's replacement of that script (114 stmts vs 43 in Native) calls initialize_exchange_screen_extensions, which reads input state, keeps screen mode in trp_globals_troop slots 11/12 and party slot 421, and uses party_add_party_companions on p_temp_party to rebuild rosters. The exact key bindings were not traced.",
+      "hooks": [
+        "script:game_get_troop_wage"
+      ],
+      "scripts": [
+        "game_get_troop_wage",
+        "initialize_exchange_screen_extensions",
+        "party_add_party_companions",
+        "et_process_troop_swapping"
+      ],
+      "slots": [
+        "troop:11",
+        "troop:12",
+        "troop:28",
+        "party:421"
+      ],
+      "globals": [
+        "g_move_heroes"
+      ],
+      "native_relation": "modifies-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain perisno initialize_exchange_screen_extensions: sole direct caller script:game_get_troop_wage; behaviour profile party_members 78%, input 10%; slots troop[11], troop[12], party[421]",
+        "explain perisno script:game_get_troop_wage: MODIFIED Native script, 114 stmts vs 43 (14% similar); callees include initialize_exchange_screen_extensions and et_process_troop_swapping",
+        "key bindings not decoded; no displayed text for the shortcuts"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.custom_troop_reequip",
+      "name": "Re-equip a soldier from a template and see its quality score",
+      "category": "recruitment-troops",
+      "summary": "Through dialog the player picks armour, helmet, boots, glove, shield and weapon categories for a custom troop type; the game then assesses the gear and reports a quality percentage per slot (armour, horses, shields, bows) and recalculates the troop's upkeep.",
+      "mechanics": "About 37 dialog lines under dlga_custom_troop_reequip_main_menu each call select_equipment_for_a_custom_troop with a category. The 'back' lines call recalculate_upkeep_of_a_custom_troop, which assesses each equipment type and prints '... was assessed. The quality of this soldier is N%'. assess_equipment_of_normal_soldiers is the batch version for ordinary stacks. Equipment is filtered with dplmc_troop_can_use_item.",
+      "hooks": [
+        "dlg:7618:dlga_custom_troop_reequip_main_menu:custom_troop_reequip_2:conseq",
+        "dlg:7657:dlga_custom_troop_reequip_main_menu:custom_troop_reequip_back:conseq",
+        "dlg:7616:dlga_regular_member_talk:custom_troop_reequip_back:conseq"
+      ],
+      "scripts": [
+        "select_equipment_for_a_custom_troop",
+        "recalculate_upkeep_of_a_custom_troop",
+        "assess_equipment_of_normal_soldiers",
+        "dplmc_troop_can_use_item"
+      ],
+      "slots": [
+        "troop:101",
+        "troop:102",
+        "troop:103",
+        "troop:104",
+        "troop:105",
+        "troop:106",
+        "troop:107",
+        "troop:108"
+      ],
+      "globals": [
+        "g_talk_troop"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno select_equipment_for_a_custom_troop: 421 stmts, 37 direct dialog callers (dlg:7618..), NEW script",
+        "explain perisno recalculate_upkeep_of_a_custom_troop: 721 stmts, dialog callers dlg:7616/7656/7657/7658; text 'Armor was assessed. The quality of this soldier is {reg1}%'",
+        "explain perisno assess_equipment_of_normal_soldiers: 342 stmts, item_stats 93%, called from a script",
+        "slots troop 101-108 written by recalculate_upkeep (explain slots list)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.autoloot_equipment_upgrade",
+      "name": "Companions auto-upgrade their gear from the loot pool",
+      "category": "automation",
+      "summary": "From the loot-management menu the player can let heroes decide what to do with the loot: companions scan the pooled inventory and equip the best item they can use, then the pool is sorted.",
+      "mechanics": "menu:dplmc_manage_loot_pool option dplmc_auto_loot leads to menu:dplmc_auto_loot; its 'perform equipment upgrading' option calls dplmc_auto_loot_all, which loops over the party's companion stacks twice (trp_npc1..trp_khivachis) calling dplmc_auto_loot_troop with the pool troop. That script scores items with dplmc_get_item_score_with_imod and dplmc_scan_for_best_item_of_type and respects skills riding/shield/power draw/power throw. Finally troop_sort_inventory on the pool.",
+      "hooks": [
+        "menu:dplmc_manage_loot_pool/opt:dplmc_auto_loot:conseq",
+        "menu:dplmc_auto_loot/opt:dplmc_autoloot_yes:conseq"
+      ],
+      "scripts": [
+        "dplmc_auto_loot_all",
+        "dplmc_auto_loot_troop",
+        "dplmc_get_item_score_with_imod",
+        "dplmc_scan_for_best_item_of_type",
+        "dplmc_troop_can_use_item",
+        "dplmc_init_item_base_score",
+        "dplmc_init_item_difficulties"
+      ],
+      "slots": [
+        "troop:155",
+        "troop:156",
+        "troop:157",
+        "troop:158",
+        "troop:159",
+        "troop:160"
+      ],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis perisno dplmc_auto_loot_all: 12 stmts, two loops over companion stacks calling dplmc_auto_loot_troop, then troop_sort_inventory",
+        "refs perisno menu menu_dplmc_auto_loot: reached from menu:dplmc_manage_loot_pool/opt:dplmc_auto_loot",
+        "explain perisno dplmc_auto_loot_troop: 172 stmts, inventory 80%, callees dplmc_get_item_score_with_imod, dplmc_scan_for_best_item_of_type",
+        "similar perisno dplmc_auto_loot_troop --mods: shape 97% match in another registered module, so it is shared code rather than Perisno-original"
+      ],
+      "overlaps": [],
+      "notes": "Oddity: the script is shared with other registered modules (shape 97%)."
+    },
+    {
+      "id": "perisno.item_equip_bonuses",
+      "name": "Special items grant skill bonuses while equipped, with tooltip text",
+      "category": "character-progression",
+      "summary": "Certain named items (wolf armours, horses, boots, mounts) add skill points such as Spotting, Leadership, Athletics, Trainer or Path-finding while the hero carries them, and the item tooltip says 'While equipped: ... +2 Leadership'.",
+      "mechanics": "game_get_skill_modifier_for_troop (engine hook) calls xgm_get_skill_modifier_for_troop_by_items (1167 stmts), which counts specific items in the troop's inventory via get_troop_item_amount and adds modifiers for pathfinding, leadership, ironflesh, foraging, looting, trade, spotting, trainer, athletics, tactics, riding, wound treatment. The tooltip hook game_get_item_extra_text (593 stmts vs 54 in Native) calls cf_xgm_get_item_extra_text (599 stmts), a long chain of item-id tests that build the 'While equipped' lines.",
+      "hooks": [
+        "script:game_get_skill_modifier_for_troop",
+        "script:game_get_item_extra_text"
+      ],
+      "scripts": [
+        "xgm_get_skill_modifier_for_troop_by_items",
+        "get_troop_item_amount",
+        "cf_xgm_get_item_extra_text",
+        "game_get_item_extra_text",
+        "game_get_skill_modifier_for_troop"
+      ],
+      "slots": [],
+      "globals": [],
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno xgm_get_skill_modifier_for_troop_by_items: sole caller game_get_skill_modifier_for_troop; callee get_troop_item_amount; 13 skill refs",
+        "explain perisno cf_xgm_get_item_extra_text: sole caller game_get_item_extra_text; text 'While equipped: Royal Horse | +2 Leadership'",
+        "explain perisno script:game_get_item_extra_text: MODIFIED Native script 593 vs 54 stmts, 7% similar",
+        "compare cf_xgm_get_item_extra_text --mods perisno,native: absent in Native"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.battle_formations_and_tactics",
+      "name": "Formation and battle-group AI for field battles",
+      "category": "battle-ai-formations",
+      "summary": "In field battles (and ship and rebellion battles) the AI forms ranks, places battle groups around leaders, and picks melee, ranged and skirmish tactics instead of Native's plain charge, with per-team decision numbers and aggressive/defensive cavalry, archer, infantry behaviours.",
+      "mechanics": "A master trigger (pnb_mt_mastertrigger, run every 0.1s from mst lead_charge/t64, ship_battle/t56, vinica_rebellion/t57) calls scan_and_cache_agents to count infantry/archers/cavalry into pl_missopt_total_* globals and agent/team slots, then field_tactics -> team_field_melee_tactics (712 stmts) / team_field_ranged_tactics, which use battlegroup_* helpers and form_infantry (552 stmts) to compute positions. order_skirmish_begin_end is present but unreferenced in the call graph.",
+      "hooks": [
+        "mst:lead_charge/t64:conseq",
+        "mst:ship_battle/t56:conseq",
+        "mst:vinica_rebellion/t57:conseq"
+      ],
+      "scripts": [
+        "pnb_mt_mastertrigger",
+        "scan_and_cache_agents",
+        "field_tactics",
+        "team_field_melee_tactics",
+        "team_field_ranged_tactics",
+        "form_infantry",
+        "battlegroup_place_around_pos1",
+        "battlegroup_get_position",
+        "calculate_decision_numbers",
+        "order_skirmish_begin_end"
+      ],
+      "slots": [
+        "agent:15",
+        "agent:23",
+        "agent:24",
+        "agent:25",
+        "agent:27",
+        "team:5",
+        "team:8",
+        "team:9",
+        "team:11",
+        "team:12",
+        "team:13"
+      ],
+      "globals": [
+        "battle_phase",
+        "pl_missopt_total_soldiers",
+        "ai_team_1_battle_tactic",
+        "ai_team_2_battle_tactic"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno form_infantry: 552 stmts, entry points mst:lead_charge/t64:conseq [every 0.1s] and two more; callers battlegroup_place_around_pos1, team_field_melee_tactics",
+        "explain perisno team_field_melee_tactics: 712 stmts, writes global battle_phase; reads ai_team_*_battle_tactic",
+        "explain perisno scan_and_cache_agents: caller pnb_mt_mastertrigger; writes pl_missopt_total_* globals; slots agent[15], team[3..8]",
+        "Perisno map lists battlegroup_* and cf_*_aggresive_ai as NEW scripts"
+      ],
+      "overlaps": [],
+      "notes": "Oddity: some tactic scripts (cf_infantry_aggresive_ai, order_skirmish_begin_end) are unreachable by static call graph; they may be called by computed id or may be dead."
+    },
+    {
+      "id": "perisno.fire_ammo_explosions",
+      "name": "Fire arrows and fire bolts explode on impact",
+      "category": "combat-mechanics",
+      "summary": "Fire arrows and fire bolts burst into smoke, sparks and dirt when they hit and hurt every enemy in a radius, scaled by distance, with a minimum damage.",
+      "mechanics": "The three items' missile-hit triggers call cf_create_explosion(agent, min_damage, damage, radius). It spawns particle bursts and sounds at the impact position, then loops all agents, finds enemies within the radius, computes damage falling with distance, calls agent_deliver_damage_to_agent, and adds 3x the actual HP lost into agent slot 46 (a kill/score accumulator) while recording the attacker in slot 48.",
+      "hooks": [
+        "itm:itm_fire_arrow2/t0",
+        "itm:itm_fire_arrow3/t0",
+        "itm:itm_fire_bolt/t0"
+      ],
+      "scripts": [
+        "cf_create_explosion",
+        "cf_create_explosion_large",
+        "cf_create_leafbomb_explosion"
+      ],
+      "slots": [
+        "agent:46",
+        "agent:48"
+      ],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "callers perisno cf_create_explosion: 3 call sites, all ti_on_missile_hit triggers of fire arrows/bolt",
+        "dis perisno cf_create_explosion: try_for_agents loop, teams_are_enemies, distance falloff, agent_deliver_damage_to_agent, agent_set_slot 46/48",
+        "explain perisno cf_create_explosion: psys_explosive_explosion_sparks, snd_galwe_explode"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.budget_and_patrol_wages",
+      "name": "Hourly budget processing, patrol wages and budget report",
+      "category": "economy-trade",
+      "summary": "The game periodically pays the player's party wages, patrol wages, enterprise income and tax, tracks debt to party members, and shows it all in a budget report presentation. Companions can complain when unpaid.",
+      "mechanics": "strig:150 (every 1h) calls et_process_budgets -> process_budgets (833 stmts): hero wages via game_get_troop_wage, process_player_enterprise, tax description, party strength, withdrawals from the chamberlain's treasury (dplmc_withdraw_from_treasury), and pay_patrol_wages (304 stmts) which charges prisoner-price based amounts per patrol party and keeps party slot 396. prsnt:budget_report/t0 shows the totals.",
+      "hooks": [
+        "strig:150",
+        "prsnt:budget_report/t0"
+      ],
+      "scripts": [
+        "et_process_budgets",
+        "process_budgets",
+        "pay_patrol_wages",
+        "process_player_enterprise",
+        "dplmc_withdraw_from_treasury",
+        "game_get_troop_wage"
+      ],
+      "slots": [
+        "party:396",
+        "party:7",
+        "faction:111"
+      ],
+      "globals": [
+        "g_player_debt_to_party_members",
+        "et_payment_cost",
+        "g_cur_week_half_daily_wage_payments",
+        "npc_with_grievance"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno process_budgets: caller et_process_budgets, entry strig:150 (every 1h); writes g_player_debt_to_party_members, et_payment_cost, npc_with_grievance",
+        "explain perisno pay_patrol_wages: callers process_budgets and prsnt:budget_report/t0; slots party[396], party[7]",
+        "slot perisno party 396: pay_patrol_wages, prsnt:bank/t0, et_chamberlain_collect_all_treasury (module-specific slot)",
+        "tree perisno process_budgets --depth 1: callees listed"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.bank_and_gambling",
+      "name": "Town bank screen and a gambling game",
+      "category": "economy-trade",
+      "summary": "Town menus offer a bank (visit the landlords and moneylenders) with a quick-view panel, and a mystic merchant offers a gambling mini-game.",
+      "mechanics": "menu:town option town_bank opens prsnt_bank; the presentation has event handlers that reopen it (7 references) and prsnt:bank_quickview shows balance. The treasury slot party[396] is read by the bank presentation. A dialog line with the mystic merchant opens prsnt_gambling, whose event handler is referenced 8 times. Interest or odds were not decoded.",
+      "hooks": [
+        "menu:town/opt:town_bank:conseq",
+        "dlg:6090:dlga_mystic_merchant_talk:close_window:conseq"
+      ],
+      "scripts": [
+        "trade_ledger_create"
+      ],
+      "slots": [
+        "party:396"
+      ],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs perisno prsnt prsnt_bank: opened from menu:town/opt:town_bank, re-entered from prsnt:bank/t1",
+        "refs perisno prsnt prsnt_gambling: opened from dlg:6090:dlga_mystic_merchant_talk, 7 self-references in prsnt:gambling/t2",
+        "slot perisno party 396 readers include prsnt:bank/t0 and prsnt:bank_quickview/t0",
+        "presentation bodies not disassembled"
+      ],
+      "overlaps": [],
+      "presentations": [
+        "prsnt_bank",
+        "prsnt_bank_quickview",
+        "prsnt_gambling"
+      ]
+    },
+    {
+      "id": "perisno.trade_ledger",
+      "name": "Merchant ledger (what a trade good would earn elsewhere)",
+      "category": "economy-trade",
+      "summary": "From the reports menu the player opens a Merchant Ledger that lists goods by town with an assessed profit if sold in another town, based on the party's best trade skill.",
+      "mechanics": "menu:reports option action_view_trade_ledger opens prsnt_trade_ledger_basic. Its load handler (523 stmts) builds a table from the array library (array_get_element, array_pushback), reads get_max_skill_of_player_party / skl_trade, and prints '{s1} sold in {s2} would earn {reg0} aurums'. A related menu town_trade_assessment creates the ledger array on demand. Entries are trimmed and de-duplicated by cf_trade_ledger_trim_entries / ..._custom_assess_duplicates.",
+      "hooks": [
+        "menu:reports/opt:action_view_trade_ledger:conseq",
+        "menu:town_trade_assessment",
+        "prsnt:trade_ledger_basic/t0"
+      ],
+      "scripts": [
+        "trade_ledger_create",
+        "cf_trade_ledger_trim_entries",
+        "cf_trade_ledger_custom_assess_item",
+        "cf_trade_ledger_custom_assess_duplicates",
+        "get_max_skill_of_player_party"
+      ],
+      "slots": [
+        "party:997",
+        "party:999",
+        "troop:164"
+      ],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "refs perisno prsnt prsnt_trade_ledger_basic: menu:reports/opt:action_view_trade_ledger",
+        "explain perisno prsnt:trade_ledger_basic/t0: callees array_*, get_max_skill_of_player_party; text 'Merchant Ledger', 'sold in ... would earn ... aurums'",
+        "explain perisno array_create: callers trade_ledger_create; entry menu:town_trade_assessment",
+        "slot perisno troop 164: s1 in trade_ledger_create"
+      ],
+      "overlaps": [],
+      "presentations": [
+        "prsnt_trade_ledger_basic"
+      ],
+      "menus": [
+        "menu:town_trade_assessment"
+      ]
+    },
+    {
+      "id": "perisno.array_library",
+      "name": "Script-level array library on hidden temp parties",
+      "category": "other",
+      "summary": "A small data-structure library (create, get, set, insert, push, shift, remove, owner, size, version) used by the trade ledger; most of its functions are never called.",
+      "mechanics": "Arrays are stored in slots of p_temp_party-style holder parties (party slots 996-999 for ledger arrays) with its owner and version stored alongside. array_create prints 'array[N] created'. Of about 30 array_* and cf_array_* scripts only a handful are reached (from the ledger menu/presentation); the rest are flagged UNREACHED by the tool.",
+      "hooks": [
+        "menu:town_trade_assessment",
+        "prsnt:trade_ledger_basic/t2"
+      ],
+      "scripts": [
+        "array_create",
+        "array_get_element",
+        "array_set_element",
+        "array_pushback",
+        "array_insert",
+        "array_p_shift_range",
+        "cf_array_get_element",
+        "cf_array_is_array",
+        "cf_array_remove"
+      ],
+      "slots": [
+        "party:996",
+        "party:997",
+        "party:998",
+        "party:999"
+      ],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno array_create: slots party[996..999], caller trade_ledger_create, text 'array[{reg0}] created'",
+        "report perisno New scripts list: array_clear, array_insert_n, array_pushfront, array_remove_n marked UNREACHED; array_get_element 19 callers",
+        "explain perisno prsnt:trade_ledger_basic/t0: calls array_get_element, array_get_size, array_pushback"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.freelancer_service",
+      "name": "Enlist as a freelancer soldier under a lord",
+      "category": "armies-campaigns",
+      "summary": "The player can sign up as a common soldier in a lord's army, march attached to his party, take leave, return, be discharged, desert or be captured, and options in the mod-option screen enable it, ignore weak enemies, disable upgrades and enable re-gearing. A mod-option text warns the minimod was reported bugged.",
+      "mechanics": "freelancer_state (global) is written by dialog 'ask_return_from_leave' and by freelancer_event_player_enlists/returns/vacation/discharge/deserts/revolts/captured scripts and by game_start; 91 blocks read it (dialog conditions, party AI, wages). freelancer_attach_party attaches p_main_party to the lord's party. qst_freelancer_enlisted is the quest marker. A dialog line refuses marriage to 'a common soldier'.",
+      "hooks": [
+        "dlg:8135:dlga_lord_request_enlistment_confirm:close_window:conseq",
+        "dlg:4810:dlga_lord_talk:ask_return_from_leave:conseq",
+        "prsnt:mod_option/t0"
+      ],
+      "scripts": [
+        "freelancer_attach_party",
+        "freelancer_event_player_enlists",
+        "freelancer_event_player_returns",
+        "freelancer_event_player_vacation",
+        "freelancer_event_player_discharge",
+        "freelancer_event_player_deserts",
+        "freelancer_event_player_revolts",
+        "freelancer_event_player_captured"
+      ],
+      "slots": [],
+      "globals": [
+        "freelancer_state",
+        "enlisted_party",
+        "enlisted_lord"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global perisno freelancer_state: 8 writers (dlg ask_return_from_leave, freelancer_event_player_* scripts, game_start), 91 readers",
+        "explain perisno freelancer_attach_party: callers freelancer_event_player_enlists/returns; entry dlg:8135 and dlg:8151/8152; writes freelancer_state",
+        "text freelancer --mods perisno: 71 hits incl. mod_option labels 'Enable Freelancer', 'Disable Freelancer Upgrades', 'Enable Freelancer Regearing'"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.freelancer_guild_contracts",
+      "name": "Freelancer Guild contracts and deserter bands",
+      "category": "mercenaries",
+      "summary": "A guild leader in one town sells contracts: the town pays a sum and groups of freelancers then join the garrison or patrol around a settlement. Freelancers who go rogue spawn as deserters to be defeated, and companies of freelancers can also be hired from the high marshal and constable.",
+      "mechanics": "Dialog chain gesprach_town_19_mayor_* explains the guild and collects 5,000 aurums; strig:121 posts 'A group of freelancers joined the garrison of {s8} according to the contract'. str_freerogues and str_defeat_freelancer_deserters describe the rogue spawn; hire dialogs offer 'Freelancers' Cavalry/Infantry Company' for aurums. The spawn and patrol scripts themselves were not traced.",
+      "hooks": [
+        "strig:121",
+        "dlg:1092:dlga_gesprach_town_19_mayor_11:gesprach_town_19_mayor_12:conseq",
+        "dlg:424:dlga_highmarshal_hire_foreignmercs_1:highmarshal_hire_foreignmercs_4.12:conseq"
+      ],
+      "scripts": [],
+      "slots": [],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "text freelancer --mods perisno: str_group_of_freelancers_joined used by strig:121; str_sign_contract_with_the_leader_of_freelancer_guild used by dlg:1096; dlg 1092-1093 guild explanation",
+        "text freelancer: dlg:424/425 hire Freelancers' Cavalry/Infantry Company",
+        "spawn/patrol scripts not traced"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.faction_ai_dk2",
+      "name": "Faction strategic AI (target choice and assailability score)",
+      "category": "campaign-ai",
+      "summary": "Each kingdom periodically rethinks its strategy: which enemy centres to attack, who to grant fiefs, how to answer political issues, using a numeric assailability score per centre.",
+      "mechanics": "strig:33 (every 3h) calls recalculate_ais, which runs decide_faction_ai_dk2 (527 stmts, 89-block closure) per faction; the force-rethink menu option does the same. It calls npc_decision_checklist_* helpers and calculate_center_assailability_score_dk2 (323 stmts) which weighs prosperity, strength and distance and prints 'attack of {s8} is {reg0}' debug text. It also raises notifications (war declared, feast, marshal relief) and touches qst_organize_feast, qst_wed_betrothed.",
+      "hooks": [
+        "strig:33",
+        "menu:faction_orders/opt:faction_orders_rethink_all:conseq"
+      ],
+      "scripts": [
+        "recalculate_ais",
+        "decide_faction_ai_dk2",
+        "calculate_center_assailability_score_dk2",
+        "npc_decision_checklist_evaluate_enemy_center_for_attack_dk2",
+        "find_total_prosperity_score",
+        "npc_decision_checklist_troop_follow_or_not"
+      ],
+      "slots": [
+        "faction:4",
+        "faction:5",
+        "faction:8",
+        "faction:11",
+        "faction:21"
+      ],
+      "globals": [
+        "g_do_not_skip_other_than_current_ai_object"
+      ],
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno decide_faction_ai_dk2: caller recalculate_ais; entry strig:33 (every 3h) and menu faction_orders_rethink_all; NEW script",
+        "explain perisno calculate_center_assailability_score_dk2: caller npc_decision_checklist_evaluate_enemy_center_for_attack_dk2; debug text 'attack of {s8} is {reg0}'",
+        "hooks perisno strig:33 calls recalculate_ais",
+        "slots faction[4], [5], [8], [11], [21] read in closure"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.rebels_and_mercenary_bands",
+      "name": "Scheduled rebel armies and unemployed-mercenary warbands",
+      "category": "dynamic-world-events",
+      "summary": "Pretenders' rebels, a named peasant outlaw leader, a desert raider and a lord of mercenaries periodically gather armies on the map, with news messages, and unemployed mercenaries form 'Rogue Knight' bands.",
+      "mechanics": "strig:116 (every 67h) runs spawn_rebels (572 stmts), spawning rebel parties per kingdom (factions_rebels_kingdom_N_pretender globals) plus cf_et_spawn_teyva; messages say 'Nibor Hood has gathered an army...' and 'Teyva the Desert Scourge ... forms an army'. strig:115 (every 31h) runs spawn_outlaw_mercenary_warband (298 stmts) building parties like pt_rogue_knight_1 and pt_mercenaries and the message 'Several ... failed to find employers'. Both use cf_spawning_script_template.",
+      "hooks": [
+        "strig:116",
+        "strig:115"
+      ],
+      "scripts": [
+        "spawn_rebels",
+        "spawn_outlaw_mercenary_warband",
+        "cf_spawning_script_template",
+        "cf_et_spawn_teyva"
+      ],
+      "slots": [
+        "faction:40",
+        "party_template:6",
+        "party_template:400",
+        "party:74"
+      ],
+      "globals": [
+        "factions_rebels_kingdom_1_pretender",
+        "spontanen_meut",
+        "nibor"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno spawn_rebels: sole caller strig:116 (every 67h); writes factions_rebels_kingdom_*_pretender globals; text 'Nibor Hood has gathered an army...'",
+        "explain perisno spawn_outlaw_mercenary_warband: sole caller strig:115 (every 31h); pt refs pt_rogue_knight_1, pt_mercenaries; text 'Several {s14} failed to find employers'",
+        "explain perisno cf_spawning_script_template: 53 callers, party_ai 60% party_spawn 40%"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.constable_recruiters_and_training",
+      "name": "Chamberlain, constable recruiters and retainer training",
+      "category": "recruitment-troops",
+      "summary": "The player can appoint a chamberlain who handles money; a constable then sends recruiters to villages that bring recruits to the player's fiefs and trains retainer families over time, with letters announcing results.",
+      "mechanics": "g_player_chamberlain is written by dplmc_appoint_chamberlain / dialogs and read in 31 blocks (constable recruit dialogs refuse without a chamberlain). Hourly, strig:150 -> et_process_4hr_party_scanner (542 stmts, 32 callees) -> cf_et_process_dplmc_recruiters (283 stmts) spawns recruiter visits and posts 'A recruiter has brought N recruits to {s13}'. cf_et_process_hhg (74 stmts) advances et_train_hhg_time for trp_player_retainers_* and sends a constable letter.",
+      "hooks": [
+        "strig:150",
+        "dlg:2748:dlga_dplmc_constable_recruit:dplmc_constable_pretalk:cond",
+        "dlg:2804:dlga_et_train_hhg_finalized:dplmc_constable_pretalk.2:conseq"
+      ],
+      "scripts": [
+        "dplmc_appoint_chamberlain",
+        "et_process_4hr_party_scanner",
+        "cf_et_process_dplmc_recruiters",
+        "cf_et_process_hhg",
+        "dplmc_withdraw_from_treasury"
+      ],
+      "slots": [
+        "troop:400",
+        "troop:401",
+        "troop:403",
+        "troop:404",
+        "party:238",
+        "party:239"
+      ],
+      "globals": [
+        "g_player_chamberlain",
+        "et_hhg_training_proficiency",
+        "et_train_hhg_time",
+        "et_hhg_family"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global perisno g_player_chamberlain: 5 writers, 31 readers incl. constable recruit dialogs dlg:2748-2750",
+        "explain perisno cf_et_process_dplmc_recruiters: caller et_process_4hr_party_scanner (strig:150); text 'A recruiter has brought {reg10} recruits to {s13}'",
+        "explain perisno cf_et_process_hhg: writes et_train_hhg_time; troop refs trp_player_retainers; letter text"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "perisno.hard_mode_and_fog_of_war",
+      "name": "Start-of-game hard mode and fog of war toggles",
+      "category": "other",
+      "summary": "At new-game start the player can toggle Hard Mode (harsher rules such as lost items when captured, wider effects on wages and recruiting) and Fog of War (fief locations hidden until revealed, e.g. by reading regional maps sold as items).",
+      "mechanics": "menu:start_game_0_5 has options hard_mode and fog_of_war that flip $g_hard_mode / $g_fog_of_war, with the current state printed in s10 and a summary text. g_hard_mode is read in 39 blocks (village elder recruit dialogs, ladder construction, game_get_troop_wage, spawn scripts). Map items' tooltips say they reveal fiefs if Fog of War is active (game_get_item_extra_text).",
+      "hooks": [
+        "menu:start_game_0_5/opt:hard_mode:conseq",
+        "menu:start_game_0_5/opt:fog_of_war:conseq"
+      ],
+      "scripts": [
+        "game_get_troop_wage",
+        "game_get_item_extra_text",
+        "spawn_rebels"
+      ],
+      "slots": [],
+      "globals": [
+        "g_hard_mode",
+        "g_fog_of_war"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global perisno g_hard_mode: 2 writers (menu:start_game_0, hard_mode option), 39 readers",
+        "global perisno g_fog_of_war: 3 writers (start menus), 6 readers (same menu)",
+        "text fog.of.war --mods perisno: 8 hits; regional map item tooltips used by script:game_get_item_extra_text; 'Hard mode is Active / Fog of War is permanently active' in menu:start_game_0_5"
+      ],
+      "overlaps": [],
+      "menus": [
+        "menu:start_game_0_5"
+      ]
+    },
+    {
+      "id": "perisno.hunting_missions",
+      "name": "Hunting animal herds on the map",
+      "category": "other",
+      "summary": "Map events present deer and boar herds that the player can hunt in a dedicated hunting scene.",
+      "mechanics": "menu:deer_herd option deer_kill and menu:boar_herd option boar_kill start mst_deer_hunting / mst_boar_hunting (plus wolf, coat and wild-donkey variants exist as mission templates). The mission triggers handle agent behaviour (deer_hunting/t0 runs every frame and prints a taunt text); kill counting and rewards were not traced.",
+      "hooks": [
+        "menu:deer_herd/opt:deer_kill:conseq",
+        "menu:boar_herd/opt:boar_kill:conseq"
+      ],
+      "scripts": [],
+      "slots": [],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs perisno mt mst_deer_hunting: 1 reference, menu:deer_herd/opt:deer_kill:conseq",
+        "refs perisno mt mst_boar_hunting: 1 reference, menu:boar_herd/opt:boar_kill:conseq",
+        "report perisno lists mst_wolf_hunting, mst_coat_hunting, mst_wilddonkey_hunting as not in Native",
+        "mission trigger bodies not disassembled"
+      ],
+      "overlaps": [],
+      "mission_templates": [
+        "mst_deer_hunting",
+        "mst_boar_hunting",
+        "mst_wolf_hunting"
+      ]
+    },
+    {
+      "id": "perisno.starting_orders_screen",
+      "name": "Starting-orders presentation before joining a battle",
+      "category": "battle-ai-formations",
+      "summary": "Before a battle starts the player can open a Starting Orders / troop-organisation screen to set how troop groups are arranged.",
+      "mechanics": "menu:join_battle option join_battle_order and menu:simple_encounter option encounter_battle_order open prsnt_troop_organization (and a second version, troop_organization2). The presentation reuses its own event handler. What it writes (probably per-class group settings read by the battle AI) was not traced.",
+      "hooks": [
+        "menu:join_battle/opt:join_battle_order:conseq",
+        "menu:simple_encounter/opt:encounter_battle_order:conseq"
+      ],
+      "scripts": [],
+      "slots": [],
+      "globals": [],
+      "native_relation": "new",
+      "confidence": "speculative",
+      "evidence": [
+        "refs perisno prsnt prsnt_troop_organization: 3 references (two menu options, one self-reference)",
+        "link to the formation AI is an assumption from names; not traced"
+      ],
+      "overlaps": [],
+      "presentations": [
+        "prsnt_troop_organization",
+        "prsnt_troop_organization2"
+      ]
+    },
+    {
+      "id": "perisno.perisno_inn",
+      "name": "Enterable inn with fights and a hired assassin",
+      "category": "settlements-villages",
+      "summary": "A town inn scene the player can enter; the visit can trigger a belligerent drunk fight or a hired-assassin attack, with musicians and decorative items present.",
+      "mechanics": "menu:perisno_inn / perisno_inn_first_time option 'Enter the Inn' calls cf_enter_perisno_inn (92 stmts), which runs initialize_tavern_variables and setup_tavern_attacker, sets perisno_inn_visited and the g_start_belligerent_drunk_fight / g_start_hired_assassin_fight globals, and starts scn_perisno_inn_interior with mst_town_default.",
+      "hooks": [
+        "menu:perisno_inn/opt:interior:conseq",
+        "menu:perisno_inn_first_time/opt:interior:conseq"
+      ],
+      "scripts": [
+        "cf_enter_perisno_inn",
+        "initialize_tavern_variables",
+        "setup_tavern_attacker"
+      ],
+      "slots": [
+        "party:95",
+        "party:96",
+        "party:107",
+        "party:108"
+      ],
+      "globals": [
+        "perisno_inn_visited",
+        "g_start_belligerent_drunk_fight",
+        "g_start_hired_assassin_fight"
+      ],
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain perisno cf_enter_perisno_inn: callers the two inn menu options; writes g_start_belligerent_drunk_fight, g_start_hired_assassin_fight",
+        "explain perisno cf_enter_perisno_inn: scene ref scn_perisno_inn_interior, troop refs trp_hired_assassin, trp_belligerent_drunk, trp_musican_male",
+        "scene_setup 95% behaviour profile of the closure"
+      ],
+      "overlaps": []
+    }
+  ]
+}

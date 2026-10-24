@@ -1,0 +1,1828 @@
+{
+  "module": "acan",
+  "features": [
+    {
+      "id": "acan.town_decrees",
+      "name": "Town decrees (curfew, entry controls, garbage collection, social housing, strict law, begging ban)",
+      "category": "law-governance",
+      "summary": "Each town or fort can carry up to six standing decrees. The player issues or revokes them for gold from the fief-management screen, and AI lords issue and revoke them on their own. Every decree trades prosperity, crime, disease or the townsfolk's goodwill against each other.",
+      "mechanics": "Each decree is a 0/1 flag in party slots 264-269 (curfew, entry controls, garbage collection, social housing, strict law enforcement, begging ban). Names and descriptions come from get_decree_details. The player toggles a decree in prsnt:center_management/t4, which shows a gold-cost confirmation. AI lords decide in troop_does_business_in_center via decide_decree_enact and decide_decree_revoke. Those two scripts roll against the lord's attribute, the town's prosperity (party slot 46), the lord's personality (troop slot 52) and a culture bonus for 'barbarian' factions. Effects read the flags in these places: cf_center_night_bandits_check (strig:188/189) for night bandit infestation, which curfew, housing and strict law affect; strig:158 for the epidemic chance, which garbage collection lowers; strig:157 for monthly-ish relation changes (housing raises relation, entry controls and strict law lower it); get_center_ideal_prosperity (housing, strict law, begging ban); do_merchant_town_trade and menu:control at the town gate (entry controls); town menu options and rumours (curfew); and center_get_capital. A notification fires when an AI lord enacts or revokes a decree.",
+      "hooks": [
+        "prsnt:center_management/t0",
+        "prsnt:center_management/t4",
+        "prsnt:fief_management/t0",
+        "script:troop_does_business_in_center",
+        "strig:157",
+        "strig:158",
+        "strig:188",
+        "strig:189",
+        "strig:19",
+        "strig:146",
+        "strig:147",
+        "menu:control"
+      ],
+      "scripts": [
+        "get_decree_details",
+        "decide_decree_enact",
+        "decide_decree_revoke",
+        "cf_center_night_bandits_check",
+        "get_center_ideal_prosperity",
+        "center_get_capital",
+        "do_merchant_town_trade",
+        "troop_does_business_in_center",
+        "get_generic_rumour_string_to_s4"
+      ],
+      "menus": [
+        "menu_control",
+        "menu_town"
+      ],
+      "presentations": [
+        "prsnt_center_management",
+        "prsnt_fief_management"
+      ],
+      "mission_templates": [],
+      "dialogs": [
+        "dlg:9624:dlga_town_dweller_talk (begging, slot 269)",
+        "dlg:9656-9658 town_dweller_ask_situation (slots 267/268)"
+      ],
+      "slots": [
+        "party:264",
+        "party:265",
+        "party:266",
+        "party:267",
+        "party:268",
+        "party:269",
+        "party:46",
+        "party:115",
+        "troop:52"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "slot acan party 264-269: writers prsnt:center_management/t4 + troop_does_business_in_center, readers listed above",
+        "dis acan decide_decree_enact: probability per decree by attribute/prosperity/personality",
+        "text 'decree' --mods acan: str_decree_*_name/description, 'Issuing a decree costs {reg0} denarii', '{s10} has enacted the decree {s30} in {s4}'",
+        "dis acan strig:158: party 266 (garbage collection) +50 to the epidemic-roll divisor",
+        "text 'Quarantine|Decree|Curfew' --mods ad457: only qstr 'Decree_Effects:' in prsnt:center_management/t0; compare decide_decree_enact --mods acan,ad457: ad457 absent"
+      ],
+      "overlaps": [
+        "acan.imperial_treasury_budget",
+        "acan.senate_influence_edicts",
+        "ad457.dplmc4_tax_inefficiency_and_extras",
+        "be.pps_political_simulation"
+      ]
+    },
+    {
+      "id": "acan.settlement_events_epidemics",
+      "name": "Settlement events and epidemics (inherits ad457.settlement_disasters_epidemics; acan adds harvests, winters, sanitation and wider effects)",
+      "category": "dynamic-world-events",
+      "summary": "Towns and villages get one active local event at a time: a good or poor harvest, a harsh or mild winter, drought, insects, an earthquake, a fire, or a disease outbreak (consumption, fevers, plague, measles and others). For its duration the event changes prosperity growth, rents, recruits and town-dweller talk. When the player owns the place they are notified, and for an epidemic they can order a quarantine.",
+      "mechanics": "Party slot 324 holds the active event id. get_event_details turns the id into a name, a description, a prosperity-rate percentage (reg0) and a prosperity delta (reg1); its id bands encode event type and severity. strig:158 (about hourly) picks a random town, rolls an epidemic weighted by month (winter is worse) and by sanitation (garbage-collection decree party 266, sewers improvement party 294, hospital improvement party 287), picks a disease, applies change_center_prosperity, sets slot 324 and notifies the holder with menu_epidemic_outbreak (option: 'Order a quarantine'). strig:163 rolls earthquakes in seismic regions (cf_can_have_earthquake reads the region in party 68) and sends menu_disaster_event. calculate_weekly_rents ages and clears events. Readers: get_center_ideal_prosperity, calculate_weekly_rents, calculate_latifundium_rents, get_volunteer_limits (fewer recruits), process_player_enterprise, get_rumor_to_s61, town and village menus and dweller dialogs.",
+      "hooks": [
+        "strig:158",
+        "strig:163",
+        "menu:epidemic_outbreak",
+        "menu:disaster_event",
+        "script:calculate_weekly_rents"
+      ],
+      "scripts": [
+        "get_event_details",
+        "cf_can_have_earthquake",
+        "change_center_prosperity",
+        "get_center_ideal_prosperity",
+        "get_volunteer_limits",
+        "calculate_weekly_rents"
+      ],
+      "menus": [
+        "menu_epidemic_outbreak",
+        "menu_disaster_event",
+        "menu_event_city_desaster_1"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:324",
+        "party:325",
+        "party:266",
+        "party:287",
+        "party:294",
+        "party:68",
+        "party:46"
+      ],
+      "globals": [
+        "g_cur_month"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan get_event_details: id bands -> poor/good harvest, conquered, harsh/mild winter, earthquake, fire, drought, insects, Rome fire, consumption, slow fever, camp fever, plague, measles",
+        "dis acan strig:158: month weighting, slot 266/294/287 modifiers, sets party 324, add_notification_menu menu_epidemic_outbreak",
+        "slot acan party 324: 21 accesses in 15 blocks (menus, rents, volunteers, enterprise, rumours)",
+        "compare get_event_details: ad457 109 stmts/79% shape",
+        "compare get_event_details --mods acan,ad457: 166 vs 109 stmts, 79% shape; dis ad457 get_event_details: str_disease_* incl. smallpox/greatpox, no harvest/winter strings"
+      ],
+      "overlaps": [
+        "ad457.settlement_disasters_epidemics",
+        "pop.fief_heartbeat_problems"
+      ]
+    },
+    {
+      "id": "acan.imperial_treasury_budget",
+      "name": "Faction treasuries with a weekly budget: income/spending categories, corruption, tax fraud, embezzlement trials",
+      "category": "economy-trade",
+      "summary": "Every kingdom keeps a real treasury that is refilled and drained weekly by categorised income (taxes, edict taxes, tributes) and spending (army upkeep, cohort refills, salaries, subsidies). Corruption skims a share of income. A ruler-player can read an imperial budget report, pay into or take from the treasury, and risk an embezzlement trial if they take too much.",
+      "mechanics": "add_to_faction_bugdet(category_slot, faction, amount) (62 callers) adds an amount to a category slot on the faction. Weekly netting (below) shows faction slots 270-274 are the income buckets and 262-269 the spending buckets. When the player is the ruler, positive postings to 270/271/273 are boosted, and negative postings to 266/267 shrunk, by household quality (get_household_modifier). trig:5 (weekly) runs weekly_imperial_balance, which sums and clears 262-269 (spending) and 270-274 (income). It handles slot 275 (the ruler's pay or draw, sign convention not resolved): it pays the ruler via add_to_troop_wealth, or event_player_takes_money_imperial_treasury when the ruler is the player, and adds it to the income side. It adds a corruption share of income (calculate_imperial_corruption: a percentage that a census ($conducted_census), extra tax collectors ($control_tax) and minister/chamberlain household quality reduce) plus 4% of faction slot 43 to the spending side, and books net = income + slot 275 - spending through add_to_faction_treasury (faction slots 43/44). calculate_bureaucratic_costs and calculate_edict_tax are posted from calculate_weekly_rents (strig:53/196). prsnt:imperial_budget_report and prsnt:budget_report draw the report (generate_imperial_bugdet_report, 427 stmts). The player-ruler can pay into or withdraw from the treasury (dlg:4620 imperial_treasury_action_take_money). Taking money raises suspicion, which leads to menu:caught_embezzle_punished and trial dialogs (trial_guilty -> remove_office_from_troop). calculate_staff_salary itemises minister, praefectus urbani and tax-collector salaries.",
+      "hooks": [
+        "trig:5:conseq",
+        "prsnt:imperial_budget_report/t0",
+        "prsnt:budget_report/t0",
+        "strig:53",
+        "strig:196",
+        "dlg:4620:dlga_imperial_treasury_action_take_money_3",
+        "menu:caught_embezzle_punished"
+      ],
+      "scripts": [
+        "add_to_faction_bugdet",
+        "add_to_faction_treasury",
+        "weekly_imperial_balance",
+        "calculate_imperial_corruption",
+        "calculate_bureaucratic_costs",
+        "calculate_edict_tax",
+        "generate_imperial_bugdet_report",
+        "event_player_takes_money_imperial_treasury",
+        "calculate_staff_salary",
+        "get_household_modifier",
+        "print_cost_distribution_to_s10"
+      ],
+      "menus": [
+        "menu_caught_embezzle_punished",
+        "menu_inspect_treasury"
+      ],
+      "presentations": [
+        "prsnt_imperial_budget_report",
+        "prsnt_budget_report"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:262",
+        "faction:263",
+        "faction:264",
+        "faction:265",
+        "faction:266",
+        "faction:267",
+        "faction:268",
+        "faction:269",
+        "faction:270",
+        "faction:271",
+        "faction:272",
+        "faction:273",
+        "faction:274",
+        "faction:275",
+        "faction:43",
+        "faction:44",
+        "faction:10",
+        "faction:225"
+      ],
+      "globals": [
+        "conducted_census",
+        "control_tax",
+        "g_player_chamberlain",
+        "g_player_minister",
+        "g_is_emperor"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan weekly_imperial_balance: sums/clears faction 262-269 (:l1, spending side) and 270-274 (:l4, income side); corruption % of :l4 added to :l1; :l4 += slot 275; :l4 -= :l1; add_to_faction_treasury(:l4)",
+        "explain acan calculate_imperial_corruption: reads conducted_census, control_tax, g_player_minister/chamberlain",
+        "explain acan add_to_faction_treasury: '{reg0} denarii have been added to/taken from the imperial treasury'",
+        "text 'Edict': str_faction_taxes_edicts / str_faction_spending_edicts budget lines",
+        "dis acan add_to_faction_bugdet: faction_set_slot(category) += amount; household bonus on positive 270/271/273 and on negative 266/267 when the player rules"
+      ],
+      "overlaps": [
+        "acan.senate_influence_edicts",
+        "acan.town_decrees",
+        "ad457.dplmc4_tax_inefficiency_and_extras",
+        "be.pps_political_simulation"
+      ]
+    },
+    {
+      "id": "acan.senate_influence_edicts",
+      "name": "Influence points, Senate support and kingdom-wide edicts voted in the Senate",
+      "category": "diplomacy-politics",
+      "summary": "Influence becomes a currency the player spends on political actions: asking for titles, forcing peace talks, bribing lords and changing governors. The ruler also needs the Senate's support (40 senators, won by persuasion or bribes), and support passes or blocks kingdom edicts. Edicts are laws that add taxes or subsidies to the budget and raise or lower unrest.",
+      "mechanics": "Influence is stored in troop slot 6 and changed by change_influence (31 callers, 475 reachable entry points: dialogs, menus, quests). get_influence_cost_for_decision prices a decision from a base cost adjusted by culture difference, piety ($player_piety), the target lord's personality, honour, rank and province modifiers; it is used by the peace-declaration, bribe, honorary-title and governor-change dialogs and presentations. Senate support is a percentage on trp_senator_dummy slot 19, scaled to 40 senators. change_senate_support adjusts it, lowers the player's controversy (troop slot 166) and, per point, may raise relation with Rome (persuasion) or cost honour (bribery). prsnt:senate runs cf_menu_condition_senate (274 stmts, 93-block closure), the hub for speeches (give_a_speech), Senate decisions and office removal. Edicts are globals $edict1..$edict11 (for example libelli, securitatis publica, Christiani, slave manumission tax). Each is proposed in menu:debate_in_senat_2, where a majority vote passes or fails it, or issued through minister dialogs (dlg:4159-4178 edicts2). They feed calculate_bureaucratic_costs and calculate_edict_tax (budget), strig:19 (unrest/stability), strig:176, calculate_latifundium_rents and display_policy_string_to_reg.",
+      "hooks": [
+        "prsnt:senate/t0",
+        "prsnt:senate/t1",
+        "menu:debate_in_senat_2",
+        "menu:senate_decide",
+        "dlg:4159:dlga_edictum_christiani2",
+        "dlg:4163:dlga_edicts2",
+        "dlg:2950:dlga_senator_convince_persuade",
+        "dlg:2957:dlga_senate_talk_bribe5",
+        "strig:19",
+        "strig:176"
+      ],
+      "scripts": [
+        "change_influence",
+        "get_influence_cost_for_decision",
+        "change_senate_support",
+        "cf_menu_condition_senate",
+        "give_a_speech",
+        "display_policy_string_to_reg",
+        "calculate_edict_tax",
+        "calculate_bureaucratic_costs",
+        "change_troop_controversy"
+      ],
+      "menus": [
+        "menu_debate_in_senat_2",
+        "menu_senate_decide",
+        "menu_senate_discussion"
+      ],
+      "presentations": [
+        "prsnt_senate",
+        "prsnt_influence_nero",
+        "prsnt_influence_governor_change",
+        "prsnt_influence_governor_change_senate"
+      ],
+      "mission_templates": [
+        "mst_senate_meeting",
+        "mst_senate_cuttscene"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:6",
+        "troop:166",
+        "troop:19",
+        "troop:52"
+      ],
+      "globals": [
+        "edict1",
+        "edict2",
+        "edict4",
+        "edict6",
+        "edict7",
+        "edict8",
+        "edict9",
+        "edict10",
+        "edict11",
+        "g_has_senat_sup",
+        "g_unrest",
+        "player_piety",
+        "player_honor",
+        "g_libelli"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan change_influence: troop slot 6, messages 'Your influence has changed from {reg11} to {reg12}'",
+        "explain acan get_influence_cost_for_decision: text '_Base:', 'Different culture', 'Pietas', 'Personality'",
+        "dis acan change_senate_support: trp_senator_dummy slot 19, x40 senators, troop 166 controversy",
+        "global acan edict4/edict11 writers/readers incl. menu:debate_in_senat_2 'The majority has voted for/against your proposal'"
+      ],
+      "overlaps": [
+        "acan.imperial_treasury_budget",
+        "acan.town_decrees",
+        "ad457.dplmc4_tax_inefficiency_and_extras",
+        "be.pps_political_simulation"
+      ]
+    },
+    {
+      "id": "acan.ranks_offices_titles",
+      "name": "Ranks, offices and honorary titles (legate, auxiliary prefect, governor, Quaestor..Censor) with triumphs",
+      "category": "kingdom-management",
+      "summary": "Lords and the player hold formal offices: command of a standing legion, command of an auxiliary unit, a provincial governorship, and honorary titles (Quaestor, Aedile, Consul, Censor) handed out by the ruler. Office decides party size, banner and title. Losing a trial, resigning or angering the ruler strips it. Victories earn triumph points and a public triumph.",
+      "mechanics": "troop_set_rank (103 callers) writes the rank slot: troop slot 178 = legion commanded (also mirrored in trp_province_array slot 215+n), slot 179 = auxiliary unit template commanded (mirrored at 250+n). It then updates $g_rank for the player, re-forms the lord's party (party_update_cohorts), and resets the title, the banner and every owned fief's banner icon. remove_office_from_troop (trial verdicts, resignation, leaving the faction) clears offices and calls find_new_commander_for_legion / _for_aux / faction_dismisses_marshall. Honorary titles are handed out by ai_assign_title (relation/renown driven; give_honorary_titles at game start; menu_honorary_title_granted) and can be usurped (usurp_honor_title_with_help) or lost when the holder angers others (destroy_center text). Provinces are imperial or senatorial (prsnt:make_province_imperial / make_province_senatorial, governor_selection, governor_change). get_province_relation_modifier rates provinces as unruly or easy to rule. troop_change_triumph_points accumulates triumph points, and troop_holds_triumph / triumph_marsh_start stage the triumph mission (mst_triumph). change_lord_party_to_fit_rank sizes the party to the office.",
+      "hooks": [
+        "strig:192",
+        "strig:69",
+        "menu:notification_player_faction_province_appointed",
+        "menu:notification_player_senatorial_province_appointed",
+        "menu:honorary_title_granted",
+        "prsnt:governor_change/t0",
+        "prsnt:governor_selection/t0",
+        "prsnt:make_province_imperial/t0",
+        "dlg:5622:dlga_trial_guilty",
+        "dlg:4817:dlga_imperial_give_up_province_resign",
+        "menu:triumph"
+      ],
+      "scripts": [
+        "troop_set_rank",
+        "remove_office_from_troop",
+        "ai_assign_title",
+        "give_honorary_titles",
+        "usurp_honor_title_with_help",
+        "find_new_commander_for_legion",
+        "find_new_commander_for_aux",
+        "change_lord_party_to_fit_rank",
+        "get_province_relation_modifier",
+        "troop_change_triumph_points",
+        "troop_holds_triumph",
+        "triumph_marsh_start",
+        "assign_center_to_lord",
+        "get_current_rank_to_s21",
+        "get_player_rank_string_s43"
+      ],
+      "menus": [
+        "menu_honorary_title_granted",
+        "menu_triumph",
+        "menu_triumph_awared_ai",
+        "menu_trial_guilty"
+      ],
+      "presentations": [
+        "prsnt_governor_change",
+        "prsnt_governor_selection",
+        "prsnt_make_province_imperial",
+        "prsnt_make_province_senatorial",
+        "prsnt_province_notifiction_player",
+        "prsnt_legion_selection",
+        "prsnt_aux_selection"
+      ],
+      "mission_templates": [
+        "mst_triumph"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:178",
+        "troop:179",
+        "troop:183",
+        "troop:189",
+        "troop:52",
+        "troop:10",
+        "troop:13"
+      ],
+      "globals": [
+        "g_rank",
+        "g_is_emperor",
+        "g_civil_war"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis acan troop_set_rank: slot 178 -> province_array 215+n, slot 179 -> 250+(pt - pt_cohors_aux), $g_rank, party_update_cohorts, banner reset loop over fiefs",
+        "explain acan ai_assign_title / give_honorary_titles: menu_honorary_title_granted; weekly_imperial_balance text 'awarded the title of Censor/Consul/Aedile/Quaestor'",
+        "explain acan remove_office_from_troop: callers trial_guilty, resign, caught_embezzle_punished",
+        "explain acan get_province_relation_modifier: 14 presentation callers, 'considered to be unruly / easy to rule'"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "acan.legions_cohorts_army_organisation",
+      "name": "Unit-based army organisation: standing legions with HQs, cohort-limited party size, unit recruitment and province manpower",
+      "category": "recruitment-troops",
+      "summary": "Armies are built and refilled in whole units ('cohorts': officers, nobles, recruits and mercenaries) instead of single soldiers. How many units a party may hold depends on rank, offices, fiefs and culture. Standing legions exist as permanent parties with a headquarters town and a commander, are refilled from the province's manpower pool and paid from the faction budget. When their HQ falls they relocate.",
+      "mechanics": "get_cohort_limit (13 callers) returns the unit cap: towns 381/406, castles 401 (garrison capacity codes); the player 10-25 by $g_rank and emperor status; a legion legate (troop 178) 16-17; an auxiliary prefect (179) 11-12; otherwise 4 plus culture, faction-strength (faction 225), marshal and fiefs bonuses, capped at 25. prsnt:recruit_cohorts / manage_cohorts / manage_cohorts_town let the player hire, refill, dismiss or donate whole units, with building-culture requirements (cf_can_hire_cohort -> get_building_culture) and cost/upkeep lines. cohort_describe_strength_to_s5_and_refil runs periodically (strig:28/58/64/121) for AI and player parties: it counts each unit, buys replacements (game_get_join_cost) from the faction budget (add_to_faction_bugdet) or the lord's wealth, and takes men from the province pools (take_recruits_from_province: party slots 83/84/152). party_update_cohorts writes the unit roster into party slots 10-24 of a lord's party. strig:192 (daily) hires for legions, finds new commanders (find_new_commander_for_legion/aux) and moves a captured HQ (find_new_headquarter_for_legion -> get_closest_walled_center_of_faction, legion_hq_set_banner). Garrisons are kept in units too (cohort_refil_garrison after a capture, update_center_garrison).",
+      "hooks": [
+        "strig:28",
+        "strig:58",
+        "strig:64",
+        "strig:121",
+        "strig:192",
+        "prsnt:recruit_cohorts/t0",
+        "prsnt:manage_cohorts/t0",
+        "prsnt:manage_cohorts_town/t0",
+        "prsnt:legion_management/t0",
+        "menu:castle_taken_2"
+      ],
+      "scripts": [
+        "get_cohort_limit",
+        "cohort_describe_strength_to_s5_and_refil",
+        "cohort_refil_garrison",
+        "cohort_count_troop",
+        "take_recruits_from_province",
+        "party_update_cohorts",
+        "add_cohort_to_party_from_party",
+        "cohort_remove_from_party",
+        "cf_can_hire_cohort",
+        "get_cohort_name_to_s5",
+        "get_cohort_info_to_s5",
+        "get_representative_troop_for_cohort",
+        "display_available_recruits",
+        "find_new_headquarter_for_legion",
+        "legion_hq_set_banner",
+        "get_legion_banner",
+        "get_troop_headquarter",
+        "update_center_garrison",
+        "hire_men_to_kingdom_hero_party",
+        "get_unit_according_to_subculture"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_recruit_cohorts",
+        "prsnt_manage_cohorts",
+        "prsnt_manage_cohorts_town",
+        "prsnt_legion_management",
+        "prsnt_select_legion_command",
+        "prsnt_select_auxiliar_cohort",
+        "prsnt_legion_select_hq",
+        "prsnt_barracks"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:10",
+        "party:11",
+        "party:12",
+        "party:13",
+        "party:14",
+        "party:15",
+        "party:16",
+        "party:17",
+        "party:18",
+        "party:19",
+        "party:20",
+        "party:21",
+        "party:22",
+        "party:23",
+        "party:24",
+        "party:43",
+        "party:44",
+        "party:45",
+        "party:68",
+        "party:83",
+        "party:84",
+        "party:152",
+        "party:293",
+        "troop:177",
+        "troop:178",
+        "troop:179",
+        "faction:223",
+        "faction:225",
+        "faction:228"
+      ],
+      "globals": [
+        "g_rank",
+        "g_is_emperor",
+        "g_civil_war",
+        "g_hire_troops_and_controversy"
+      ],
+      "resources": {
+        "pt": [
+          "pt_cohors_aux",
+          "pt_ala_batavorum",
+          "pt_player_aux_inf",
+          "pt_player_aux_cav"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis acan get_cohort_limit: rank/emperor/legate/aux/fief/culture rules, cap 25",
+        "explain acan cohort_describe_strength_to_s5_and_refil: texts 'The {reg1}. cohort {s5} is fully manned', 'Refill cost / Upkeep cost', '{reg6} denarii were taken from the imperial treasury'",
+        "explain acan take_recruits_from_province: party slots 83/84/152",
+        "explain acan strig:192: 'The headquarter of {s7} in {s5} has been captured. Its new headquarter...'"
+      ],
+      "overlaps": [
+        "acw.conscription",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "acan.latifundium_estates",
+      "name": "Private estates (latifundia) on the map with production buildings, slave labour and weekly rents",
+      "category": "economy-trade",
+      "summary": "The player can acquire land next to a village; it appears on the campaign map as their estate. There they build production works (vineyard and winepress, olive grove and oil press, silk and velvet, and more), assign slaves as labour, and draw weekly rent. Fires and other events can damage it, and how slaves are treated matters.",
+      "mechanics": "A village-elder dialog (dlg:8881 barb_estate_talk_3 / dlg:8904 lad_talk3) calls spawn_latifundium, which spawns a map party ('Latifundia/Estate near {s0}') via spawn_party and stores its buildings in party slots 214-243. get_building_details_lat gives each building's name, cost, build time and product. Weekly calculate_weekly_rents (strig:53 / strig:196) calls calculate_latifundium_rents (210 stmts): output per building x labour (get_labour_slave_skill_modifier on the slave troops present), times the event modifier (get_event_details, e.g. fire), honour (get_honor_factor) and household quality (get_household_modifier), with slave treatment/manumission settings ($g_slave_treatment, $g_slave_manu, edict11 slave tax). menu:latifundium and prsnt:estate_report show state, and menu_event_latifundium_fire_damage / _nodamage report fires. A blacksmith on the estate can improve items (dlg:11325 lat_item_improve).",
+      "hooks": [
+        "dlg:8881:dlga_barb_estate_talk_3",
+        "dlg:8904:dlga_lad_talk3",
+        "strig:53",
+        "strig:196",
+        "menu:latifundium",
+        "prsnt:estate_report/t0",
+        "dlg:11446:dlga_building_details",
+        "strig:82"
+      ],
+      "scripts": [
+        "spawn_latifundium",
+        "calculate_latifundium_rents",
+        "calculate_weekly_rents",
+        "get_building_details_lat",
+        "get_labour_slave_skill_modifier",
+        "get_honor_factor",
+        "get_household_modifier",
+        "spawn_party"
+      ],
+      "menus": [
+        "menu_latifundium",
+        "menu_event_latifundium_fire_damage",
+        "menu_event_latifundium_fire_nodamage"
+      ],
+      "presentations": [
+        "prsnt_estate_report"
+      ],
+      "mission_templates": [
+        "mst_latifundium",
+        "mst_visit_villa"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:214",
+        "party:218",
+        "party:219",
+        "party:220",
+        "party:221",
+        "party:222",
+        "party:223",
+        "party:224",
+        "party:225",
+        "party:226",
+        "party:227",
+        "party:228",
+        "party:229",
+        "party:230",
+        "party:231",
+        "party:235",
+        "party:236",
+        "party:237",
+        "party:238",
+        "party:239",
+        "party:240",
+        "party:242",
+        "party:243",
+        "party:32",
+        "party:43",
+        "party:105"
+      ],
+      "globals": [
+        "g_slave_treatment",
+        "g_slave_manu",
+        "edict11",
+        "g_effect_apllied"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan spawn_latifundium: texts 'Latifundia near {s0}', 'Estate near {s0}', building list",
+        "explain acan calculate_latifundium_rents: callees get_labour_slave_skill_modifier/get_event_details/get_honor_factor/get_household_modifier",
+        "explain acan get_building_details_lat: callers menu:latifundium, prsnt:estate_report, dlg building_details"
+      ],
+      "overlaps": [
+        "acan.culture_specific_fief_buildings",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "acan.culture_specific_fief_buildings",
+      "name": "Culture-specific fief buildings with culture drift (inherits ad457.center_buildings_management; acan adds culture shift and piety effects)",
+      "category": "settlements-villages",
+      "summary": "Towns and forts have about 34 building types, each with a name, description and cost that depend on the settlement's culture (a Roman sewer becomes a Persian kariz or a British sacred grove). AI lords build too. Finished buildings raise prosperity, health and relations, unlock unit recruitment and can gradually shift the settlement's culture.",
+      "mechanics": "get_improvement_details (828 vs Native 32 stmts) dispatches on the improvement slot (party 271-304) and the settlement culture to return name, description and cost (e.g. 294 sewers: rome/eastern/germanic/british/dacian/nomadic variants; 287 hospital; 291 training; 293 barracks). The player orders buildings from prsnt:center_management, and AI lords via improve_center from troop_does_business_in_center. strig:82 (about every 2 min) runs cf_check_building_finished (235 stmts): it completes the work, applies prosperity, renown, honour and relation changes and add_piety_culture_effect, and can call change_culture_of_center, which moves a settlement to the builder's culture (walkers, town watch, icon). Buildings then gate unit recruitment (cf_can_hire_cohort -> get_building_culture) and feed the epidemic roll (287/294).",
+      "hooks": [
+        "strig:82",
+        "prsnt:center_management/t0",
+        "prsnt:center_management/t4",
+        "script:troop_does_business_in_center",
+        "mst:center_management/t5"
+      ],
+      "scripts": [
+        "get_improvement_details",
+        "cf_check_building_finished",
+        "improve_center",
+        "get_building_culture",
+        "change_culture_of_center",
+        "get_improvement_picture",
+        "add_piety_culture_effect",
+        "set_icon_for_walled_center"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_center_management",
+        "prsnt_fief_management"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:271",
+        "party:272",
+        "party:273",
+        "party:274",
+        "party:275",
+        "party:276",
+        "party:277",
+        "party:278",
+        "party:279",
+        "party:280",
+        "party:281",
+        "party:282",
+        "party:283",
+        "party:284",
+        "party:285",
+        "party:286",
+        "party:287",
+        "party:288",
+        "party:289",
+        "party:290",
+        "party:291",
+        "party:292",
+        "party:293",
+        "party:294",
+        "party:295",
+        "party:296",
+        "party:297",
+        "party:298",
+        "party:299",
+        "party:300",
+        "party:301",
+        "party:302",
+        "party:303",
+        "party:304",
+        "party:305",
+        "party:306",
+        "party:326",
+        "party:327"
+      ],
+      "globals": [
+        "g_improvement_type",
+        "g_set_center_upgrades",
+        "g_fire"
+      ],
+      "resources": {},
+      "native_relation": "replaces-native",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis acan get_improvement_details: branch ids 271-304, culture-dependent str_sewers_name_rome/eastern..., str_hospital_*, str_barracks_name_rome, str_training_name_rome cost 80000",
+        "explain acan cf_check_building_finished: strig:82, callees change_culture_of_center/add_piety_culture_effect",
+        "text 'Health' --mods acan: sewers/hospital descriptions per culture",
+        "compare get_improvement_details/cf_check_building_finished/improve_center --mods acan,ad457: 79%/84%/93% shape; callees ad457 cf_check_building_finished: no change_culture_of_center / add_piety_culture_effect"
+      ],
+      "overlaps": [
+        "acan.latifundium_estates",
+        "ad457.center_buildings_management",
+        "ad457.lord_business_build_hire_upgrade",
+        "bi.ai_lords_build",
+        "bi.garrison_building_battle_bonuses",
+        "bi.roman_public_buildings",
+        "pop.fief_base_income_and_reports",
+        "pop.fief_heartbeat_problems",
+        "pop.fief_improvements_expanded",
+        "pop.fief_stewards_with_skills",
+        "sw.recruit_unlock_buildings",
+        "vc.extended_center_improvements"
+      ]
+    },
+    {
+      "id": "acan.household_staff",
+      "name": "Household staff: captured prisoners made cooks and household slaves, with quality affecting feasts, budget and estates",
+      "category": "companions-heroes",
+      "summary": "A captured prisoner can be assigned as a household cook or household slave. The number of slots grows with renown. Staff quality becomes a 'household modifier' read by feasts, lord conversations, estate rents and imperial corruption.",
+      "mechanics": "dlg:9497 prisoner_chat_add_household_slave and prsnt:select_household_slave / household_management call assign_household_slave / assign_household_cook. These copy the prisoner into a household troop (trp_household_slave_1..trp_household_end, trp_household_cook_1), generate a face between keys, name it by culture and copy its inventory, writing troop slot 10. get_cook_limit / get_slave_limit and the renown thresholds cap the count; describe_cook_quality_to_s1 and describe_slave_skills_to_s0 describe them. get_household_modifier (23 callers) turns staff skills into a percentage used by add_to_faction_bugdet, calculate_imperial_corruption, calculate_latifundium_rents, feast and lord-talk conditions.",
+      "hooks": [
+        "dlg:9497:dlga_prisoner_chat_add_household_slave",
+        "prsnt:select_household_slave/t1",
+        "prsnt:household_management/t0"
+      ],
+      "scripts": [
+        "assign_household_slave",
+        "assign_household_cook",
+        "get_household_modifier",
+        "get_cook_limit",
+        "get_slave_limit",
+        "get_cook_slot_renown_threshold",
+        "get_slave_slot_renown_threshold",
+        "describe_cook_quality_to_s1",
+        "describe_slave_skills_to_s0",
+        "generate_random_face_between_keys",
+        "cf_can_assign_troop_as_houshold_cook",
+        "cf_can_assign_troop_as_houshold_slave"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_household_management",
+        "prsnt_select_household_slave"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:10",
+        "troop:183"
+      ],
+      "globals": [
+        "g_talk_agent"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep UNKNOWN_op2749 --mods acan: script:assign_household_slave, script:assign_household_cook",
+        "explain acan get_household_modifier: 23 callers incl. budget, corruption, latifundium",
+        "explain acan assign_household_slave: troop slot 10, culture names"
+      ],
+      "overlaps": [
+        "acw.companion_bodyguards_and_disguise",
+        "bi.town_bodyguards",
+        "cbl.tavern_mentors"
+      ]
+    },
+    {
+      "id": "acan.slave_economy",
+      "name": "Slave economy: prisoners and conquered populations become culture-specific slaves, sold by town slave traders, slavers and special dealers",
+      "category": "prisoners",
+      "summary": "Captured soldiers and the population of a sacked town are converted into slaves of their culture. Town slave traders, bandit slavers and special dealers buy and sell them. Slaves are then used as estate labour, household staff or for profit, and an edict can tax manumission.",
+      "mechanics": "troop_to_slave_mapping (326 stmts) maps any troop to its culture's slave troop (male or female) and is called when prisoners are added (party_prisoners_add_party_prisoners/companions, both modified Native) and from menu:castle_taken_plunder / menu:exterminate_population / strig:92. trig:17 refills slave merchants (refill_slave_merchant -> refill_slave_trader_town / _bandit / _special, troop slots 102-130 as stock), and mst_slave_market / slave_hideout are the visit scenes. count_party_slaves, remove_slaves_from_party, apply_changes_to_slave_trader, get_slave_merchant_troop and menu:camp_make_slaves handle party-side actions. $edict11 (Vicesima libertatis) taxes manumissions in the budget.",
+      "hooks": [
+        "trig:17:conseq",
+        "strig:92",
+        "menu:castle_taken_plunder",
+        "menu:exterminate_population",
+        "menu:camp_make_slaves"
+      ],
+      "scripts": [
+        "troop_to_slave_mapping",
+        "refill_slave_merchant",
+        "refill_slave_trader_town",
+        "refill_slave_trader_bandit",
+        "refill_slave_trader_special",
+        "get_slave_merchant_troop",
+        "count_party_slaves",
+        "remove_slaves_from_party",
+        "apply_changes_to_slave_trader",
+        "party_prisoners_add_party_prisoners",
+        "party_prisoners_add_party_companions"
+      ],
+      "menus": [
+        "menu_camp_make_slaves",
+        "menu_exterminate_population"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_slave_market",
+        "mst_slave_hideout"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:102",
+        "troop:103",
+        "troop:104",
+        "troop:105",
+        "troop:119",
+        "troop:125",
+        "party:18"
+      ],
+      "globals": [
+        "g_slave_treatment",
+        "g_slave_manu",
+        "edict11"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan troop_to_slave_mapping: 9 callers incl. prisoners-add scripts and plunder menus",
+        "explain acan trig:17:conseq -> refill_slave_merchant writes troop slots 102-130",
+        "global acan edict11: 'Vicesima Libertatis Vel Manumissionum' dialogs"
+      ],
+      "overlaps": [
+        "ad457.village_enslavement_and_repopulation",
+        "laigle.keep_battlefield_pickups",
+        "vc.town_plunder_and_slaves"
+      ]
+    },
+    {
+      "id": "acan.patron_gods_piety_miracles",
+      "name": "Patron deity, piety and sacrifices, with divine boons and in-battle miracles",
+      "category": "religion-culture",
+      "summary": "The player chooses a patron god and builds piety by sacrificing at temples and priests and by pious acts. A sacrifice rolls for a boon (protection in fight, leadership, favour, wisdom, experience). In battle, a favoured player may get a miracle every few seconds: extra strength, courage for nearby troops, or healing. Piety also changes the price of political actions and how lords see you.",
+      "mechanics": "Piety is the global $player_piety, changed by add_piety (62 callers: dialogs, menus, strigs) and rated by get_piety_impact ('Hated by the gods'..'Honored by the gods'). Worship dialogs (dlg:10413/10494 worship_gods) set the patron (troop slot 23), and deity_compatibility_with_culture and add_piety_culture_effect adjust relations by the god's fit with a culture. make_sacrifice (priest dialogs dlg:10425/10465/10502) costs gold, rolls 'Probability {reg10} / Dice {reg11}' and grants a timed boon (quest 27 slot as the boon store, $can_sacrific cooldown). perform_miracle runs every 3 s in about 29 battle templates (gated by cf_can_perform_miracle) and can boost the player's strength, raise troop courage (agent slot 3) or heal. visit_temple and the temple submenus give scenes for each god. player_change_religion changes faith. Piety feeds get_influence_cost_for_decision and the conspiracy check.",
+      "hooks": [
+        "dlg:10413:dlga_worship_gods2_pagan",
+        "dlg:10494:dlga_worship_gods2",
+        "dlg:10425:dlga_pagano1_action_sacrifice_4",
+        "dlg:10502:dlga_sacrifice_male_sure_2",
+        "mst:lead_charge (perform_miracle every 3s)",
+        "menu:temples_submenu",
+        "menu:cattle_herd_kill_opfer"
+      ],
+      "scripts": [
+        "add_piety",
+        "get_piety_impact",
+        "make_sacrifice",
+        "perform_miracle",
+        "cf_can_perform_miracle",
+        "deity_compatibility_with_culture",
+        "add_piety_culture_effect",
+        "player_change_religion",
+        "visit_temple",
+        "get_sacrifice_value",
+        "get_priest_for_god"
+      ],
+      "menus": [
+        "menu_temples_submenu",
+        "menu_cattle_herd_kill_opfer"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_visit_temple",
+        "mst_cutscene_sacrifice",
+        "mst_paganholysite"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:23",
+        "agent:3",
+        "quest:27"
+      ],
+      "globals": [
+        "player_piety",
+        "can_sacrific",
+        "guard_god"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain acan add_piety: writes player_piety, 'You gained/lost {reg0} pietas'",
+        "explain acan make_sacrifice: 'Probability: {reg10}. Dice: {reg11}', boons '{s19} guards you in fight / help you to lead / favour you / blesses your mind / gives you experience'",
+        "explain acan perform_miracle: every 3s in 29 mission templates, texts 'increases your strength / gives your troops courage / heals you'",
+        "explain acan ai_assign_title text 'Hated by the gods'..'Honored by the gods'"
+      ],
+      "overlaps": [
+        "ad457.religion_faiths_and_piety",
+        "awoiaf.four_faiths_religion",
+        "vc.monasteries_and_hofs",
+        "vc.religion_center_conversion"
+      ]
+    },
+    {
+      "id": "acan.player_health_mortality",
+      "name": "Player health and mortality: sickness accumulates, can be treated, and can kill the character",
+      "category": "character-progression",
+      "summary": "The player has a hidden ill-health score. It rises from wounds, drinking, orgies, disease and hardship, and falls with baths, barbers, herbal remedies and rest at a villa. Each day a very unhealthy character risks a 'Death waits' event; resisting it worsens health, and accepting it ends the game.",
+      "mechanics": "change_troop_health (218 callers) adds to troop slot 20 (a sickness score: higher = sicker, so a negative change correctly prints 'Your health increases!'). Healing and harm come from dialogs (barber dlg:3363, witch herbs dlg:2909, slave food/wine dlg:10272, orgies) and menus (baths, villa bath, which require slot 20 >= 600 / < 300). print_health_text_to_s0 describes 'fit and healthy' .. 'so unhealthy that death will strike soon' in prsnt:companion_overview. strig:183 (daily): if slot 20 >= 625, chance (slot-600)/3050 to jump to menu_death_waits. Its options are 'Go away, demon!' (+25 sickness, back to the map) or 'Take her hand' (menu_death, game over).",
+      "hooks": [
+        "strig:183",
+        "menu:death_waits",
+        "menu:baths/opt:use_bath",
+        "menu:villa/opt:bath",
+        "dlg:3363:dlga_barber_curel_2",
+        "dlg:2909:dlga_witch_talk_1_herbs_10"
+      ],
+      "scripts": [
+        "change_troop_health",
+        "print_health_text_to_s0",
+        "troop_set_training_health_from_agent",
+        "agent_apply_training_health"
+      ],
+      "menus": [
+        "menu_death_waits",
+        "menu_death",
+        "menu_baths"
+      ],
+      "presentations": [
+        "prsnt_companion_overview"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:20"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan change_troop_health: troop slot 20 sickness score, negative delta -> 'Your health increases!'",
+        "dis acan strig:183: ge 625 -> random(0,3050) < slot-600 -> menu_death_waits",
+        "dis acan menu:death_waits options: answere_1 +25 health / answere_2 jump_to_menu menu_death",
+        "grep trp_player slot 20: menu:baths, menu:villa bath, dlg barber_talk"
+      ],
+      "overlaps": [
+        "tld.persistent_injuries_permadeath",
+        "vc.player_persistent_injuries"
+      ]
+    },
+    {
+      "id": "acan.player_permanent_camps",
+      "name": "Permanent field camps commanded by a companion, which store troops and loot, ransom your prisoners and attract bandits",
+      "category": "automation",
+      "summary": "Near a friendly town the player can found a permanent camp (paid in gold) and leave a companion in charge. The camp holds troops, prisoners and goods. Every few hours the commander sells the prisoners for you, and the more valuables are stored, the more bandits it attracts, so it can come under attack.",
+      "mechanics": "menu:create_pcamp checks gold, an available companion, a leadership-based camp limit and distance to the nearest centre (get_closest_center_and_minor), then calls set_player_camp_commander (party slots 25/26, troop slots 10/28 on the commander; name '{s0}'s Camp'). menu:player_camp is the camp's own menu. strig:29 (every 6 h) runs pcamp_ransom_prisoners: it sells prisoners at game_get_prisoner_price and calls calc_player_camp_bandit_attraction (stored inventory value -> troop slots 32/33), which drives bandit raids defended in mst_camp_defend (with camp_defenders_move_to_defender_position). Dialogs let you replace the commander (replace_player_camp_commander) or disband the camp (disband_player_camp, cleanup_player_camp_slot); find_closest_player_camp and get_player_camp_scene support travel and scenes.",
+      "hooks": [
+        "menu:create_pcamp",
+        "menu:player_camp",
+        "strig:29",
+        "dlg:10253:dlga_player_camp_replace_confirm",
+        "dlg:10254:dlga_player_camp_disband_test_items",
+        "dlg:10260:dlga_player_camp_disband_full"
+      ],
+      "scripts": [
+        "set_player_camp_commander",
+        "replace_player_camp_commander",
+        "pcamp_ransom_prisoners",
+        "calc_player_camp_bandit_attraction",
+        "disband_player_camp",
+        "cleanup_player_camp_slot",
+        "cleanup_player_camp_commander",
+        "find_closest_player_camp",
+        "get_player_camp_scene",
+        "set_pcamp_banner_from_troop",
+        "camp_defenders_move_to_defender_position"
+      ],
+      "menus": [
+        "menu_create_pcamp",
+        "menu_player_camp"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_camp_defend",
+        "mst_camp"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:25",
+        "party:26",
+        "party:89",
+        "troop:10",
+        "troop:28",
+        "troop:29",
+        "troop:31",
+        "troop:32",
+        "troop:33"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan menu:create_pcamp: texts 'too many active permanent camps', 'leadership skill does not allow', 'too far from {s0} for the camp to supply itself'",
+        "explain acan pcamp_ransom_prisoners: strig:29 every 6h, game_get_prisoner_price, debug '{s0} sold {reg1} {s1} for {reg0}'",
+        "explain acan calc_player_camp_bandit_attraction: callers menu:player_camp, disband dialog",
+        "compare set_player_camp_commander/pcamp_ransom_prisoners: acan only"
+      ],
+      "overlaps": [
+        "acw.walkable_party_camp",
+        "pop.camp_troop_review_drill",
+        "tld.camp_menu_actions"
+      ]
+    },
+    {
+      "id": "acan.enlistment_career_events",
+      "name": "Enlisting as a common soldier: career progress gated by about 30 random service events",
+      "category": "mercenaries",
+      "summary": "The player can enlist in a lord's army as a soldier. They receive the unit's kit and advance through service, but promotion needs points earned from about 30 event menus (drinking, marsh duty, training, temptations, punishments) and drill sessions. Leaving or being discharged returns the player's own gear.",
+      "mechanics": "menu:player_attach -> start_freelancing (only in acan, not Caba'drin's Freelancer). It sets $enlisted_party, starts the service quest, and freelancer_add_player_items / freelancer_equip_troop swap the player's gear for the assigned troop's ('The equipment of a {s21}: {s2} is assigned to you'). Progress is quest 16 slots via freelancer_add_progress (67 callers). freelancer_get_event (208 stmts, strig:97) picks the next event menu (menu_freelancer_event_0..10, _1_wine, _marsh, _5_1 ... 33 menus) and freelancer_event_required_for_progess gates promotion. training_freelancer stages drill scenes, end_freelancing / freelancer_unequip_troop restore gear, and agent_reassign_team_freelancer handles battles.",
+      "hooks": [
+        "menu:player_attach",
+        "strig:97",
+        "menu:freelancer_event_0",
+        "menu:freelancer_event_10"
+      ],
+      "scripts": [
+        "start_freelancing",
+        "end_freelancing",
+        "freelancer_add_progress",
+        "freelancer_get_event",
+        "freelancer_event_required_for_progess",
+        "freelancer_equip_troop",
+        "freelancer_add_player_items",
+        "freelancer_unequip_troop",
+        "freelancer_remove_player_items",
+        "training_freelancer",
+        "agent_reassign_team_freelancer"
+      ],
+      "menus": [
+        "menu_player_attach",
+        "menu_freelancer_event_0",
+        "menu_freelancer_event_1",
+        "menu_freelancer_event_10",
+        "menu_freelancer_event_marsh"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_freelancer_mission_bandit"
+      ],
+      "dialogs": [],
+      "slots": [
+        "quest:16",
+        "quest:11",
+        "party:195"
+      ],
+      "globals": [
+        "enlisted_party",
+        "g_stance",
+        "foragers_a"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan start_freelancing: menu:player_attach, text 'The equipment of a {s21}: {s2} is assigned to you'",
+        "explain acan freelancer_get_event: 33 freelancer_event menus, quest 16 slots"
+      ],
+      "overlaps": [
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "acan.conspiracy_treason_trials",
+      "name": "Conspiracies against the ruler (palace assassination fights) and treason or embezzlement trials",
+      "category": "diplomacy-politics",
+      "summary": "A player-ruler who enters their palace or castle can be ambushed by conspirators. The odds depend on unrest, honour, piety, right to rule, edicts and how much the lords hate them, and an attack becomes a fight in the palace. Lords, and the player, can also be put on trial for treason or embezzlement; friends and paid agents can intervene, and a guilty verdict strips offices.",
+      "mechanics": "menu:town options town_castle / visit_palace call cf_conspiracy_check (137 stmts). It scores lords' relations (troop_get_relation_with_troop), $g_unrest, $player_honor, $player_piety, $player_right_to_rule and $edict6, respects a cooldown ($g_last_assassination_attempt_time), and on success jumps to menu_conspiracy, whose 'continue' fills the palace scene with the conspirators from trp_array_villa_feast and starts mst_conspiracy_fight. Trials: indict_lord_for_treason (modified Native), menu:trial_guilty and dlg trial_guilty (remove_office_from_troop, gold fines). Wives/ladies or bought agents (Locusta, Crispinilla) can intervene via intervene_treason (troop slot 22, quest 6). Embezzlement from the treasury leads to menu_caught_embezzle_punished.",
+      "hooks": [
+        "menu:town/opt:town_castle:conseq",
+        "menu:town/opt:visit_palace:conseq",
+        "menu:conspiracy/opt:continue:conseq",
+        "menu:trial_guilty",
+        "dlg:5622:dlga_trial_guilty",
+        "dlg:7243:dlga_lady_treason_relation_check_roman",
+        "dlg:9722:dlga_locusta_treason_success"
+      ],
+      "scripts": [
+        "cf_conspiracy_check",
+        "intervene_treason",
+        "indict_lord_for_treason",
+        "remove_office_from_troop",
+        "search_troop_prisoner_of_party",
+        "change_troop_intrigue_impatience",
+        "cf_troop_can_intrigue"
+      ],
+      "menus": [
+        "menu_conspiracy",
+        "menu_trial_guilty",
+        "menu_treason",
+        "menu_caught_embezzle_punished"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_conspiracy_fight",
+        "mst_kill_supporters"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:22",
+        "troop:52",
+        "troop:178",
+        "troop:183",
+        "quest:6"
+      ],
+      "globals": [
+        "g_last_assassination_attempt_time",
+        "g_unrest",
+        "player_honor",
+        "player_piety",
+        "player_right_to_rule",
+        "edict6"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan cf_conspiracy_check: callers menu:town palace/castle options, globals g_unrest/player_honor/piety/right_to_rule/edict6, menu_conspiracy",
+        "dis acan menu:conspiracy/opt:continue:conseq: set_jump_mission mst_conspiracy_fight with conspirators from trp_array_villa_feast",
+        "explain acan intervene_treason: 'has agreed to intervene on your behalf. Wait now till the trial'"
+      ],
+      "overlaps": [
+        "acw.alliance_blocs",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "acan.civil_war_usurpation_restoration",
+      "name": "Civil wars, usurping the throne, annexing the losing side, and defeated kingdoms reborn",
+      "category": "kingdom-management",
+      "summary": "A realm can split into civil war, after which the winner annexes the losers' lords and fiefs. A strong player or lord can usurp the throne, which reshuffles factions, ranks, titles, fiefs and marriages. Every two days the game checks whether a destroyed kingdom can be restored with a new lord.",
+      "mechanics": "activate_main_story_civil_war / start_year_of_four set $g_civil_war and split factions (story-driven in acan). usurp_faction (177 stmts) moves lords between factions (change_troop_faction), adjusts relations, kills or divorces where needed (kill_lord_lady, troop_divorce_troop), re-ranks (troop_set_rank), regrants fiefs (give_center_to_lord2), resets titles, banners and party sizes, and assigns honorary titles. cf_annex_faction (from dlg:6222 end_civil_war_captured_enemies or menu notification_civil_war_faction_defeated) folds the defeated side's lords and centres into the victor and changes right to rule. strig:87 (every 48 h) checks for defeated factions and calls reactivate_kingdom, which can spawn a new lord (give_birth_to_lord), return exiles (dplmc_lord_return_from_exile) and hand back a centre, then sends menu_notification_kingdom_restored / _liberated. become_emperor finalises a usurpation for the player.",
+      "hooks": [
+        "strig:87",
+        "menu:goy_purge/opt:Continue.:conseq",
+        "menu:meeting_with_centurio_3",
+        "menu:notification_civil_war_faction_defeated/opt:continue:conseq",
+        "dlg:6222:dlga_end_civil_war_captured_enemies",
+        "prsnt:select_kingdom/t1"
+      ],
+      "scripts": [
+        "usurp_faction",
+        "cf_annex_faction",
+        "reactivate_kingdom",
+        "give_birth_to_lord",
+        "become_emperor",
+        "activate_main_story_civil_war",
+        "end_civil_war",
+        "kill_lord_lady",
+        "troop_divorce_troop",
+        "give_center_to_lord2",
+        "change_faction_banner"
+      ],
+      "menus": [
+        "menu_notification_kingdom_restored",
+        "menu_notification_kingdom_liberated",
+        "menu_end_civil_war",
+        "menu_notification_civil_war_faction_defeated",
+        "menu_goy_purge"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:10",
+        "faction:12",
+        "faction:223",
+        "troop:178",
+        "troop:183"
+      ],
+      "globals": [
+        "g_civil_war",
+        "g_is_emperor",
+        "g_unrest",
+        "g_has_senat_sup"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan usurp_faction: 13 callees incl. change_troop_faction/kill_lord_lady/troop_set_rank/give_center_to_lord2/ai_assign_title",
+        "explain acan cf_annex_faction: callers end_civil_war dialog + civil-war-defeated menu",
+        "explain acan strig:87 (every 48h): calls reactivate_kingdom, menus notification_kingdom_restored/_liberated"
+      ],
+      "overlaps": [
+        "ad457.landless_faction_cleanup",
+        "ad457.town_rebellions_secession",
+        "tld.faction_defeat_redistribution_last_stand",
+        "vc.faction_restoration_and_adventurers"
+      ]
+    },
+    {
+      "id": "acan.conquest_aftermath_culture_change",
+      "name": "Conquest aftermath: keep or plunder, exterminate/enslave the population, raze the settlement, repopulate and shift its culture",
+      "category": "settlements-villages",
+      "summary": "After taking a town or fort the player chooses its fate: keep it, plunder it, kill or enslave the population, or raze it entirely. Exterminated settlements can be repopulated with the conqueror's people, which changes the place's culture (walkers, town watch, recruits, map icon). Harsh choices anger lords and can cost honorary titles.",
+      "mechanics": "menu:castle_taken_plunder / castle_taken_keepplunder / castle_taken_native / desert_town_loot2 handle plunder. menu:exterminate_population (152 stmts) turns locals into prisoners/slaves (troop_to_slave_mapping, party_add_wounded_members_as_prisoners), recomputes production and consumption, and may call destroy_center (prosperity crash, party destroyed, quests aborted, faction strength recalculated; text '{s21} is angry about {s20} and he may lose his honorary title!'). menu:repopulate ('Kill them all' special-tax option) and cf_check_building_finished call change_culture_of_center, which rewrites the settlement's culture, walkers (center_set_walker_to_type), town watch troops (update_town_watch: party 381-384) and walled icon (set_icon_for_walled_center), with the notice '{s0} changed from {s2} to {s1} culture'. Volunteers then follow the new culture via get_unit_according_to_subculture and get_peasant_warrior_for_culture.",
+      "hooks": [
+        "menu:castle_taken_plunder",
+        "menu:exterminate_population",
+        "menu:repopulate/opt:special_tax:conseq",
+        "menu:desert_town_loot2",
+        "strig:82",
+        "script:game_event_simulate_battle"
+      ],
+      "scripts": [
+        "destroy_center",
+        "change_culture_of_center",
+        "update_town_watch",
+        "center_set_walker_to_type",
+        "set_icon_for_walled_center",
+        "troop_to_slave_mapping",
+        "get_unit_according_to_subculture",
+        "get_peasant_warrior_for_culture",
+        "get_party_subculture_string_id",
+        "cohort_refil_garrison"
+      ],
+      "menus": [
+        "menu_castle_taken_plunder",
+        "menu_exterminate_population",
+        "menu_repopulate",
+        "menu_castle_taken_2"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_center_plunder"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:10",
+        "party:381",
+        "party:382",
+        "party:383",
+        "party:384",
+        "party:406",
+        "party:407",
+        "party:408",
+        "party:46",
+        "party:68"
+      ],
+      "globals": [
+        "g_fire"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan menu:exterminate_population: callees troop_to_slave_mapping, get_unit_according_to_subculture, mst_center_plunder",
+        "explain acan destroy_center: callers castle_taken_plunder / desert_town_loot2 / exterminate_population, faction_recalculate_strength",
+        "explain acan change_culture_of_center: text '{s0} changed from {s2} to {s1} culture', update_town_watch slots 381-384"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acan.ports_ferries_sea_trade",
+      "name": "Ports, landings and ferries as map parties, sea trade routes, embarking armies and an overseas merchant fleet",
+      "category": "naval",
+      "summary": "At game start every coastal town gets a port party on the water, plus landings and ferries, so armies can embark from a port (minimum crew 15) and sail. Sea trade routes link coastal towns, and AI parties use sea lanes. Through a dialog the player can also send a merchant fleet to India for profit.",
+      "mechanics": "add_ports_jetty_and_ferry_system (game_start) spawns 'Port of {s1}' / 'Landing near {s2}' parties at get_next_water_position near each coastal centre ($g_number_ports; party slots 39/40/41 link port and centre). initialize_sea_trade_routes / set_sea_trade_route_between_centers build up to 15 routes per town, and cf_select_most_profitable_coastal_town_at_peace_with_faction_in_trade_route picks targets. menu:town_port 'Set sail from port' and menu:landet_ships_encounter call switch_to_water_consequences / switch_to_land_consequences (party icon, $players_ship, warn about leaving caravans behind). game_get_party_speed_multiplier (210 stmts) handles land/water moves with $wind_power. map_sea_ai_1-3 (strig:90 daily and others) send AI parties by sea (get_closest_port via party_set_ai_state), and bandits_go_to_lairs moves pirates/bandits. calculate_sea_caravan_cost prices the India fleet (dlg:10215).",
+      "hooks": [
+        "script:game_start",
+        "menu:town_port/opt:sail_from_port:conseq",
+        "menu:landet_ships_encounter",
+        "strig:90",
+        "strig:93",
+        "dlg:10215:dlga_india_send_caravan_plyr"
+      ],
+      "scripts": [
+        "add_ports_jetty_and_ferry_system",
+        "initialize_sea_trade_routes",
+        "set_sea_trade_route_between_centers",
+        "cf_select_most_profitable_coastal_town_at_peace_with_faction_in_trade_route",
+        "switch_to_water_consequences",
+        "switch_to_land_consequences",
+        "get_closest_port",
+        "cf_is_port_party",
+        "map_sea_ai_1",
+        "map_sea_ai_2",
+        "map_sea_ai_3",
+        "get_next_water_position",
+        "get_next_land_position",
+        "game_get_party_speed_multiplier",
+        "calculate_sea_caravan_cost",
+        "bandits_go_to_lairs"
+      ],
+      "menus": [
+        "menu_town_port",
+        "menu_landet_ships_encounter",
+        "menu_landet_ships_encounter_as_marshal"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_ship_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:39",
+        "party:40",
+        "party:41",
+        "party:68"
+      ],
+      "globals": [
+        "g_number_ports",
+        "players_ship",
+        "wind_power",
+        "cattle_in_ship"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan add_ports_jetty_and_ferry_system: 'Port of Ostia', 'Port of Piraeus', 'Port of {s1}', 'Landing near {s2}'",
+        "explain acan switch_to_water_consequences: menu:town_port 'Set sail from port.(Minimum crew 15 men)'"
+      ],
+      "overlaps": [
+        "laigle.naval_boarding_battle",
+        "oa1860.purchasable_ship",
+        "sw.starship_upgrades",
+        "vc.deck_sea_battles",
+        "vc.port_passage_travel",
+        "vc.sea_ai_traffic",
+        "vc.sea_travel_map",
+        "vc.ship_fleet_ownership"
+      ]
+    },
+    {
+      "id": "acan.thrust_only_formation_weapons",
+      "name": "Thrust-only ('noswing') weapon swap for infantry in tight formation (spear and pike wall)",
+      "category": "battle-ai-formations",
+      "summary": "When infantry form a close formation, every long enough thrusting weapon is swapped for a thrust-only twin, so men in the ranks stab past their comrades instead of swinging into them. On formation end or death the real weapon is swapped back, so loot stays correct.",
+      "mechanics": "init_noswing_weapons (ti_before_mission_start in 10 battle templates, 278 stmts) writes a two-way map in item slot 46: weapon <-> its 'noswing_' twin (139 noswing item entries in item_kinds1.txt, which sit past itm_items_end). form_infantry calls switch_to_noswing_weapons(agent, min_length) for each formation member: it loops weapon slots 0-3, and for a thrusting weapon (cf_is_thrusting_weapon) at least min_length long swaps to the slot-46 twin. switch_from_noswing_weapons restores the original from formation_end and on ti_on_agent_killed_or_wounded in the same 10 templates.",
+      "hooks": [
+        "mst:lead_charge/t97:conseq (ti_before_mission_start)",
+        "mst:lead_charge/t100:conseq (ti_on_agent_killed_or_wounded)",
+        "script:form_infantry",
+        "script:formation_end"
+      ],
+      "scripts": [
+        "init_noswing_weapons",
+        "switch_to_noswing_weapons",
+        "switch_from_noswing_weapons",
+        "cf_is_thrusting_weapon",
+        "form_infantry",
+        "formation_end"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_large",
+        "mst_quick_battle_battle",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_village_raid",
+        "mst_village_attack_bandits"
+      ],
+      "dialogs": [],
+      "slots": [
+        "item:46"
+      ],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_noswing_* (139 twin items)"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan switch_to_noswing_weapons / switch_from_noswing_weapons (item slot 46 swap, length threshold)",
+        "grep switch_to_noswing_weapons --mods acan: called only from script:form_infantry",
+        "callers acan switch_from_noswing_weapons: 10 templates ti_on_agent_killed_or_wounded + formation_end",
+        "compare switch_to_noswing_weapons: ad457/vc/awoiaf 100%; init_noswing_weapons vc 98%",
+        "grep -c noswing item_kinds1.txt = 139"
+      ],
+      "overlaps": [
+        "acan.vc_battle_stack_inherited",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "acan.vc_battle_stack_inherited",
+      "name": "Inherited VC battle stack: battlegroup formations AI, war cries/horns/shield taunts, courage spreading, shield bash; plus a ratio-based rout rule",
+      "category": "battle-ai-formations",
+      "summary": "acan's battle layer is Viking Conquest's: battlegroup formations with field tactics for the AI, horse-archer skirmishing, war cries, horns and shield taunts that lift courage, morale spreading from nearby deaths, and an AI shield bash. Its own additions are a rout rule (a side can only rout once its losses pass a set share of the men still standing), bodyguards in town scenes and a death camera.",
+      "mechanics": "Formations: store_battlegroup_data, form_infantry/archers/cavalry, team_field_melee_tactics, team_field_ranged_tactics, player_order_formations and battlegroup_* are 97-100% opcode-identical to VC (compare). Immersion: agent_perform_warcry/horn, shield_taunt_trigger, change_courage_around_agent (82% vs VC) and shield_bash_trigger (85% vs VC) run in about 29-44 templates. acan/ad457 add cf_calculate_battle_ratio (every 10 s, j_num_* globals) and cf_agent_can_rout (an agent may rout only if 10 x (dead+wounded+routed) > men still ready, i.e. about 9% losses), all_enemies_routed and agent_run_away. cf_can_spawn_as_body_guard spawns companions as bodyguards in town and hall scenes, and init_death_cam follows the player after death.",
+      "hooks": [
+        "mst:lead_charge (formation triggers every 0s/0.1s)",
+        "mst:lead_charge/t50:conseq (every 3s rout check)",
+        "mst:lead_charge/t52:conseq (ti_on_agent_killed_or_wounded)"
+      ],
+      "scripts": [
+        "store_battlegroup_data",
+        "form_infantry",
+        "team_field_melee_tactics",
+        "team_field_ranged_tactics",
+        "player_order_formations",
+        "horse_archer_skirmish",
+        "agent_perform_warcry",
+        "agent_perform_horn",
+        "shield_taunt_trigger",
+        "change_courage_around_agent",
+        "shield_bash_trigger",
+        "cf_calculate_battle_ratio",
+        "cf_agent_can_rout",
+        "all_enemies_routed",
+        "agent_run_away",
+        "cf_can_spawn_as_body_guard",
+        "init_death_cam"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_lead_charge_large",
+        "mst_quick_battle_battle"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:3",
+        "agent:5",
+        "agent:9",
+        "agent:10",
+        "agent:11",
+        "agent:12",
+        "agent:13",
+        "item:46",
+        "troop:30",
+        "troop:31",
+        "troop:32"
+      ],
+      "globals": [
+        "j_num_us_ready",
+        "j_num_us_dead",
+        "j_num_enemies_ready",
+        "battle_ratio",
+        "g_charge_on"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "compare cf_agent_can_rout: ad457 100%, vc absent",
+        "dis acan cf_agent_can_rout: losses x10 > ready"
+      ],
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acw.scripted_ai_battle_plan",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "acan.spawn_equipment_variety_and_item_quality",
+      "name": "Spawn-time equipment variety and item-quality steps, plus blacksmith item improvement",
+      "category": "combat-mechanics",
+      "summary": "When a soldier spawns, his gear is reshuffled from his troop's inventory: a random helmet, armour or weapon from the allowed set, with surplus weapons dropped. Items can carry better or worse quality modifiers. A town or estate smith can upgrade an item one quality step for a fee.",
+      "mechanics": "ti_on_agent_spawn triggers in 25 templates (e.g. mst:bandit_lair/t43, 256 stmts) collect the troop's inventory items of a type with their modifiers (troop_get_inventory_slot_modifier), shuffle them (shuffle_troop_slots) and agent_equip_item one with its modifier. They also unequip duplicate one-handed or two-handed weapons and handle special troops. get_next_higher_imod_for_item / get_next_lower_imod_for_item (77/75 callers) step a modifier along the quality ladder, and get_item_modifier_effects names it. Smith dialogs (dlg:9564 item_improve, dlg:11325 lat_item_improve) quote and apply one step up. evaluate_item / equip_best_melee_weapon pick the best weapon for AI.",
+      "hooks": [
+        "mst:bandit_lair/t43:conseq (ti_on_agent_spawn)",
+        "mst:lead_charge (ti_on_agent_spawn)",
+        "dlg:9564:dlga_item_improve_1",
+        "dlg:11325:dlga_lat_item_improve_1"
+      ],
+      "scripts": [
+        "get_next_higher_imod_for_item",
+        "get_next_lower_imod_for_item",
+        "get_item_modifier_effects",
+        "shuffle_troop_slots",
+        "evaluate_item",
+        "equip_best_melee_weapon"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "cheat_mode"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "dis acan mst:bandit_lair/t43:conseq: inventory collection by item type with modifiers, shuffle, agent_equip_item with modifier, duplicate weapon removal",
+        "explain acan get_next_higher_imod_for_item: 77 callers incl. item_improve dialogs",
+        "compare get_next_higher_imod_for_item / get_item_modifier_effects: vc 100%"
+      ],
+      "overlaps": [
+        "cbl.campaign_balance_retune"
+      ]
+    },
+    {
+      "id": "acan.seasonal_light_fog_weather",
+      "name": "Month-based scene light, regional fog and snow in battle and town scenes",
+      "category": "other",
+      "summary": "Scenes are lit according to the in-game month, fog is set per region and situation, snow appears in winter outside desert and Mediterranean regions, and clothing layers react to the weather.",
+      "mechanics": "calculate_season_light (447 call sites, every frame in 149 templates) reads $g_cur_month. change_scene_fog (1770 call sites, ti_before_mission_start in 118 templates) sets fog by region (get_region_of_pos22, 123 callers, 95% shape with ad457) and time. cf_snow_on_scene (649 call sites) and cf_is_desert_or_mediterreanian gate snow and winter visuals. menu:winter is the winter notice on the map.",
+      "hooks": [
+        "mst:* every 0s (calculate_season_light)",
+        "mst:* ti_before_mission_start (change_scene_fog)",
+        "menu:winter"
+      ],
+      "scripts": [
+        "calculate_season_light",
+        "change_scene_fog",
+        "cf_snow_on_scene",
+        "cf_is_desert_or_mediterreanian",
+        "cf_is_desert",
+        "get_region_of_pos22"
+      ],
+      "menus": [
+        "menu_winter"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "g_cur_month"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "explain acan calculate_season_light: 447 callers, reads g_cur_month",
+        "explain acan change_scene_fog: 1770 call sites",
+        "compare get_region_of_pos22: ad457 95%"
+      ],
+      "overlaps": [
+        "be.campaign_weather_battle_atmosphere",
+        "laigle.weather_seasons",
+        "nw.battle_weather_generator",
+        "tld.battle_condition_modifiers",
+        "tld.day_night_proficiency_shift",
+        "vc.seasons_scene_lighting"
+      ]
+    },
+    {
+      "id": "acan.troop_detail_and_upgrade_trees",
+      "name": "Troop detail screen and per-culture upgrade-tree presentations",
+      "category": "qol-ui",
+      "summary": "A troop-detail screen shows a unit's stats, attributes, weapons and inventory with tooltips, and 16 upgrade-tree screens draw each culture's troop lines.",
+      "mechanics": "prsnt:troop_detail uses troop_detail_layout / _draw_troop / _stats / _inventory / _inventory_tooltip (troop_detail_stats 215 stmts: 100% shape with ad457, 99% with VC). prsnt:upgrade_tree_1..14 use prsnt_upgrade_tree_troop_and_name / _lines / _ready / _switch (91% shape with AWOIAF's).",
+      "hooks": [
+        "prsnt:troop_detail/t0",
+        "prsnt:upgrade_tree_1/t0"
+      ],
+      "scripts": [
+        "troop_detail_layout",
+        "troop_detail_draw_troop",
+        "troop_detail_stats",
+        "troop_detail_inventory",
+        "troop_detail_inventory_tooltip",
+        "prsnt_upgrade_tree_troop_and_name",
+        "prsnt_upgrade_tree_lines",
+        "prsnt_upgrade_tree_ready",
+        "prsnt_upgrade_tree_switch"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_troop_detail",
+        "prsnt_upgrade_tree_1",
+        "prsnt_upgrade_tree_14"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "checkbox_show_item_details_val",
+        "temp_troop"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain acan prsnt:troop_detail/t0: texts 'Level', 'Hit Points', 'Atributes'",
+        "compare troop_detail_stats: ad457 100%, vc 99%, awoiaf 97%",
+        "compare prsnt_upgrade_tree_ready: awoiaf 91%"
+      ],
+      "overlaps": [
+        "be.faction_troop_tree_viewer",
+        "bi.world_map_presentation",
+        "vc.camp_and_report_screens"
+      ]
+    },
+    {
+      "id": "acan.siege_planning_inherited",
+      "name": "Siege planning (blockade, sanitation, traitors, infiltration, ambushes, starvation, fortified siege camp): inherited Brytenwalda/VC system",
+      "category": "sieges",
+      "summary": "Before assaulting, the besieger meets advisers to set up a blockade, look for a traitor inside, infiltrate, ambush relief forces and fortify the siege camp. Defenders starve and may sally, surrender or die. This is the same Brytenwalda-lineage siege system that VC and 457 AD carry.",
+      "mechanics": "menu:siege_plan (same text in vc, ad457 and acan) sets $g_siege_saneamiento, $g_campos_cercanos, $g_traicion_interna and $g_infiltracion_interna. Menus include construct_circunvalation, construct_saneamiento, traicion_resultado1-5, infiltracion_resultado1-5, emboscada_*, fortify_siege_camp, nofood_siege_defenders_sally, surrender_siege_defenders_starved and suicide_siege_defenders_starved. menu:siege_assault resolves the assault (encounter_calculate_fit, mantlets $g_mantlets_1). acan stores siege state in party slots 310-315; VC uses 400-403 and ad457 275-278 for the same roles.",
+      "hooks": [
+        "menu:siege_plan",
+        "menu:siege_assault",
+        "menu:construct_circunvalation",
+        "menu:fortify_siege_camp",
+        "menu:nofood_siege_defenders_sally",
+        "strig:87"
+      ],
+      "scripts": [
+        "set_town_picture",
+        "encounter_calculate_fit",
+        "party_count_fit_regulars",
+        "get_max_skill_of_player_party"
+      ],
+      "menus": [
+        "menu_siege_plan",
+        "menu_siege_assault",
+        "menu_construct_circunvalation",
+        "menu_construct_saneamiento",
+        "menu_fortify_siege_camp",
+        "menu_nofood_siege_defenders_sally",
+        "menu_surrender_siege_defenders_starved",
+        "menu_traicion_interna2",
+        "menu_infiltracion_resultado1",
+        "menu_emboscada_player"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:310",
+        "party:311",
+        "party:312",
+        "party:313",
+        "party:314",
+        "party:315",
+        "party:193"
+      ],
+      "globals": [
+        "g_siege_saneamiento",
+        "g_campos_cercanos",
+        "g_traicion_interna",
+        "g_infiltracion_interna",
+        "g_days_spent_starving",
+        "g_empieza_asedio",
+        "g_mantlets_1",
+        "g_listos_para_asalto"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "auto report menus: traicion_*, infiltracion_*, emboscada_*, construct_circunvalation, construct_saneamiento"
+      ],
+      "overlaps": [
+        "acw.siege_assault_waves_and_surrender",
+        "ad457.vc_siege_planning_and_camp_events_inherited",
+        "awoiaf.siege_ram_assault_and_hostage_surrender",
+        "bi.siege_town_militia",
+        "vc.siege_planning"
+      ]
+    },
+    {
+      "id": "acan.chariots_wse2",
+      "name": "Drivable chariots and chariot races (requires WSE2)",
+      "category": "combat-mechanics",
+      "summary": "Chariot 'horses' are items that spawn a chariot prop the rider drives, with crash and high-speed damage and a chariot camera. Dismounting a chariot needs a non-vanilla opcode, and the module itself says chariot races need WSE2.",
+      "mechanics": "init_chariot_item (ti_on_init_item on itm_basic_chariot_horse / _b_horse / quadriga) sets up the prop. chariot_trigger (522 call sites, every 0.5 s) moves the prop with the horse agent and calls check_chariots_crashed. chariot_on_destruction handles breakage. Each of about 174 templates has a dismount trigger that calls NON-VANILLA opcode 3313 (agent, -1), most consistent with WSE's 'detach rider from horse', then plays the dismount_chariot animation.",
+      "hooks": [
+        "itm:itm_basic_chariot_horse/t0",
+        "mst:town_default/t45:conseq",
+        "mst:lead_charge/t145:conseq"
+      ],
+      "scripts": [
+        "init_chariot_item",
+        "chariot_trigger",
+        "check_chariots_crashed",
+        "chariot_on_destruction"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_horse_racing",
+        "mst_town_default",
+        "mst_lead_charge"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:2",
+        "scene_prop:1",
+        "scene_prop:2",
+        "scene_prop:3",
+        "scene_prop:4"
+      ],
+      "globals": [
+        "g_player_chariot_agent"
+      ],
+      "resources": {
+        "item": [
+          "itm_basic_chariot_horse",
+          "itm_basic_chariot_b_horse",
+          "itm_quadriga_chariot_horse"
+        ],
+        "anim": [
+          "dismount_chariot"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep UNKNOWN_op3313 --mods acan: one dismount trigger per template, '(UNKNOWN_op3313, :l0, -1)' then agent_set_animation dismount_chariot",
+        "explain acan init_chariot_item: text 'Chariot races are only available if you are using WSE2.'",
+        "explain acan chariot_trigger: 522 callers, crash/high-speed damage texts"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acan.skin_matched_clothing_wse",
+      "name": "Skin-tone-matched bare arms and legs on clothing items (uses WSE op 2749)",
+      "category": "other",
+      "summary": "Tunics, dresses and armours add bare-arm and bare-leg meshes whose skin texture matches the wearer's face (pale, rugged or African), switching to covered limbs in snow.",
+      "mechanics": "set_roman_clothing / _2 / _3 and about 22 init_* scripts (init_roman_poor, init_eastern_troop, init_dress_*, init_pants_long...) run from ti_on_init_item item triggers (about 580 item-trigger blocks). For an agent they read the face keys with NON-VANILLA opcode 2749 (operands: string register, agent), else str_store_troop_face_keys for a troop. face_keys_get_face_texture then selects str_arms_bare / _rugged / _african meshes via cur_item_add_mesh, and cf_snow_on_scene adds winter clothing.",
+      "hooks": [
+        "itm:* ti_on_init_item (set_roman_clothing: 121 items)"
+      ],
+      "scripts": [
+        "set_roman_clothing",
+        "set_roman_clothing_2",
+        "set_roman_clothing_3",
+        "init_roman_poor",
+        "init_roman_rich",
+        "init_eastern_troop",
+        "init_dress_arms",
+        "init_pants_long",
+        "init_armor_merc",
+        "cf_snow_on_scene"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "character_sheet_is_active",
+        "tableau_active"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acan script:set_roman_clothing stmt 44: (UNKNOWN_op2749, 70, :l0) in agent branch; else str_store_troop_face_keys",
+        "grep UNKNOWN_op2749: 24 clothing/init scripts + assign_household_cook/slave"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acan.ad457_base_inherited",
+      "name": "Inherited 457 AD base: lord business AI, sandbox ruler/vassal start, character creation (with acan's changes)",
+      "category": "other",
+      "summary": "A pointer record for systems acan takes from 457 AD, with what acan changed. AI lords spending wealth in their fiefs, starting as a king or vassal, the character-creation skill screen, the barracks screen and siege planning all come from the ad457 base.",
+      "mechanics": "(1) inherits ad457.lord_business_build_hire_upgrade: troop_does_business_in_center (acan 420 vs ad457 323 stmts, 66% shape). acan adds faction-budget postings (add_to_faction_bugdet), decree enact/revoke decisions and party_get_ideal_size sizing, and drops ad457's calculate_equipment_limit gear-upgrade step. (2) inherits ad457.royal_and_lord_sandbox_start: player_is_king is largely rewritten (15% shape). acan's version also triggers its story events (cf_start_jewish_revolt, cf_start_iazyges_invasion, cf_start_batava_revolt, start_year_of_four) from prsnt:select_kingdom, and player_is_lord is 74%. (3) mcc_generate_skill_set character creation is 88% (minor content changes). (4) inherits ad457.barracks_recruitment_screen, which acan reworked for cohorts (see acan.legions_cohorts_army_organisation). (5) inherits ad457.vc_siege_planning_and_camp_events_inherited (see acan.siege_planning_inherited).",
+      "hooks": [
+        "script:troop_does_business_in_center",
+        "prsnt:select_kingdom/t1",
+        "prsnt:barracks/t0"
+      ],
+      "scripts": [
+        "troop_does_business_in_center",
+        "player_is_king",
+        "player_is_lord",
+        "mcc_generate_skill_set",
+        "improve_center",
+        "decide_decree_enact",
+        "add_to_faction_bugdet"
+      ],
+      "menus": [],
+      "presentations": [
+        "prsnt_select_kingdom",
+        "prsnt_barracks"
+      ],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:52",
+        "party:46"
+      ],
+      "globals": [
+        "g_campaign_type"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "compare --mods acan,ad457: troop_does_business_in_center 66%, player_is_king 15%, player_is_lord 74%, mcc_generate_skill_set 88%",
+        "callees acan vs ad457 troop_does_business_in_center: acan adds add_to_faction_bugdet, decide_decree_enact/revoke, party_get_ideal_size; ad457 has calculate_equipment_limit",
+        "explain acan player_is_king: callees cf_start_jewish_revolt, cf_start_iazyges_invasion, cf_start_batava_revolt, start_year_of_four"
+      ],
+      "overlaps": []
+    }
+  ]
+}

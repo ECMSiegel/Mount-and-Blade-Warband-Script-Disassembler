@@ -1,0 +1,109 @@
+{
+  "_doc": "Modules behind the example atlas. `path` is the folder name under the Warband Modules folder (WB_MODULES_DIR). To reproduce the atlas, install these mods, copy this file to the wbtools folder as modules.json, run `python3 wbsd/wbsd.py report <slug>` for each, and follow docs/ATLAS.md.",
+  "modules": [
+    {
+      "slug": "native",
+      "label": "Native",
+      "path": "Native",
+      "role": "native"
+    },
+    {
+      "slug": "vc",
+      "label": "Viking Conquest",
+      "path": "Viking Conquest",
+      "role": "donor"
+    },
+    {
+      "slug": "awoiaf",
+      "label": "A World of Ice and Fire",
+      "path": "A World of Ice and Fire",
+      "role": "donor"
+    },
+    {
+      "slug": "pop",
+      "label": "Prophesy of Pendor 3.9.5",
+      "path": "Prophesy of Pendor v3.9.5",
+      "role": "donor"
+    },
+    {
+      "slug": "tld",
+      "label": "The Last Days of the Third Age (workshop 299974223)",
+      "path": "299974223",
+      "role": "donor"
+    },
+    {
+      "slug": "be",
+      "label": "Between Empires 1.0",
+      "path": "Between Empires v1.0",
+      "role": "donor"
+    },
+    {
+      "slug": "laigle",
+      "label": "L'Aigle",
+      "path": "L'Aigle",
+      "role": "donor"
+    },
+    {
+      "slug": "nw",
+      "label": "Napoleonic Wars",
+      "path": "Napoleonic Wars",
+      "role": "donor"
+    },
+    {
+      "slug": "oa1860",
+      "label": "1860s Old America 1.5",
+      "path": "1860s Old America 1.5",
+      "role": "donor"
+    },
+    {
+      "slug": "sw",
+      "label": "Star Wars",
+      "path": "Star Wars",
+      "role": "donor"
+    },
+    {
+      "slug": "bi",
+      "label": "Bellum Imperii 1.6",
+      "path": "Bellum Imperii 1.6",
+      "role": "donor"
+    },
+    {
+      "slug": "acw",
+      "label": "The American Civil War Mod Revived 4.0.18",
+      "path": "ACW Revived 4.0.18/The American Civil War Mod Revived",
+      "role": "donor"
+    },
+    {
+      "slug": "acan",
+      "label": "Aut Caesar Aut Nihil",
+      "path": "Aut_Caesar_Aut_Nihil",
+      "role": "donor"
+    },
+    {
+      "slug": "ad457",
+      "label": "457 AD",
+      "path": "457AD",
+      "role": "donor"
+    },
+    {
+      "slug": "cbl",
+      "label": "Calradia Borderlands (Ext.Native)",
+      "path": "Ext.Native - Calradia Borderlands",
+      "role": "donor",
+      "note": "complete module incl. map.txt; expanded Calradia"
+    },
+    {
+      "slug": "cbl352",
+      "label": "Calradia Borderlands V3.52 (tables only)",
+      "path": "Calradia_Borderlands_V3.52",
+      "role": "donor",
+      "note": "later version of cbl; compiled tables only; its changes are recorded in the cbl records, it has no feature file of its own"
+    },
+    {
+      "slug": "perisno",
+      "label": "Perisno 1.5.0",
+      "path": "Perisno 1.5.0",
+      "role": "donor"
+    }
+  ]
+}

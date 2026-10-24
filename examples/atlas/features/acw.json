@@ -1,0 +1,1924 @@
+{
+  "module": "acw",
+  "features": [
+    {
+      "id": "acw.field_artillery",
+      "name": "Recruitable field artillery batteries (player + AI lords)",
+      "category": "combat-mechanics",
+      "summary": "The player buys up to 2 field guns (6 types: 12-pdr Napoleon, 10-pdr Parrott, 3-inch Ordnance, 12/24-pdr howitzers, 6-pdr M1841) at a town foundry; each comes with a 3-man crew that joins the party. In field battles the guns are spawned as scene props in front of the player, crews walk to them and fire simulated cannonballs with splash damage and knock-down. Enemy lords' armies spawn 1-2 guns of their own.",
+      "mechanics": "Campaign: menu:cannon_recruitment (from the town foundry option) -> add_cannon_crew increments party slots 381-386 (one counter per gun type, slot index computed by get_cannon_count_per_type) and party_add_members a faction-specific cannon_operator troop (get_cannon_operator_for_faction) x3; cap reg8=2 guns (get_cannon_count). refill_crew_members tops crews up to 3/gun at $100 each; disband options call remove_cannon_crew. Battle (lead_charge, also siege/village_raid templates): t27 (ti_after_mission_start +3s) finds high ground 9 battlegroups toward the enemy (find_high_ground_around_pos1_corrected) and, if the enemy is a lord party (party slot 0 == 13) not Native faction and whose signature troop (troop slot 374) is not mounted, spawn_cannon_pos2 spawns 1 (2 if the player owns guns) random cannon prop + 3 revolver-armed crew agents (division 8), storing crew in scene_prop slots 300-302 and the prop in trp_cannon_array. t29 spawns the player's guns (one prop per counter in slots 381-386, max 4) 10 m ahead of the player and binds existing crew agents via cf_connect_cannons_and_operators (agent slot 303 = bound gun, scripted destinations around the gun). t30 every 1s checks crews: gun manned (prop slot 305) if the loader plus one helper alive; otherwise survivors are released. t32/t33 pick targets and rotate the barrel (brute_rotate_direction/brute_rotation_check). t34 every 3s fires: unless the artillery division (8) has hold-fire ordered, spawns an mp_cannonball prop with target = target agent pos +/-10 m scatter, flight countdown = distance/100 (prop slot 306), reload 30-39 s (slot 308), smoke/flash/sound; enemy crews draw revolvers. t35 every 1s lands balls: AoE damage 35-85 (+5*(1+gun type)) multiplied at <=1 m, full <=2 m, half <=4 m, quarter <=5 m via agent_deliver_damage_to_agent from the loader, knock-down animation for unmounted humans within 5 m. [Source names] Kit credited to DrTomas ('####DrTomas constants', '##DrTomas Cannon script'). Mission triggers are named tuples in module_mission_templates.py 3522-5090 ('#### cannons start/end'): list `cannons` = cannons_count, cannons_spawn_enemy, cannons_spawn_freelancer, cannons_spawn, cannons_operation_check, cannons_select_targets, cannons_rotate_to_target, cannons_reload, cannons_shoot, cannons_balls_move; variants `cannons_siege`, `cannons_village`, `cannons_custom` (custom battles). Tunables (module_constants.py 2741-2780): cannon_cost 3000, cannon_count_per_party 2, cannon_count_per_side 4, operators_per_cannon 3, cannon_reload_timer 30, cannon_division 8, battle/siege entry-point constants (battle_cannon_entry_point_* 1/3/4, siege_cannon_entry_point_* 0/40).",
+      "hooks": [
+        "menu:cannon_recruitment",
+        "mst:lead_charge/t27:conseq",
+        "mst:lead_charge/t28:conseq",
+        "mst:lead_charge/t29:conseq",
+        "mst:lead_charge/t30:conseq",
+        "mst:lead_charge/t32:conseq",
+        "mst:lead_charge/t33:conseq",
+        "mst:lead_charge/t34:conseq",
+        "mst:lead_charge/t35:conseq",
+        "mst:castle_attack_walls_ladder/t26:conseq",
+        "mst:castle_attack_walls_belfry/t28:conseq",
+        "mst:castle_attack_walls_defenders_sally/t20:conseq"
+      ],
+      "scripts": [
+        "add_cannon_crew",
+        "remove_cannon_crew",
+        "get_cannon_count",
+        "get_cannon_count_per_type",
+        "get_cannon_operator_for_faction",
+        "spawn_cannon_pos2",
+        "spawn_cannon_pos2_freelancer",
+        "spawn_cannon_pos2_custom",
+        "spawn_cannon_new",
+        "cf_connect_cannons_and_operators",
+        "brute_rotate_direction",
+        "brute_rotation_check",
+        "rotate_pos31_towards_pos30_xy",
+        "rotate_pos31_towards_pos30_yz",
+        "turn_pos_towards_pos",
+        "find_high_ground_around_pos1_corrected",
+        "team_get_position_of_enemies",
+        "store_battlegroup_data"
+      ],
+      "menus": [
+        "menu_cannon_recruitment"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_village_raid",
+        "mst_quick_battle_battle",
+        "mst_quick_battle_siege"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:381",
+        "party:382",
+        "party:383",
+        "party:384",
+        "party:385",
+        "party:386",
+        "troop:374",
+        "agent:51",
+        "agent:301",
+        "agent:302",
+        "agent:303",
+        "scene_prop:300",
+        "scene_prop:301",
+        "scene_prop:302",
+        "scene_prop:304",
+        "scene_prop:305",
+        "scene_prop:306",
+        "scene_prop:307",
+        "scene_prop:308",
+        "scene_prop:309",
+        "agent:300"
+      ],
+      "globals": [
+        "total_cannon_count",
+        "freelancer_state",
+        "king_start",
+        "king_faction"
+      ],
+      "resources": {
+        "spr": [
+          "spr_cannon_m1841",
+          "spr_cannon_howitzer_12lb",
+          "spr_cannon_howitzer_24lb",
+          "spr_mp_cannon_12lb",
+          "spr_mp_cannon_6lb",
+          "spr_mp_cannon_3lb",
+          "spr_mp_cannonball_3lb"
+        ],
+        "troop": [
+          "trp_cannon_array",
+          "trp_cannon_operator",
+          "trp_union_cannon_operator_1..",
+          "trp_csa_cannon_operator_1.."
+        ],
+        "psys": [
+          "psys_cannon_smoke_madsci",
+          "psys_cannon_flash_madsci",
+          "psys_cannon_impact_smoke",
+          "psys_cannon_dirt"
+        ],
+        "sound": [
+          "snd_cannon_fire_a",
+          "snd_explosion1",
+          "snd_near_impact"
+        ],
+        "item": [
+          "itm_colt_navy_1861_revolver",
+          "itm_cartridges_revolver"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw spawn_cannon_pos2 / get_cannon_count / add_cannon_crew / cf_connect_cannons_and_operators",
+        "dis acw mst:lead_charge/t27,t29,t30,t34,t35",
+        "menu:cannon_recruitment cap reg8=2 and refill at 100/man",
+        "FAQ: 'recruit artillery from the foundry... crews at the very top of your party list... player's cannons only spawn in battles where the player is fighting alone' matches t29 (crews bound by agent iteration at ti_after_mission_start) and t28 freelancer variant",
+        "changelog: 'Fixed artillery being bugged in battles where the player is helping an allied general' -> t28 spawn_cannon_pos2_freelancer path",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_constants.py 2715-2810 (DrTomas cannon constants and slot names)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 3522-5090 named trigger tuples cannons_* and lists cannons/cannons_siege/cannons_village/cannons_custom",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_items.py 3529 itm_cannonball ti_on_missile_hit (bug confirmed)"
+      ],
+      "overlaps": [
+        "be.field_artillery_batteries",
+        "laigle.artillery_park",
+        "laigle.field_artillery",
+        "nw.crewed_artillery",
+        "oa1860.scripted_ballistic_hand_cannon"
+      ]
+    },
+    {
+      "id": "acw.multi_projectile_firearms",
+      "name": "Buck-and-ball / shotgun multi-pellet fire, distance-tiered gunshot sound, pan smoke and shell ejection",
+      "category": "combat-mechanics",
+      "summary": "Every firearm has an on-attack item trigger: buck-and-ball muskets fire 1 ball + 3 buckshot, shotguns fire 8 pellets in a cone, flintlocks puff pan smoke, Spencer/Henry repeaters eject a visible shell, and the gunshot sound switches between far/medium/close depending on the camera distance.",
+      "mechanics": "Item triggers ti_on_weapon_attack (110 item-trigger blocks). Common body: mission_cam_get_position -> get_distance_between_positions_in_meters to the muzzle (pos1) -> play snd_gunshot_far (>=71 m) / _medium (60-70 m) / per-gun close sound; particle bursts musket_smoke, muzzle_sparks, firearm_flash at muzzle (+pan_smoke for flintlocks). Buck variants (itm_springfield_18xx_buck): store_trigger_param_1 shooter, add_missile of the main ball (itm_cartridges_musket, speed 8000) then a 3-iteration loop that copies the muzzle position, rotates it by a random +/-0.15 deg spread (position_rotate_x/y_floating) and add_missile itm_cartridges_shotgun. Shotguns/coachguns/sawed-off: 8-iteration loop with +/-2 deg spread. Spencer/Henry: extra particle_system_burst psys_shell_ejection_spencer(_fp) offset to the breech, first-person vs third-person offsets (is_camera_in_first_person).",
+      "hooks": [
+        "itm:itm_springfield_1842_buck/t0",
+        "itm:itm_shotgun/t0",
+        "itm:itm_coachgun/t0",
+        "itm:itm_sawed_off_shotgun/t0",
+        "itm:itm_spencer_rifle/t0",
+        "itm:itm_spencer_carbine/t0",
+        "itm:itm_henry_a/t0",
+        "itm:itm_springfield_1835_flint/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_cartridges_musket",
+          "itm_cartridges_shotgun",
+          "*_buck musket variants",
+          "itm_shotgun",
+          "itm_coachgun",
+          "itm_sawed_off_shotgun",
+          "itm_spencer_rifle",
+          "itm_henry_a"
+        ],
+        "psys": [
+          "psys_musket_smoke",
+          "psys_muzzle_sparks",
+          "psys_firearm_flash",
+          "psys_pan_smoke",
+          "psys_shell_ejection_spencer",
+          "psys_shell_ejection_spencer_fp"
+        ],
+        "sound": [
+          "snd_gunshot_far",
+          "snd_gunshot_medium",
+          "snd_gunshot_close",
+          "snd_shotgun",
+          "snd_spencer_carbine"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw itm:itm_springfield_1842_buck/t0 (1 + 3 add_missile)",
+        "dis acw itm:itm_shotgun/t0 (8 add_missile)",
+        "dis acw itm:itm_spencer_rifle/t0 (shell ejection)",
+        "changelog: 'Muskets that fire buck & ball will now shoot the correct number of 4 projectiles... All shotguns will now fire 8 projectiles... Created a simple shell ejection system for the Henrys and Spencers' -> verified",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_items.py springfield_1842_buck / shotgun / coachgun ti_on_weapon_attack bodies read in full"
+      ],
+      "overlaps": [
+        "be.firearm_hit_damage_model",
+        "be.missile_launch_firing_effects",
+        "be.shotgun_pellet_spread",
+        "cbl.flintlock_item_triggers",
+        "laigle.musket_item_effects",
+        "nw.missile_launch_effects",
+        "oa1860.firearm_muzzle_effects"
+      ]
+    },
+    {
+      "id": "acw.rifle_iron_sight_zoom",
+      "name": "Iron-sight aiming / zoom camera for long arms",
+      "category": "combat-mechanics",
+      "summary": "On foot in first person with a listed rifle-musket, holding attack lifts the camera to the sight line, and holding the zoom key additionally narrows the field of view (aperture 45) - a simple iron-sights/scope effect.",
+      "mechanics": "Every-frame mission trigger mst:lead_charge/t22 (also duplicated in the hunting templates' t1): if game key 20 (view character) is held -> normal camera; else if wielded item is in a hardcoded list of ~70 long guns and game key 19 (zoom) is down, on foot, first person -> agent_get_look_position, offset +7 x, +36 z, +17 y then +127 z with rotation preserved, mission_cam_set_mode 1, mission_cam_set_position, mission_cam_set_aperture 45; else if game key 6 (attack) down -> same offset without aperture change; else mission_cam_set_mode 0.",
+      "hooks": [
+        "mst:lead_charge/t22:conseq",
+        "mst:deer_hunting/t1:conseq",
+        "mst:boar_hunting/t1:conseq",
+        "mst:buffalo_hunting/t1:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_deer_hunting",
+        "mst_boar_hunting",
+        "mst_buffalo_hunting"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw mst:lead_charge/t22:conseq (200 stmts: list + camera ops)",
+        "game key numbering per Warband header_triggers: 6 attack, 19 zoom, 20 view character (consistent with t23 using 29-38 = group-select keys)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 1573 singleplayer_ironsight_mode"
+      ],
+      "overlaps": [
+        "be.ironsight_aiming",
+        "sw.scope_and_visor_overlays"
+      ]
+    },
+    {
+      "id": "acw.order_voice_callouts",
+      "name": "Spoken / bugled order and group-selection callouts (with engine-native volley/rank orders)",
+      "category": "qol-ui",
+      "summary": "When the player issues any battle order or selects a group, a soldier of the listening group plays a voiced/bugle call (halt, charge, fix bayonets, fire at will, form 1-5 ranks, left/middle/right fire now...). Volley and rank orders themselves come from the engine's Napoleonic-Wars order set, enabled by module.ini use_advanced_formation = 1.",
+      "mechanics": "mst:lead_charge/t43 ti_on_order_issued (cond; 3 s debounce via $bugle_timer): only if player is in a Union/Confederate army or king start; maps order id 0-26 (incl. NW-only ids 18 open fire, 19-21 left/middle/right fire now, 22-26 form 1-5 rows) to a (bugle, voice) sound pair and plays them on the first live non-player agent of a listening division (class_is_listening_order). t23 (every 0.05 s) maps group-select keys 29-38 to snd_select_* and plays it likewise. No scripted volley logic exists in ACW: grep team_give_order with ids 15-26 or 'volley' finds nothing; only t34 reads the artillery division's hold-fire order.",
+      "hooks": [
+        "mst:lead_charge/t43:cond",
+        "mst:lead_charge/t23:cond",
+        "mst:lead_charge/t23:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "bugle_timer",
+        "saved_sound"
+      ],
+      "resources": {
+        "sound": [
+          "snd_halt(_voice)",
+          "snd_charge(_voice)",
+          "snd_fix_bayonets(_voice)",
+          "snd_fire_at_will(_voice)",
+          "snd_left_fire_now_voice",
+          "snd_form_1_row..snd_form_5_row",
+          "snd_select_*"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw mst:lead_charge/t43:cond",
+        "dis acw mst:lead_charge/t23:cond/conseq",
+        "module.ini (acw): use_advanced_formation = 1, can_crouch = 0, can_reload_while_moving = 1",
+        "grep volley --mods acw -> none",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 1202-1570 voice_orders / bugle / bugle_timer / bugle_timer_init"
+      ],
+      "overlaps": [
+        "bi.battle_event_messages",
+        "nw.fkey_order_tree",
+        "nw.objective_markers_hud",
+        "nw.voice_commands",
+        "sw.battle_start_speeches"
+      ]
+    },
+    {
+      "id": "acw.fast_travel_network",
+      "name": "Paid fast travel by ship, train or stagecoach between linked towns",
+      "category": "map-travel",
+      "summary": "Towns have ticket sellers for ship, railroad and stagecoach. The player pays a per-head fare to a linked destination (only towns at peace with them), and is carried there by a transport party on the map; stagecoach is refused with 15+ men.",
+      "mechanics": "game_start -> initialize_fast_travel_routes (575 calls) -> set_fast_travel_route_between_centers(a,b,type) writes reciprocal destination slots 441-460 and type slots 461-480 (1 stagecoach, 2 train, 3 ship) on both towns. menu:town 'Talk to the fast travel agent' -> menu:fast_travel options open map conversations with per-town ticket-seller troops (party slots 481 = ship ticket seller, 482 = stagecoach agent, 485 = train ticket seller; trp_town_N_ft_ship/train/stagecoach) [corrected 2026-10-13: slot 483 is slot_town_arena_master, not fast travel]. dlg fast_travel_2 lists each destination (cond: cf_check_town_at_peace_with_faction_of_destination, cf_fast_travel_check_travel_type_match, not under siege - party slot 54). Fare reg63 x party size. On confirm (dlg:3012) spawns pt_fast_travel_ship/train/party next to the town with ai target = destination, sets $g_player_is_captive=1 (player is carried), camera follows it, rest_for_hours 168; strig:102 (hourly) jumps to menu:fast_travel_end when within 1 unit -> party_relocate_near_party player to destination, remove transport party.",
+      "hooks": [
+        "menu:town/opt:town_fast_travel:conseq",
+        "menu:fast_travel",
+        "dlg:3012:dlga_fast_travel_5:close_window:conseq",
+        "strig:102",
+        "menu:fast_travel_end"
+      ],
+      "scripts": [
+        "initialize_fast_travel_routes",
+        "set_fast_travel_route_between_centers",
+        "cf_fast_travel_check_travel_type_match",
+        "fast_travel_ship_train_wagon_text",
+        "cf_check_town_at_peace_with_faction_of_destination",
+        "cf_town_has_fast_travel_ship",
+        "cf_town_has_fast_travel_train",
+        "cf_town_has_fast_travel_wagon"
+      ],
+      "menus": [
+        "menu_fast_travel",
+        "menu_fast_travel_start",
+        "menu_fast_travel_end"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_fast_travel_1..5"
+      ],
+      "slots": [
+        "party:440",
+        "party:441-460",
+        "party:461-480",
+        "party:481",
+        "party:482",
+        "party:485"
+      ],
+      "globals": [
+        "travel_destination",
+        "travel_type",
+        "fast_travel_guys",
+        "fast_travel_active",
+        "g_player_is_captive"
+      ],
+      "resources": {
+        "pt": [
+          "pt_fast_travel_ship",
+          "pt_fast_travel_train",
+          "pt_fast_travel_party"
+        ],
+        "troop": [
+          "trp_town_1_ft_ship_ticket_seller..",
+          "trp_town_1_ft_train_ticket_seller..",
+          "trp_town_1_ft_stagecoach.."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw set_fast_travel_route_between_centers / initialize_fast_travel_routes",
+        "dis acw dlg:3012 / strig:102 / menu:fast_travel_end",
+        "menu:fast_travel/opt:visit_stagecoach_denied:cond (party size >= 15)",
+        "changelog: fast-travel connection fixes for Savannah/Vicksburg corroborate the route table",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_constants.py 885-947 fast-travel slot names",
+        "slot acw party 483 -> arena master dialog/menu only; slot acw party 485 -> menu:fast_travel visit_train_station + cf_town_has_fast_travel_train"
+      ],
+      "notes": "Oddity: dlg:3012 computes a bitmask in party slot 440 (val_or 1/2/4) and then immediately overwrites it with 7 on both towns.",
+      "overlaps": [
+        "vc.port_passage_travel"
+      ]
+    },
+    {
+      "id": "acw.hunting",
+      "name": "Camp hunting: deer, boar and buffalo herds",
+      "category": "economy-trade",
+      "summary": "From the camp menu the player can go hunting (unless enemies are within 4 map units, or on water/desert). After a wait scaled by Tracking skill they encounter a deer, boar or buffalo herd, hunt it in a small mission, and loot meat and hides per kill.",
+      "mechanics": "menu:camp/opt:camp_go_hunting -> menu:camp_hunting_or_poaching (terrain + nearby-hostile checks) -> menu:hunting start_hunt: initialize_hunting_time (6 h x (11 - Tracking) +/- random) writes party slot 421 = end hour; set_hunting_found picks herd type slot 423 (deer ~70%, boar ~30%, buffalo 1%) and count slot 424; rest_for_hours. strig:98 hourly: when time reached, stop resting and jump to menu:deer_herd / boar_herd / buffalo_herd. 'Hunt' -> mission mst_deer_hunting etc. on scn_random_scene_plain_forest; animals are horse-type agents (itm_deer...) steered by t8 (flee from player within 25 m, else wander inside scene bounds); $num_hunted_animals_killed counts kills; back in the menu the kills are converted into deer/boar/buffalo meat + raw leather via change_screen_loot.",
+      "hooks": [
+        "menu:camp/opt:camp_go_hunting:conseq",
+        "menu:hunting/opt:start_hunt:conseq",
+        "strig:98",
+        "menu:deer_herd/opt:deer_kill:conseq",
+        "mst:deer_hunting/t8:conseq"
+      ],
+      "scripts": [
+        "initialize_hunting_time",
+        "set_hunting_found"
+      ],
+      "menus": [
+        "menu_camp_hunting_or_poaching",
+        "menu_hunting",
+        "menu_deer_herd",
+        "menu_boar_herd",
+        "menu_buffalo_herd",
+        "menu_deer_herd_kill_end",
+        "menu_boar_herd_kill_end"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_deer_hunting",
+        "mst_boar_hunting",
+        "mst_buffalo_hunting"
+      ],
+      "dialogs": [],
+      "slots": [
+        "party:420",
+        "party:421",
+        "party:422",
+        "party:423",
+        "party:424"
+      ],
+      "globals": [
+        "player_hunting",
+        "num_hunted_animals_killed",
+        "leading_animal",
+        "g_infinite_camping"
+      ],
+      "resources": {
+        "item": [
+          "itm_deer",
+          "itm_boar",
+          "itm_buffalo",
+          "itm_deer_meat",
+          "itm_boar_meat",
+          "itm_buffalo_meat",
+          "itm_raw_leather"
+        ],
+        "scene": [
+          "scn_random_scene_plain_forest"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw menu:camp_hunting_or_poaching, menu:hunting/opt:start_hunt:conseq, strig:98, set_hunting_found, initialize_hunting_time, mst:deer_hunting/t8:conseq",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 45725 initialize_hunting_time; module_game_menus.py 19150-19172 caller passes reg1 from get_max_skill_of_player_party"
+      ],
+      "overlaps": [
+        "awoiaf.hunting_herds",
+        "tld.wilderness_encounters_hide_animal_ambush"
+      ]
+    },
+    {
+      "id": "acw.wse_break_loop_opcode8",
+      "name": "WSE break_loop (opcode 8) in the imprisoned-companion traveller dialog",
+      "category": "performance-bugfix",
+      "summary": "The only non-vanilla opcode in ACW: two uses of opcode 8 inside the traveller dialog that tells you where an imprisoned companion is held. It is a real engine-extension statement (WSE/WSE2 loop break), not corrupt data; it only exits the town search early.",
+      "mechanics": "dlg:2207 dlga_tavern_traveler_companion_location_tell -> tavern_traveler_pretalk (cond): when the companion is a prisoner and not in a party, try_for_range :l3 p_town_1..p_salt_mine; party_count_prisoners_of_type > 0 -> assign :l0 = :l3 -> opcode 8 with 0 operands, then try_end. Both occurrences sit at the identical 'found it, stop' position. Opcode 8 is absent from the tool's vanilla opcode table; in the WSE/WSE2 header it is the loop-break operation. Without WSE the statement is unknown to the engine (likely ignored or logged), so the loop would simply continue and report the LAST matching town instead of the first - harmless.",
+      "hooks": [
+        "dlg:2207:dlga_tavern_traveler_companion_location_tell:tavern_traveler_pretalk:cond"
+      ],
+      "scripts": [
+        "wse_chat_message_received",
+        "wse_console_command_received",
+        "wse_game_saved",
+        "wse_savegame_loaded",
+        "wse_window_opened",
+        "wse_get_agent_scale"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:8",
+        "troop:12"
+      ],
+      "globals": [
+        "temp"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "auto report: NON-VANILLA OPCODES {8: 2}",
+        "dis acw dlg:2207... shows (UNKNOWN_op8) at stmts 24 and 32 right after (assign, :l0, :l3)",
+        "raw conversation.txt: '... 2133 2 <l0> <l3> 8 0 3 0 ...' (well-formed 0-operand statement followed by try_end)",
+        "FAQ.txt tells users to run the mod with WSE2; 9 wse_* handler scripts exist (all empty/unreached stubs)",
+        "changelog: 'Fixed the bugged dialogue when paying travelers to tell you the location of an imprisoned companion' = the edit that introduced it",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_dialogs.py 22382 and 22392 `(break_loop),` inside the traveller companion-location search",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/header_operations.py 1904 `break_loop = 8 #(break_loop), #Break out of a loop` in the WSE2 block ('Add the following definitions to the end (!) of header_operations.py')",
+        "source scan: of the 399 names in the shipped WSE2 operation block, every hit other than break_loop is a vanilla operation re-declared with optional extra arguments (position_rotate_*, key_*_clicked, add_point_light...); no WSE trigger id (-100..-108), no is_vanilla_warband / store_wse_version - consistent with opcheck (op 8 only)"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.battle_cry_rout",
+      "name": "Rally-cry key (B): enemies near the player briefly flee",
+      "category": "morale",
+      "summary": "Pressing B in battle plays a Union/Rebel/Native yell; every enemy within range whose level is at most 2x the player's level + 1 is scripted to run directly away from the player for about 5-7 seconds, then 'Enemies regain their courage!'. 60-second cooldown.",
+      "mechanics": "mst:lead_charge/t36 (cond key_clicked key_b, player alive, player in an army or king start; rearm 60 s): faction-specific agent_play_sound (snd_union_yell / snd_rebel_yell / snd_native_yell) on the player; for each living enemy human with level <= 2*player level + 1 and distance < 500 (fixed-point 1 -> metres): compute a point 12x the offset away from the player and agent_set_scripted_destination there. t37 (same key, delay 5 s) and t38 (delay 7 s) agent_clear_scripted_mode on all enemies and print 'Enemies regain their courage!'.",
+      "hooks": [
+        "mst:lead_charge/t36:cond",
+        "mst:lead_charge/t36:conseq",
+        "mst:lead_charge/t37:conseq",
+        "mst:lead_charge/t38:conseq"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "king_start",
+        "king_faction",
+        "players_kingdom"
+      ],
+      "resources": {
+        "sound": [
+          "snd_union_yell",
+          "snd_rebel_yell",
+          "snd_native_yell"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw mst:lead_charge/t36:cond/conseq, t37, t38",
+        "sqlite texts: qstr_You_unleash_a_fearso in acw and awoiaf only",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 2953-3048 EG3_Warcry",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 45805-45831 EG3 OSP exp-penalty scripts (unused)"
+      ],
+      "notes": "Oddity: t37/t38 fire on any B press even when t36's condition failed (e.g. not in an army), so the 'regain courage' message can appear without a cry.",
+      "overlaps": [
+        "acw.bury_the_dead",
+        "be.company_discipline_rout",
+        "bi.courage_update_staggering",
+        "nw.morale_rout_rally",
+        "tld.battle_coherence_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "acw.scripted_ai_battle_plan",
+      "name": "Timed AI battle plan, faction default formations and mounted-pistol auto-switch",
+      "category": "battle-ai-formations",
+      "summary": "Enemy AI follows a timed script: at 2 s (and again at 25 s) its infantry and skirmishers advance a third of the way toward the player's largest group and dress into 4-rank lines, at 3 s cavalry is posted beside its own infantry line, at 20 s cavalry charges and at 90 s everyone charges. Each team's formation style is chosen by its faction, and mounted AI carrying pistols/carbines are kept on their firearm unless ordered to melee.",
+      "mechanics": "$madsci_timer reset at ti_before_mission_start (t2), incremented by mst:lead_charge/t4 every 1 s. At 2/25 s: store_battlegroup_data, for each non-player team with infantry/archer battlegroups find a leader agent, get_biggest_enemy_group, place order position 1/3 of the distance plus 25 m lateral, team_give_order hold + form_archers / form_infantry (4 ranks, spacing 2). At 3 s: for each enemy team, take the first non-cavalry agent's position, point it toward the player, shift 1 m sideways and order the cavalry division (2) to hold there (beside its own line); at 20 s formation_end + charge for cavalry; at 90 s all divisions charge. t40 (once, 0.4 s) records each team's faction ($teamN_faction) and get_default_formation maps faction -> formation type (0 or 2). t51 every 4 s: mounted non-player agents with ammo, not hold-fire and not melee-only order, are switched to a wielded thrown/pistol/bow-type item (types 8/10/16) if they hold one.",
+      "hooks": [
+        "mst:lead_charge/t2:conseq",
+        "mst:lead_charge/t4:conseq",
+        "mst:lead_charge/t40:conseq",
+        "mst:lead_charge/t51:conseq"
+      ],
+      "scripts": [
+        "store_battlegroup_data",
+        "battlegroup_get_size",
+        "get_biggest_enemy_group",
+        "point_y_toward_position",
+        "form_infantry",
+        "form_archers",
+        "formation_end",
+        "get_default_formation",
+        "cf_formation"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "agent:15"
+      ],
+      "globals": [
+        "madsci_timer",
+        "team0_faction",
+        "team1_faction",
+        "team2_faction",
+        "team3_faction",
+        "fplayer_agent_no",
+        "fplayer_team_no"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw mst:lead_charge/t4:conseq (madsci timeline)",
+        "dis acw get_default_formation",
+        "dis acw mst:lead_charge/t51:conseq",
+        "global acw madsci_timer (writers t2/t4 + quick battles)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 1056-1200 formations_only_ai_triggers / AI_triggers (formAI_battle_phase_handling commented out)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 6621 `(gt, \":infantry\"),`"
+      ],
+      "notes": "Oddity: t4 stmt 44 is (gt, :l4) with ONE operand - confirmed in the compiled bytes with dis --raw ('32 [l4]'); the engine reads the missing operand as whatever is there (in effect 'l4 > 0', the probable intent).",
+      "overlaps": [
+        "acan.thrust_only_formation_weapons",
+        "acan.vc_battle_stack_inherited",
+        "ad457.vc_battle_naval_layer_inherited",
+        "be.ai_battle_tactics_presets",
+        "be.infantry_square_and_field_works",
+        "bi.pbod_formations_ai",
+        "laigle.pbod_motomataru_stack",
+        "nw.division_gunpowder_ai",
+        "nw.locator_line_formations",
+        "pop.disciplined_faction_ai_gate",
+        "pop.formations_battle_ai_kit",
+        "sw.ranged_backstep_ai",
+        "tld.formations_motomataru_pop_lineage",
+        "vc.formations_order_translation",
+        "vc.persistent_division_formations"
+      ]
+    },
+    {
+      "id": "acw.alliance_blocs",
+      "name": "Permanent two-bloc war (Union armies vs Confederate armies)",
+      "category": "diplomacy-politics",
+      "summary": "The map's seven factions are grouped into fixed blocs: the three Union armies are permanently allied with each other and permanently at war with the three Confederate armies; only the Native faction makes war and peace freely. Random peace/war rolls, border incidents and truce bookkeeping skip bloc pairs.",
+      "mechanics": "strig:25 (daily) calls set_ally_script_behavior: diplomacy_start_peace_between_kingdoms for every intra-bloc pair (kingdoms 1,2,7 / 4,5,6) and diplomacy_start_war_between_kingdoms for every cross-bloc pair. check_factions_are_allies (same bloc, or the player's king-start faction joining its bloc) also forces set_relation 100 both ways; check_factions_are_enemies is the cross-bloc test; check_factions_cant_change_politics (allies OR enemies -> reg20=1) is consulted by diplomacy_faction_get_diplomatic_status_with_faction, diplomacy_start_peace_between_kingdoms, npc_decision_checklist_peace_or_war, randomly_start_war_peace_new and the border-incident/truce/casus-belli loop in strig:25, so those systems skip locked pairs.",
+      "hooks": [
+        "strig:25",
+        "script:game_start"
+      ],
+      "scripts": [
+        "set_ally_script_behavior",
+        "check_factions_are_allies",
+        "check_factions_are_enemies",
+        "check_factions_cant_change_politics",
+        "diplomacy_start_peace_between_kingdoms",
+        "diplomacy_start_war_between_kingdoms",
+        "diplomacy_faction_get_diplomatic_status_with_faction",
+        "randomly_start_war_peace_new",
+        "npc_decision_checklist_peace_or_war"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:21"
+      ],
+      "globals": [
+        "king_start",
+        "king_faction",
+        "players_kingdom"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw set_ally_script_behavior / check_factions_are_allies / check_factions_cant_change_politics / strig:25",
+        "callers acw check_factions_cant_change_politics (6 call sites)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 47290 set_ally_script_behavior",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_constants.py 2067-2076 union/confederate kingdom ranges; ID_factions.py (kingdom_7 = 17 between kingdom_1 = 16 and kingdom_2 = 18)"
+      ],
+      "overlaps": [
+        "acan.conspiracy_treason_trials",
+        "ad457.ai_tributary_states_casus_belli",
+        "ad457.minor_tribes_and_tributaries",
+        "awoiaf.letters_to_lords",
+        "awoiaf.spy_network_sabotage",
+        "awoiaf.static_wars_scripted_diplomacy",
+        "be.infamy_casus_belli_alliances",
+        "be.peace_negotiations_victory_points",
+        "bi.diplomacy_suite",
+        "tld.gift_bribe_courier_quest"
+      ]
+    },
+    {
+      "id": "acw.play_as_ruler_start",
+      "name": "Start the campaign as an existing faction's commander-in-chief",
+      "category": "kingdom-management",
+      "summary": "A new-game option lets the player take over one of the seven factions: the player assumes the leader's name, face, banner and fiefs, all that faction's lords transfer to the player's realm, and the original leader is removed from play.",
+      "mechanics": "menu:start_phase -> menu:king_start (7 options) -> script player_is_king(faction): sets $king_start/$king_faction, banner from faction slot 15, activate_player_faction, copies the leader's type/face keys/name to trp_player, give_center_to_lord for every center owned by the leader (court = first town, player relocated there), temporary minister, removes the leader's party and sets him outlaw/inactive, copies faction slots 0-399 into fac_player_supporters_faction, transfers every lord of that faction with change_troop_faction, then adds starting XP/gear (200 stmts). Many systems later check $king_start (bloc alliance membership, cannons' crew faction, rally cry, order voices).",
+      "hooks": [
+        "menu:king_start/opt:kingdom_1:conseq",
+        "menu:king_start/opt:kingdom_7:conseq"
+      ],
+      "scripts": [
+        "player_is_king",
+        "activate_player_faction",
+        "give_center_to_lord",
+        "change_troop_faction"
+      ],
+      "menus": [
+        "menu_king_start",
+        "menu_adventurer_start"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:15",
+        "faction:11",
+        "faction:8",
+        "faction:21",
+        "troop:10"
+      ],
+      "globals": [
+        "king_start",
+        "king_faction",
+        "g_player_court",
+        "g_starting_town",
+        "g_player_minister"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw player_is_king (200 stmts)",
+        "roots acw player_is_king -> 7 king_start options",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_game_menus.py 20222 king_start; module_scripts.py 53853 player_is_king"
+      ],
+      "overlaps": [
+        "ad457.royal_and_lord_sandbox_start",
+        "awoiaf.campaign_setup_options",
+        "cbl.invasion_date_options",
+        "laigle.story_start_missions",
+        "tld.in_game_strategy_options"
+      ]
+    },
+    {
+      "id": "acw.regional_regiment_recruitment",
+      "name": "Regional named-regiment recruitment ('area of recruitment')",
+      "category": "recruitment-troops",
+      "summary": "Each town, fort and village offers up to five specific historical regiments (e.g. 21st Ohio, 1st Michigan Sharpshooters, USCT) instead of one culture recruit. The player chooses which regiment to enlist from the shared volunteer pool, and can only recruit while the place is held by its original side. Each lord also has a signature regiment.",
+      "mechanics": "game_start -> initialize_special_troops (1835 stmts): 1720 party_set_slot writes fill center slots 374-378 with regiment troop ids, and 110 troop_set_slot write each lord's signature regiment into troop slot 374. menu:town 'Recruit Volunteers' -> menu:recruit_nobles / menu:recruit_volunteers: volunteer count from party slot 93, options recruit_them..recruit_them5/_cavalry/_veteran each read one slot (374-378), require town faction == original faction (party slot 61); town_recruit_volunteers_recruit adds min(pool, free capacity, gold/cost) of $chosen_troop at 28 (infantry) / 78 (faction special, faction slot 43) / 150 (horse-guaranteed troops), then clears the pool (slots 92/93 = -1). Troop slot 374 is read by lord enlistment (freelancer) and by the artillery spawner (cavalry generals bring no guns). [Source] Lords also field their regiment: '#MADSCI RECRUITING' in cf_reinforce_party (module_scripts.py 16234) reinforces a lord party with the lord's signature regiment (troop slot 374) while the lord still serves his original faction, else the faction tier-2 troop, else trp_hired_gun.",
+      "hooks": [
+        "menu:town/opt:recruit_nobles:conseq",
+        "menu:recruit_nobles",
+        "menu:recruit_volunteers",
+        "script:game_start"
+      ],
+      "scripts": [
+        "initialize_special_troops",
+        "town_recruit_volunteers_recruit",
+        "village_recruit_volunteers_recruit",
+        "update_volunteer_troops_in_village"
+      ],
+      "menus": [
+        "menu_recruit_nobles",
+        "menu_recruit_volunteers"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:374",
+        "party:375",
+        "party:376",
+        "party:377",
+        "party:378",
+        "party:61",
+        "party:92",
+        "party:93",
+        "troop:374",
+        "faction:43"
+      ],
+      "globals": [
+        "chosen_troop"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw initialize_special_troops (opcode histogram: 1720 party_set_slot, 110 troop_set_slot)",
+        "dis acw menu:recruit_nobles and opt:recruit_them2:cond/conseq",
+        "dis acw town_recruit_volunteers_recruit",
+        "FAQ: 'With the current area of recruitment system, the need for a troop tree has become obsolete'",
+        "slot acw party 375 (344 writes + 6 menu readers)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 16234 cf_reinforce_party / ~18011 troop_does_business_in_center ('#MADSCI RECRUITING')"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.conscription",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "acw.conscription",
+      "name": "Conscription after volunteers run out",
+      "category": "recruitment-troops",
+      "summary": "When a friendly village or town has no volunteers left, the player can conscript 15-39 civilians as the faction's basic recruit for $28 each, at the cost of -1 relation with the place and -10 party morale; the place then cannot be drafted again until its pool resets.",
+      "mechanics": "menu:village/opt:force_recruit_volunteers (cond: pool slot 93 == -1, village not looted/raided (slot 35), not infested (slot 39), faction friendly or player's own, free capacity) -> menu:forced_recruit_volunteers: $temp = random 15-39 capped by capacity and gold/28; troop = faction slot 41 (basic recruit). force_recruit:conseq: change_player_relation_with_center -1, temporarily sets slot 93 = $temp, village_recruit_volunteers_recruit, then slot 93 = -3 (locked), change_player_party_morale -10. Town version (menu:forced_recruit_volunteers_town) uses 25 men and sets slot 92 = -2.",
+      "hooks": [
+        "menu:village/opt:force_recruit_volunteers:conseq",
+        "menu:forced_recruit_volunteers/opt:force_recruit:conseq",
+        "menu:forced_recruit_volunteers_town/opt:force_recruit:conseq"
+      ],
+      "scripts": [
+        "village_recruit_volunteers_recruit",
+        "change_player_relation_with_center",
+        "change_player_party_morale"
+      ],
+      "menus": [
+        "menu_forced_recruit_volunteers",
+        "menu_forced_recruit_volunteers_town"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:93",
+        "party:92",
+        "party:35",
+        "party:39",
+        "faction:41"
+      ],
+      "globals": [
+        "temp",
+        "chosen_troop"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw menu:forced_recruit_volunteers + opt cond/conseq",
+        "dis acw menu:village/opt:force_recruit_volunteers:cond",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_game_menus.py 9066, 10014-10097"
+      ],
+      "overlaps": [
+        "acan.legions_cohorts_army_organisation",
+        "acw.regional_regiment_recruitment",
+        "ad457.barracks_recruitment_screen",
+        "ad457.village_reinforcement_marches",
+        "awoiaf.hold_elite_trainers",
+        "be.manpower_conscription_dynamic_lords",
+        "bi.military_academy_upgrades",
+        "laigle.typed_volunteer_recruitment",
+        "pop.garrison_and_lord_training",
+        "pop.noble_recruit_pool",
+        "tld.town_volunteers_and_reserves"
+      ]
+    },
+    {
+      "id": "acw.bury_the_dead",
+      "name": "Bury the dead after a victory (honor/morale trade-off)",
+      "category": "morale",
+      "summary": "After a field victory the player chooses how to bury the dead: deep individual graves (8 h, +2 honor, +12 morale), shallow individual (6 h, +1 honor, +8 morale), deep mass (4 h, +5 morale), shallow mass (2 h, +3 morale), or leave them (-10 morale). A cemetery party appears on the map and slowly disappears.",
+      "mechanics": "menu:total_victory -> jump_to_menu menu_bury_dead (when not in a town fight). Five options all named mno_continue: each calls change_player_honor / change_player_party_morale, spawns pt_grave ('Cemetery') at the player, shows a message and rest_for_hours N; the 'no' option only applies -10 morale and leaves. strig:99 (daily) removes each grave party with 10% chance.",
+      "hooks": [
+        "menu:total_victory",
+        "menu:bury_dead/opt:continue:conseq",
+        "strig:99"
+      ],
+      "scripts": [
+        "change_player_honor",
+        "change_player_party_morale"
+      ],
+      "menus": [
+        "menu_bury_dead"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_grave"
+        ],
+        "mesh": [
+          "mesh_pic_bury_dead"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "raw menus.txt menu_bury_dead option bytecode (honor script #200 change_player_honor, morale #201 change_player_party_morale; amounts 2/12, 1/8, 5, 3, -10; rest 8/6/4/2 h)",
+        "dis acw menu:total_victory stmt 236",
+        "dis acw strig:99 (pt_grave removal)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_game_menus.py 20300 bury_dead; module_simple_triggers.py 4537 '#graves'"
+      ],
+      "overlaps": [
+        "acw.battle_cry_rout",
+        "be.company_discipline_rout",
+        "bi.courage_update_staggering",
+        "nw.morale_rout_rally",
+        "tld.battle_coherence_rout_rally",
+        "vc.battle_immersion_courage"
+      ]
+    },
+    {
+      "id": "acw.partisan_bands",
+      "name": "Named partisan leaders and faction-aligned irregular bands that raid villages",
+      "category": "bandits-outlaws",
+      "summary": "Historical guerrilla leaders (Mosby, Quantrill, Jim Lane, Witcher...) lead roaming bands named '<Name>'s Raiders/Boys/Brigade/Gang' that respawn while the leader is free. Bushwhackers are kept friendly to the Confederacy and Jayhawkers to the Union; large bands patrol near enemy centers and occasionally raid enemy villages, with a notification if it is the player's.",
+      "mechanics": "strig:106 (every 48 h): for each partisan hero (trp_confed_partisan_1 .. trp_historical_figures_end) with 20% chance create_partisan_party (if not captive/in a party): maps the leader's faction to a bandit faction (Confederate -> mountain_bandits/Bushwhackers, Union -> forest_bandits/Jayhawkers, Native -> native_raiders), spawns the matching party template near a home center (get_closest_union/confederate_center), names and icons it, adds the leader. Same trigger resets relations so each bloc stays at 0 (not hostile) with its aligned bandit and commoner factions. strig:107 (hourly): partisan-led bands without a valid target patrol (radius 45) around the closest hostile center; bands > 50 men roll 0.6%/h to raid the closest enemy village within 100 units (ai state 5), and on arrival village_set_state 1 (being raided), party slot 371 = 10-day cooldown (decremented in strig:99), notification if the village belongs to the player.",
+      "hooks": [
+        "strig:106",
+        "strig:107",
+        "strig:99",
+        "script:game_start"
+      ],
+      "scripts": [
+        "create_partisan_party",
+        "get_closest_union_center",
+        "get_closest_confederate_center",
+        "get_closest_hostile_center",
+        "get_closest_enemy_village",
+        "party_set_ai_state",
+        "village_set_state"
+      ],
+      "menus": [
+        "menu_notification_bandit_raid_started"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:371",
+        "party:4",
+        "party:5",
+        "party:8",
+        "troop:2",
+        "troop:8",
+        "troop:10"
+      ],
+      "globals": [],
+      "resources": {
+        "pt": [
+          "pt_mountain_bandits",
+          "pt_sea_raiders",
+          "pt_steppe_bandits"
+        ],
+        "icon": [
+          "big_bushwhacker",
+          "big_jayhawker"
+        ],
+        "troop": [
+          "trp_confed_partisan_1..",
+          "trp_union_partisan_..",
+          "trp_frank_james"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "explain/dis acw create_partisan_party (names '{s1}'s_Raiders' etc.)",
+        "dis acw strig:106, strig:107",
+        "changelog: Jayhawker/Bushwhacker camps limited to 20, spawn further west; Witcher reassigned to the partisan faction as 'Witcher's Boys' -> consistent with the name table",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 5041-5160"
+      ],
+      "overlaps": [
+        "cbl.regional_bandit_spawn_points",
+        "pop.lord_party_deserters",
+        "pop.minor_faction_repression_meter",
+        "pop.renegade_and_merc_warbands",
+        "pop.unique_signature_heroes"
+      ]
+    },
+    {
+      "id": "acw.prisoner_breakouts_and_refugees",
+      "name": "Prisoner break-outs from overloaded parties and refugee columns",
+      "category": "dynamic-world-events",
+      "summary": "Any non-lord, non-center party holding more than 50 prisoners suffers a break-out: the prisoners become an 'Escaped Prisoners' party that heads for the nearest walled center of their own side. Separately, up to 8 'Escaped Slaves' parties at a time flee from Confederate towns toward the nearest Union town.",
+      "mechanics": "strig:103 (every 4 h): try_for_parties skipping main party / captor / centers / lord parties; party_get_num_prisoners > 50 -> spawn pt_routed_warriors named 'Escaped Prisoners', neutral, move all non-hero prisoner stacks (keeping wounded counts) into it; if its first troop belongs to a kingdom or aligned bandit faction it takes that faction and targets get_closest_allied_walled_center_of_faction; icon chosen by side/mounted. Then if fewer than 8 pt_escaped_slaves exist, create_escaped_slaves spawns one at a random Confederate town aimed at the closest hostile town. The same trigger also re-adds large unwounded non-flag stacks of lord parties (remove + force_add) and offers the spy quest (see espionage feature).",
+      "hooks": [
+        "strig:103"
+      ],
+      "scripts": [
+        "create_escaped_slaves",
+        "get_closest_allied_walled_center_of_faction",
+        "get_closest_hostile_town"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:182"
+      ],
+      "globals": [
+        "capturer_party"
+      ],
+      "resources": {
+        "pt": [
+          "pt_routed_warriors",
+          "pt_escaped_slaves"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw strig:103 stmts 0-78",
+        "dis acw create_escaped_slaves",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 4682-4800"
+      ],
+      "overlaps": [
+        "pop.raid_refugees",
+        "vc.prisoner_revolts"
+      ]
+    },
+    {
+      "id": "acw.siege_assault_waves_and_surrender",
+      "name": "Wave-by-wave auto-resolved siege assault, plus surrender when besieged",
+      "category": "sieges",
+      "summary": "When the player orders an assault without joining it, the result arrives one wave at a time with casualty reports; after each wave the player can keep attacking, personally lead the next wave (switching into the siege battle), or call the soldiers back and keep the siege. A player trapped inside a besieged town can also surrender instead of fighting.",
+      "mechanics": "menu:castle_attack_walls_simulate (rewritten): faction-specific background; inflict_casualties_to_party_group both ways using party_calculate_strength (attacker strength/10 vs defender/4); prints casualties; sets $no_soldiers_left / $battle_won. New options (absent in Native): continue_attacking (re-enter the same menu = next wave), lead_next_wave (set_jump_mission castle_attack_walls_belfry or _ladder by town slot 27, jump_to_scene the siege scene from party slot 18/10), call_soldiers_back (back to menu:castle_besiege, siege continues). menu:siege_started_defender/opt:surrender (new): $g_player_surrenders=1, $g_battle_result=-1, next menu captivity_start_under_siege_defeat via menu:total_defeat.",
+      "hooks": [
+        "menu:castle_attack_walls_simulate",
+        "menu:castle_attack_walls_simulate/opt:call_soldiers_back:conseq",
+        "menu:castle_attack_walls_simulate/opt:lead_next_wave:conseq",
+        "menu:siege_started_defender/opt:surrender:conseq"
+      ],
+      "scripts": [
+        "party_calculate_strength",
+        "print_casualties_to_s0",
+        "party_count_members_with_full_health"
+      ],
+      "menus": [
+        "menu_castle_attack_walls_simulate",
+        "menu_siege_started_defender",
+        "menu_castle_besiege"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:18",
+        "party:10",
+        "party:27"
+      ],
+      "globals": [
+        "no_soldiers_left",
+        "battle_won",
+        "g_battle_result",
+        "g_player_surrenders",
+        "g_siege_battle_state"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw menu:castle_attack_walls_simulate + 3 option conds/conseqs",
+        "dis acw menu:siege_started_defender/opt:surrender:cond/conseq",
+        "changelog 5/1/2026: 'ability for the player to withdraw from sieges after ordering their troops to attack without them' and 'ability for the player to surrender after entering into a besieged location' -> both verified",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_game_menus.py 7478, 8473",
+        "changelog v4.0 UPDATE 5/1/2026"
+      ],
+      "overlaps": [
+        "acan.siege_planning_inherited",
+        "ad457.vc_siege_planning_and_camp_events_inherited",
+        "awoiaf.siege_ram_assault_and_hostage_surrender",
+        "bi.siege_town_militia",
+        "vc.siege_planning"
+      ]
+    },
+    {
+      "id": "acw.espionage_riot_quests",
+      "name": "President's espionage chain: rescue a spy, meet a spy, incite a riot in an enemy town",
+      "category": "quests",
+      "summary": "Faction leaders (e.g. Lincoln) can hand the player a covert chain: rescue a captured agent, meet a spy in an enemy town's tavern, then give the signal in the streets to start a riot where townsfolk and guards fight, the town loses 50 prosperity and the player gains faction relation.",
+      "mechanics": "State machine in faction slot 390 (1 offered/2 ready/3 spy contacted/4 riot started). dlg:24/33 lincoln_talk_quest offers qst_save_spy; strig:101 hourly succeeds/cancels it by the spy's captivity slot. strig:103 (4 h, 1-in-6, faction slot 390 == 2): picks the faction's historical leader and a free spy hero (trp_union_spy_1..), the closest enemy town not under siege/owned by player, sets qst_talk_to_spy slots and a notification menu menu_qst_talk_to_spy; party slot 95 of the town = spy. dlg:50 talk_to_spy_d starts qst_incite_riot. dlg:40-42 incite_riot_signal: finish_quest, +5 faction relation, then in the town mission: guards/merchants (town troops) become team 1 and aggressive, 5 extra watchmen (faction slot 42) spawn, the faction's leader troop flees, commoners join the player; change_center_prosperity -50, doors locked, qst_the_riot started; mst:town_center/t12 resolves it. [Source, failure paths] The riot reuses the prison-break town mission ($talk_context tc_escape, module_mission_templates.py ~5765-5945): if the player falls, qst_the_riot is aborted and the player goes to captivity (mnu_captivity_start_castle_defeat); if all enemies are beaten (after >= 10 s) qst_the_riot finishes with 100 and the player loses 20 relation with the town's faction. strig:101 cancels talk_to_spy / incite_riot when the target town turns player-owned or non-hostile, when the player enlists (freelancer) or when the quest giver is dead or captured. Save-the-spy pays 5,000 dollars.",
+      "hooks": [
+        "dlg:24:dlga_start:lincoln_talk_quest:cond",
+        "strig:101",
+        "strig:103",
+        "dlg:50:dlga_talk_to_spy_d:close_window:conseq",
+        "dlg:42:dlga_incite_riot_signal_b:close_window:conseq",
+        "mst:town_center/t12:cond"
+      ],
+      "scripts": [
+        "get_closest_enemy_town_of_faction",
+        "add_notification_menu",
+        "start_quest",
+        "finish_quest",
+        "change_center_prosperity",
+        "change_player_relation_with_faction_ex"
+      ],
+      "menus": [
+        "menu_qst_talk_to_spy"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [
+        "dlga_lincoln_talk_quest",
+        "dlga_talk_to_spy_d",
+        "dlga_incite_riot_signal",
+        "dlga_incite_riot_signal_b"
+      ],
+      "slots": [
+        "faction:390",
+        "faction:42",
+        "faction:51",
+        "party:95"
+      ],
+      "globals": [
+        "all_doors_locked",
+        "talk_context"
+      ],
+      "resources": {
+        "quest": [
+          "qst_save_spy",
+          "qst_talk_to_spy",
+          "qst_incite_riot",
+          "qst_the_riot",
+          "qst_talk_to_president"
+        ],
+        "troop": [
+          "trp_union_spy_1..",
+          "trp_abraham_lincoln.."
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "slot acw faction 390 (writers dlg:22/23/24/33/42, strig:103)",
+        "dis acw strig:103 stmts 102-160",
+        "dis acw dlg:42 incite_riot_signal_b (68 stmts)",
+        "quests.txt titles: Rescue_{s10}, Meet_{s10}_in_{s11}, Incite_a_Riot_in_{s11}, Civil_Unrest",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 5765-5945 riot/prison-break triggers",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 4593-4665 (strig:101) and 4907-4961 (strig:103)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_dialogs.py 573-661 save_spy dialogs"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.historical_event_calendar",
+      "name": "Day-counted historical event calendar (incl. leader assassination)",
+      "category": "dynamic-world-events",
+      "summary": "A daily counter fires one-time news events on fixed campaign days (ironclads, locomotive chase, emancipation, bread riots, draft riots, Hunley, St. Albans raid, Stonewall). On day 1140 Lincoln is assassinated if still free: he is removed from all parties, quests involving him are cancelled, and Andrew Johnson is installed as the new president in Washington or the nearest Union town.",
+      "mechanics": "strig:8 (daily): decays faction slot 99 by player right-to-rule; $days_passed += 1 unless $game_ended; per event 'if days_passed > N and $X_event == 0 -> add_notification_menu (or display_message while camping) and set flag'. Day 426: trp_knight_4_1's party is ordered to retreat to the closest friendly walled center (party_set_ai_state 7) - the Stonewall notification itself comes from strig:9. Day 1140: troop slot 2 of Lincoln set to 15 (inactive), party_remove_members from every party, rename trp_andrew_johnson, cancel quests whose giver/target is Lincoln, party_add_leader Johnson to p_town_8 (if Union-held) else the closest Union center.",
+      "hooks": [
+        "strig:8",
+        "strig:9"
+      ],
+      "scripts": [
+        "add_notification_menu",
+        "cancel_quest",
+        "get_closest_union_center",
+        "party_set_ai_state",
+        "get_closest_allied_any_walled_center_of_faction_nonsiege"
+      ],
+      "menus": [
+        "menu_notification_ironclads",
+        "menu_notification_emancipation",
+        "menu_notification_locomotive_chase",
+        "menu_notification_bread_riots",
+        "menu_notification_draft_riots",
+        "menu_notification_st_albans_raid",
+        "menu_notification_hunley",
+        "menu_notification_lincoln",
+        "menu_notification_stonewall"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "faction:99",
+        "troop:2",
+        "troop:8",
+        "troop:10"
+      ],
+      "globals": [
+        "days_passed",
+        "game_ended",
+        "ironclads_event",
+        "emancipation_event",
+        "locomotive_chase_event",
+        "bread_riots_event",
+        "draft_riots_event",
+        "st_albans_raid_event",
+        "hunley_event",
+        "hold_washington",
+        "hold_richmond"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw strig:8 (170 stmts)",
+        "refs acw menu menu_notification_stonewall -> strig:9",
+        "global acw hold_washington: 1 writer (game_start), 0 readers",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 425-500 commented capital counter; 506-540 Stonewall branch"
+      ],
+      "overlaps": [
+        "ad457.travel_random_events",
+        "awoiaf.canon_story_event_timeline",
+        "awoiaf.random_travel_events",
+        "sw.random_town_ambushes",
+        "vc.random_events_and_judgments"
+      ]
+    },
+    {
+      "id": "acw.walkable_party_camp",
+      "name": "Walk around your own camp (and the enlisted army's camp)",
+      "category": "qol-ui",
+      "summary": "From the camp menu the player can enter a 3D camp scene sized to their party (small <=15, medium <=50, large) populated by their companions and soldiers who wander between camp spots; freelancers can do the same in their lord's camp.",
+      "mechanics": "menu:camp/opt:players_camp:conseq picks scn_players_camp_small/_medium/players_camp by party size, set_jump_mission mst_players_camp, modify_visitors_at_site + set_visitor for each party stack (heroes first, then up to 27 visitors round-robin over regular stacks). mst_players_camp t0 every 3 s calls camp_walkers -> set_camp_walker_destination: each non-player agent not at entries 1-4 has a 20% chance to walk to a random entry point 5-28 (agent slot 0). menu:world_map_soldier/opt:enlisted_camp:conseq does the same for the enlisted lord's party.",
+      "hooks": [
+        "menu:camp/opt:players_camp:conseq",
+        "menu:world_map_soldier/opt:enlisted_camp:conseq",
+        "mst:players_camp/t0:cond"
+      ],
+      "scripts": [
+        "camp_walkers",
+        "set_camp_walker_destination"
+      ],
+      "menus": [
+        "menu_camp"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_players_camp"
+      ],
+      "dialogs": [],
+      "slots": [
+        "agent:0"
+      ],
+      "globals": [],
+      "resources": {
+        "scene": [
+          "scn_players_camp",
+          "scn_players_camp_medium",
+          "scn_players_camp_small"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw menu:camp/opt:players_camp:conseq",
+        "dis acw camp_walkers",
+        "refs acw mt mst_players_camp (2 entry menus)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 12233"
+      ],
+      "overlaps": [
+        "acan.player_permanent_camps",
+        "pop.camp_troop_review_drill",
+        "tld.camp_menu_actions"
+      ]
+    },
+    {
+      "id": "acw.bounty_hunting_quests",
+      "name": "Tavern bounty-hunting quests",
+      "category": "quests",
+      "summary": "Tavern keepers offer bounties on named outlaws: the player gets a target leading a small band somewhere nearby and a cash reward for catching or killing him.",
+      "mechanics": "dlg:2119 tavernkeeper_tell_mission -> random_bounty(talk troop): picks the keeper's town/faction, tries up to 20 times to pick a free quest in qst_bounty_1..qst_kill_local_merchant range not on cooldown (quest slot 25), then sets up the target and quest text; globals bounty_target_1..6 track targets. [Source] Kit marked '# Bounty Hunter BEGIN' (module_scripts.py 47325, random_bounty: up to 20 tries over bounties_begin = qst_bounty_1 .. bounties_end = qst_kill_local_merchant, 7-day expiry, 7-day don't-give-again). Targets are stored in $bounty_target_1..6 and placed in villages; the `bounty_hunting` trigger list ('# Bounty Hunting triggers', module_mission_templates.py 339-559) is attached only to mst village_center: on leaving (Tab) each active bounty succeeds if its target's agent is dead, else fails. Menu block '#Bounty hunting' module_game_menus.py 9123-9322.",
+      "hooks": [
+        "dlg:2119:dlga_tavernkeeper_request_mission_ask:tavernkeeper_tell_mission:conseq"
+      ],
+      "scripts": [
+        "random_bounty"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "quest:25",
+        "troop:10"
+      ],
+      "globals": [
+        "bounty_target_1",
+        "bounty_target_2",
+        "bounty_target_3",
+        "bounty_target_4",
+        "bounty_target_5",
+        "bounty_target_6"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "roots acw random_bounty -> tavernkeeper dialog",
+        "compare random_bounty --mods acw,awoiaf,sw",
+        "changelog: 'Fixed the bug with the quest to hunt down a fugitive only giving a $1 reward instead of $1,000'",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 47325 random_bounty; module_mission_templates.py 339-559 bounty_hunting; module_constants.py 3313 bounties_begin/end"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.scout_camp_quest",
+      "name": "Lord quest: destroy an enemy scout camp",
+      "category": "quests",
+      "summary": "A lord asks the player to find and destroy an enemy scout camp near one of his centers without being seen; the camp is a map party that triggers a dedicated battle mission, with success/failure reported back to the lord.",
+      "mechanics": "get_quest (qst_destroy_scout_camp branch) picks target center/faction; dlg:1432/1435 accept names the camp party 'Union/Confederate/Native American Scout Camp' and starts the quest; game_event_party_encounter routes to menu:scout_camp_quest -> mst_destroy_scout_camp (a full battle template copy with the ACW battle triggers) -> menu:destroy_scout_camp_quest_result; dlg:658/659 resolve success/failure with the lord.",
+      "hooks": [
+        "dlg:1432:dlga_lord_tell_mission:lord_mission_destroy_scout_camp_a:cond",
+        "dlg:1435:dlga_lord_mission_destroy_scout_camp_accept:close_window:conseq",
+        "script:game_event_party_encounter",
+        "dlg:658:dlga_lord_start:lord_generic_mission_completed:cond"
+      ],
+      "scripts": [
+        "get_quest",
+        "abort_quest"
+      ],
+      "menus": [
+        "menu_scout_camp_quest",
+        "menu_destroy_scout_camp_quest_result"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_destroy_scout_camp"
+      ],
+      "dialogs": [],
+      "slots": [
+        "quest:3",
+        "quest:7",
+        "quest:8"
+      ],
+      "globals": [
+        "random_quest_no"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "strongly-inferred",
+      "evidence": [
+        "refs acw quest qst_destroy_scout_camp (31 refs)",
+        "grep destroy_scout --mods tld: script_destroy_scout_camp_consequences, dlg lord_mission_destroy_scout_camp_a",
+        "sqlite texts: TLD 'The_Scout_Camp_has_been_razed'",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/grep scout.camp comments -> none"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.enlistment_contract_career",
+      "name": "Three-year junior-officer contract, reenlistment bounty and senior-officer promotion thresholds",
+      "category": "character-progression",
+      "summary": "Native's mercenary contract becomes a 3-year enlistment with a $600 bounty; at the end of the term the player may reenlist (another $600 and an automatic promotion to 'general' = vassal) or muster out. Requesting promotion early needs a much higher reputation score than Native, and unaffiliated players only receive spontaneous offers at 1,500 renown with 45+ men.",
+      "mechanics": "menu:oath_fulfilled/opt:renew_oath:conseq: $mercenary_service_next_renew_day = today + 1095, +600 gold, player_join_faction (vassalage). dlg:1261/1262 lord_ask_enter_service: renown + 5 x relation + 50 x fiefs >= 3000 (Native dlg:1194 uses >= 150). strig:44 (every 32 h, player in no kingdom, not freelancer/king start): invite with a village if renown >= 1500, faction relation >= 0, liege relation >= 0, party >= 45, 50% roll; invite without center if player already owns fiefs (20% roll). Mercenary dialogs reworded to 'contract for three years, bounty of 600 dollars'.",
+      "hooks": [
+        "menu:oath_fulfilled/opt:renew_oath:conseq",
+        "dlg:1261:dlga_lord_ask_enter_service:lord_give_oath_1:cond",
+        "dlg:1262:dlga_lord_ask_enter_service:lord_give_oath_1.1:cond",
+        "strig:44"
+      ],
+      "scripts": [
+        "player_join_faction",
+        "get_number_of_hero_centers",
+        "get_poorest_village_of_faction",
+        "troop_get_player_relation"
+      ],
+      "menus": [
+        "menu_oath_fulfilled",
+        "menu_oath_fulfilled_kingdom_3",
+        "menu_invite_player_to_faction"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:7"
+      ],
+      "globals": [
+        "mercenary_service_next_renew_day",
+        "g_invite_faction",
+        "g_invite_offered_center",
+        "players_kingdom"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw menu:oath_fulfilled/opt:renew_oath:conseq (1095 days, 600 gold, player_join_faction)",
+        "dis acw dlg:1262 cond (>= 3000) vs dis native dlg:1194 cond (>= 150)",
+        "dis acw strig:44 stmt 42 (renown >= 1500)",
+        "changelog: '1,500 renown to be promoted' is only true for the spontaneous offer (strig:44); asking a general needs a 3000 combined score (renown + 5x relation + 50x fiefs)",
+        "changelog: reenlistment -> automatic promotion: verified (player_join_faction)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 1818; module_dialogs.py 14567-14598",
+        "dev docs/renown requirements.txt (stale values)"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.freelancer_extensions",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "acw.freelancer_extensions",
+      "name": "Freelancer (enlist as a soldier) with ACW extensions",
+      "category": "character-progression",
+      "summary": "The OSP Freelancer system (enlist in a lord's army as a common soldier, get equipped, paid weekly, promoted along the troop tree, desert/revolt/vacation) - ACW adds enlistment with partisan bands, the lord's signature regiment as the starting troop, weekly bread ration, artillery that spawns for the enlisted lord's battles and a walkable army camp.",
+      "mechanics": "dlg:3058 lord_request_enlistment_confirm / dlg:3051 bandit_request_enlistment_confirm -> freelancer_event_player_enlists (troop from lord's troop slot 374 per dlg:3057). strig:101 keeps the player glued to $enlisted_party with its faction music; strig:100 (weekly) pays 10 x troop level, +70 XP, adds bread if < 10 food, opens menu:upgrade_path when XP threshold met (quest slots 13/17 of qst_freelancer_enlisted). strig:104 desertion; menus world_map_soldier, commander_aud, ask_revolt/revolt, ask_desert/desert, upgrade_path. Battle: mst:lead_charge/t28 spawn_cannon_pos2_freelancer for the lord's guns.",
+      "hooks": [
+        "dlg:3058:dlga_lord_request_enlistment_confirm:close_window:conseq",
+        "dlg:3051:dlga_bandit_request_enlistment_confirm:close_window:conseq",
+        "strig:100",
+        "strig:101",
+        "strig:104",
+        "mst:lead_charge/t28:conseq"
+      ],
+      "scripts": [
+        "freelancer_event_player_enlists",
+        "freelancer_equip_troop",
+        "freelancer_unequip_troop",
+        "freelancer_event_player_deserts",
+        "freelancer_event_player_revolts",
+        "freelancer_event_player_discharge",
+        "freelancer_event_player_returns",
+        "cf_freelancer_player_can_upgrade",
+        "freelancer_attach_party",
+        "freelancer_detach_party",
+        "spawn_cannon_pos2_freelancer"
+      ],
+      "menus": [
+        "menu_world_map_soldier",
+        "menu_commander_aud",
+        "menu_ask_revolt",
+        "menu_revolt",
+        "menu_ask_desert",
+        "menu_desert",
+        "menu_upgrade_path"
+      ],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:374",
+        "quest:13",
+        "quest:14",
+        "quest:17"
+      ],
+      "globals": [
+        "freelancer_state",
+        "enlisted_party",
+        "enlisted_lord",
+        "player_cur_troop",
+        "enlisted_lord_faction"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "roots acw freelancer_event_player_enlists (lord + bandit dialogs)",
+        "dis acw strig:100, strig:101",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 46735 party_restore, 46776 get_desert_troops"
+      ],
+      "overlaps": [
+        "acan.enlistment_career_events",
+        "acan.ranks_offices_titles",
+        "acw.enlistment_contract_career",
+        "ad457.court_offices_and_titles",
+        "ad457.freelancer_variant",
+        "be.enlistment_service_ranks",
+        "bi.freelancer_reassignment",
+        "laigle.military_rank_career",
+        "pop.knighthood_order_membership",
+        "tld.faction_rank_influence"
+      ]
+    },
+    {
+      "id": "acw.lord_army_size_and_wages",
+      "name": "Lord army size from leadership, renown, rank and fiefs; per-faction level-bracket wages",
+      "category": "party-ai",
+      "summary": "AI lords' ideal army size is rebuilt: base 120 plus 15 per Leadership point, Charisma, renown/9, a ruler bonus, +50 for the marshal and +70 per town / +50 per castle-or-village owned, capped at 350 and scaled up with the player's level, with a few hand-tuned exceptions. Troop wages are set per faction by level bracket.",
+      "mechanics": "party_get_ideal_size (122 vs Native 34 stmts): as summarised; additionally a center that is one of its faction's last two gets +100 garrison; final * (80 + player level)/80; per-lord overrides (e.g. trp_knight_1_17 = 70). game_get_troop_wage (162 vs 43): explicit tables per kingdom (levels 1-21 -> 26, 22-24 -> 40, 28 -> 230 ...).",
+      "hooks": [
+        "script:party_get_ideal_size",
+        "script:game_get_troop_wage"
+      ],
+      "scripts": [
+        "party_get_ideal_size",
+        "game_get_troop_wage"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:0",
+        "party:7",
+        "troop:7",
+        "faction:8",
+        "faction:11",
+        "faction:81",
+        "faction:82"
+      ],
+      "globals": [],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw party_get_ideal_size (first 70 stmts)",
+        "dis acw game_get_troop_wage (first 30 stmts)",
+        "auto report Modified Native scripts",
+        "_module_system_source/README.txt item 3; dev docs/unit levels.txt"
+      ],
+      "overlaps": [
+        "awoiaf.lord_retinue_heroes",
+        "laigle.lord_army_doctrine"
+      ]
+    },
+    {
+      "id": "acw.color_guard_flagbearers",
+      "name": "Colour-guard troops: limit per party and battle spawning",
+      "category": "recruitment-troops",
+      "summary": "About 200 colour-guard (national/regimental flag) troops are tagged; AI parties may keep only one flag-bearer per colour-guard stack and at most two kinds - extras are demoted to the troop they upgraded from. In quick battles each side gets a national and a regimental colour bearer spawned beside its line.",
+      "mechanics": "game_start -> initialize_flagbearers sets troop slot 182 = 1 on 206 colour-guard troops. strig:26 (every 48 h) gives lord parties party_upgrade_with_xp ((Trainer skill + 5) x 1000, x1.5 on hard) then refresh_flagbearers(party): check_unique_troops, then for each stack with slot 182, find its pre-upgrade troop (troop_get_upgrade_troop scan) and convert all but one (or all if more than 2 flag stacks) back. strig:103 re-adds large unwounded non-flag stacks so flags stay at the top. spawn_flagbearers (quick_battle templates only) spawns the faction's two colour troops (faction slots 47/48) behind the first infantry agents, agent slot 51 = 1 (excluded from casualty counts).",
+      "hooks": [
+        "strig:26",
+        "strig:103",
+        "mst:quick_battle_battle/t13:conseq",
+        "script:game_start"
+      ],
+      "scripts": [
+        "initialize_flagbearers",
+        "refresh_flagbearers",
+        "check_unique_troops",
+        "spawn_flagbearers",
+        "check_flagbearer"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "troop:182",
+        "faction:47",
+        "faction:48",
+        "agent:51"
+      ],
+      "globals": [
+        "player_custom_faction",
+        "quick_enemy_faction"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "slot acw troop 182 (206 writes in initialize_flagbearers, readers refresh_flagbearers + strig:103)",
+        "dis acw refresh_flagbearers, spawn_flagbearers",
+        "dis acw strig:26 stmts 26-27 / 55-56",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_constants.py 1328; module_mission_templates.py 3327; module_simple_triggers.py 1173/1209"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.companion_bodyguards_and_disguise",
+      "name": "Companion bodyguards in towns, villages and castles (with armed disguise when sneaking in)",
+      "category": "companions-heroes",
+      "summary": "When the player walks around a town, village, castle or tavern, up to three unwounded companions from the party appear next to him as bodyguards, follow him, fight for him if trouble starts, and are wounded in the party if they fall. If the player sneaks into an enemy town in disguise, he and his companions wear the pilgrim disguise but the player keeps his revolver and cartridges.",
+      "mechanics": "Python list `bodyguard_triggers` (module_mission_templates.py 2808-2950), appended to town_default, town_center, village_center, bandits_at_night, visit_town_castle, castle_visit and sneak_caught_fight. (1) ti_after_mission_start (not when $g_mt_mode is tcm_disguised): pick an entry point by context (village elder 11, prison guard 24 in towns/castles, tavern NPC 17), give the entry the player's horse override, add the first 3 unwounded hero stacks of p_main_party as visitors (prison breaks also set troop slot 158 slot_troop_will_join_prison_break), then order division 8 to follow (silently). If $sneaked_into_town: the entry gets af_override_head|body(|horse) with itm_pilgrim_disguise + itm_pilgrim_hood. (2) ti_on_agent_spawn: party heroes join the player's team, division 8, are alarmed, and are placed 1-2 m around the player. (3) ti_on_agent_killed_or_wounded: party_wound_members for a fallen companion. Separate '#madsci escape items' ti_on_agent_spawn triggers (town_center, visit_town_castle, castle_visit, sneak_caught_fight) strip non-disguise gear from the player/companions when sneaked in, and script players_gun re-equips the player's pistol + itm_cartridges_revolver. The leadership/renown formula for the guard count is commented out; it is a fixed 3.",
+      "hooks": [
+        "mst:town_default/t14:conseq",
+        "mst:town_center/t20:conseq",
+        "mst:village_center/t11:conseq",
+        "mst:bandits_at_night/t9:conseq",
+        "mst:visit_town_castle/t9:conseq",
+        "mst:castle_visit/t12:conseq",
+        "mst:sneak_caught_fight/t12:conseq",
+        "mst:town_center/t2:conseq",
+        "mst:castle_visit/t9:conseq"
+      ],
+      "scripts": [
+        "players_gun"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_town_default",
+        "mst_town_center",
+        "mst_village_center",
+        "mst_bandits_at_night",
+        "mst_visit_town_castle",
+        "mst_castle_visit",
+        "mst_sneak_caught_fight"
+      ],
+      "dialogs": [],
+      "slots": [
+        "troop:158"
+      ],
+      "globals": [
+        "sneaked_into_town",
+        "talk_context",
+        "current_town",
+        "g_mt_mode"
+      ],
+      "resources": {
+        "item": [
+          "itm_pilgrim_disguise",
+          "itm_pilgrim_hood",
+          "itm_bowie_knife_invisible",
+          "itm_cartridges_revolver"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 2808-2950 bodyguard_triggers and its 7 attachment points (lines 5442, 5968, 6113, 6190, 6371, 7891, 8478)",
+        "grep itm_pilgrim_disguise --mods acw --kinds mst -> mission_tpl_entry_add_override_item in town_default/t14, town_center/t20, village_center/t11, bandits_at_night/t9, visit_town_castle/t9, castle_visit/t12, sneak_caught_fight/t12",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 54243 players_gun; '#madsci escape items' blocks at module_mission_templates.py 5548, 6312, 7823, 8388"
+      ],
+      "overlaps": [
+        "acan.household_staff",
+        "bi.town_bodyguards",
+        "cbl.tavern_mentors"
+      ]
+    },
+    {
+      "id": "acw.explosive_grenades",
+      "name": "Thrown hand grenades with area damage",
+      "category": "combat-mechanics",
+      "summary": "Two throwable grenades (Union 'Ketchum Grenade', Confederate 'Artillery Shell Grenade', 3 per stack) explode where they land: a bang, flash, smoke and debris, and every living person within 3 m (friend or foe, except the thrower) takes 100-299 damage.",
+      "mechanics": "Items itm_stones (renamed 'Ketchum Grenade', merchandise for kingdoms 1/2/7) and itm_grenade ('Artillery Shell Grenade', kingdoms 4/5/6): itp_type_thrown, max_ammo 3, thrust 100 pierce. Inline ti_on_missile_hit: copy hit position, play_sound_at_position snd_grenade, particle bursts (firearm_flash_original, musket_smoke, ladder_straw_6m/12m) ONCE at the impact point, then try_for_agents: alive, not the thrower, distance <= 300 cm -> agent_deliver_damage_to_agent thrower -> target, random 100-299, credited to the grenade item. No damage fall-off, no team check.",
+      "hooks": [
+        "itm:itm_stones/t0",
+        "itm:itm_grenade/t0"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [],
+      "globals": [],
+      "resources": {
+        "item": [
+          "itm_stones (Ketchum Grenade)",
+          "itm_grenade"
+        ],
+        "sound": [
+          "snd_grenade"
+        ],
+        "psys": [
+          "psys_firearm_flash_original",
+          "psys_musket_smoke",
+          "psys_ladder_straw_6m",
+          "psys_ladder_straw_12m"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep agent_deliver_damage_to_agent --mods acw --kinds itm -> itm:itm_stones/t0, itm:itm_grenade/t0 (and the cannonball item)",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_items.py 609-648 item definitions with inline ti_on_missile_hit"
+      ],
+      "overlaps": [
+        "awoiaf.fire_arrows_destructible_props",
+        "be.ww1_weapons_mg_gas_grenades",
+        "nw.explosives_destructible_props",
+        "oa1860.explosive_and_destructible_props",
+        "oa1860.explosive_thrown_weapons",
+        "sw.scripted_grenade_ballistics"
+      ]
+    },
+    {
+      "id": "acw.command_all_allies",
+      "name": "Player commands every allied soldier in battle",
+      "category": "battle-ai-formations",
+      "summary": "In field battles where allied lords fight beside the player, their soldiers stay on the player's team and obey his orders, instead of forming a separate allied team the player cannot command. The FAQ calls this deliberate: the AI is too simple to command well.",
+      "mechanics": "agent_reassign_team (called from ti_on_agent_spawn in lead_charge and castle_attack_walls_defenders_sally) is Native's script that moves allied lords' agents to team + 2 unless the player is marshal of his own kingdom. ACW initialises its ':continue' flag to 0 (source comment '# default: 1'), so the final (eq, ':continue', 1) always fails and no ally is ever moved; it also skips agents without a party (artillery crews).",
+      "hooks": [
+        "mst:lead_charge/t0:conseq",
+        "mst:castle_attack_walls_defenders_sally/t0:conseq"
+      ],
+      "scripts": [
+        "agent_reassign_team"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_castle_attack_walls_defenders_sally"
+      ],
+      "dialogs": [],
+      "slots": [
+        "faction:8"
+      ],
+      "globals": [
+        "players_kingdom"
+      ],
+      "resources": {},
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "dis acw agent_reassign_team: stmt 9 (assign, :l3, 0) then stmt 21 (eq, :l3, 1) -> never reassigns",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 27222-27250 ('# default: 1', '##DrTomas - for cannon crew, they do not have party')",
+        "FAQ.txt: 'In battles, I always control both my own and my allies soldiers ... this is not a bug'"
+      ],
+      "overlaps": [
+        "acw.death_camera",
+        "be.aerial_command_view"
+      ]
+    },
+    {
+      "id": "acw.death_camera",
+      "name": "Death camera with automatic hold orders when the player falls (MadVader deathcam)",
+      "category": "qol-ui",
+      "summary": "Four seconds after the player is knocked out in battle, the view lifts 2.5 m above his body and becomes a free-flying camera (mouse to look, movement keys to fly, X/E for height). At the same moment the player's own formations are dissolved and his team is ordered to stand ground and fire at will (in custom battles: charge).",
+      "mechanics": "Tuples in module_mission_templates.py 55-330 ('## MadVader deathcam begin/end'): common_init_deathcam (resets $pop_camera_* incl. ACW's added rotation bounds and menu-fix variables), common_start_deathcam (0, 4 s, once, main_hero_fallen: mission_cam_set_mode 1 at pos47 = body + 250 cm; formation_end for infantry/archers/cavalry; team_give_order everyone stand_ground + fire_at_will), common_move_deathcam (key_x/key_e/gk_move_*), common_deathcam_menu_fix and common_rotate_deathcam (mouse rotation with clamped pitch; the 4.0 'gyroscope' fixes). Grouped as list `common_vader_deathcam` (custom battles: `common_vader_deathcam_custom`, which orders a charge) and appended to lead_charge, sieges, village raid, bandit fights and scout-camp templates.",
+      "hooks": [
+        "mst:lead_charge/t46:conseq",
+        "mst:lead_charge/t47:conseq",
+        "mst:lead_charge/t48:cond",
+        "mst:quick_battle_battle/t14:conseq",
+        "mst:castle_attack_walls_ladder/t41:conseq"
+      ],
+      "scripts": [
+        "formation_end"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [
+        "mst_lead_charge",
+        "mst_quick_battle_battle",
+        "mst_quick_battle_siege",
+        "mst_castle_attack_walls_ladder",
+        "mst_castle_attack_walls_belfry",
+        "mst_castle_attack_walls_defenders_sally",
+        "mst_village_raid",
+        "mst_village_attack_bandits",
+        "mst_destroy_scout_camp",
+        "mst_besiege_inner_battle_castle",
+        "mst_besiege_inner_battle_town_center"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "pop_camera_on",
+        "pop_camera_rotx",
+        "pop_camera_roty",
+        "pop_camera_mouse_center_x",
+        "pop_camera_mouse_center_y",
+        "pop_camera_mouse_counter",
+        "pop_camera_menu_was_open"
+      ],
+      "resources": {},
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "global acw $pop_camera_on -> 22 writer / 44 reader blocks across 11 battle templates",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 55-330 '## MadVader deathcam' tuples",
+        "changelog v4.0: death-cam rotation 'gyroscopic' bug 'sort of fixed' / 'mostly fixed' (10/9/2026)"
+      ],
+      "overlaps": [
+        "acw.command_all_allies",
+        "be.aerial_command_view"
+      ]
+    },
+    {
+      "id": "acw.besieged_map_smoke_and_caravan_spacing",
+      "name": "Smoke over besieged towns on the world map; caravans leave a town at most every 2 hours",
+      "category": "sieges",
+      "summary": "While a town or fort is under siege, fire and smoke rise from it on the world map, so sieges are visible at a glance; the effect disappears when the siege ends. Separately, a walled town only sends out one merchant caravan every two hours, so caravans do not leave in clumps.",
+      "mechanics": "strig:105 (hourly, module_simple_triggers.py 4979, '#Siege visual effects'): for each walled center, if slot_center_is_besieged_by holds an active party and party slot 372 (slot_siege_spikes) <= 0 -> party_add_particle_system psys_map_village_fire + psys_map_village_fire_smoke, slot 372 = 1; when the siege is gone -> party_clear_particle_systems, slot = -1. Same trigger ('#caravan timers') decrements party slot 373 (slot_caravan_timer) on walled centers; strig:51 ('Troop AI: Merchants thinking') refuses to dispatch a caravan from a center whose timer is > 0 and sets it to 2 after each departure; game_start initialises it to 0. The same hourly trigger also removes pt_scout_camp parties when qst_destroy_scout_camp is not active and completes qst_scout_enemy_town when the player comes within 4 map units of the target (unrelated quest housekeeping).",
+      "hooks": [
+        "strig:105",
+        "strig:51"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:372",
+        "party:373"
+      ],
+      "globals": [],
+      "resources": {
+        "psys": [
+          "psys_map_village_fire",
+          "psys_map_village_fire_smoke"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep party_add_particle_system --mods acw -> strig:105 stmt 8",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_simple_triggers.py 4979-5010 and 2180-2232; module_constants.py 837-838 slot_siege_spikes = 372, slot_caravan_timer = 373"
+      ],
+      "overlaps": [
+        "acw.army_size_map_icons",
+        "bi.culture_lord_map_icons",
+        "cbl.map_icons_by_party_type_and_ships"
+      ]
+    },
+    {
+      "id": "acw.army_size_map_icons",
+      "name": "Lord map icons that grow into an 'army' icon above 150 men",
+      "category": "qol-ui",
+      "summary": "On the world map a general's party shows a flag-bearer icon in his side's colours, and switches to a larger 'army' icon once it has more than 150 men, so big armies are recognisable at a glance.",
+      "mechanics": "script check_party_icon(party): for active lord parties (slot_party_type = spt_kingdom_hero_party) with men: Union (or player's king-start Union faction) -> icon_union_army if > 150 men else icon_flagbearer_union; Confederate -> icon_confed_army / icon_flagbearer_confed; Plains tribes -> icon_khergit_horseman_b. Called whenever size or allegiance can change: create_kingdom_hero_party, hire_men_to_kingdom_hero_party, game_event_simulate_battle, party_set_ai_state, change_troop_faction, process_alarms.",
+      "hooks": [
+        "script:create_kingdom_hero_party",
+        "script:hire_men_to_kingdom_hero_party",
+        "script:game_event_simulate_battle",
+        "script:party_set_ai_state",
+        "script:change_troop_faction",
+        "script:process_alarms"
+      ],
+      "scripts": [
+        "check_party_icon"
+      ],
+      "menus": [],
+      "presentations": [],
+      "mission_templates": [],
+      "dialogs": [],
+      "slots": [
+        "party:0"
+      ],
+      "globals": [
+        "king_start",
+        "king_faction"
+      ],
+      "resources": {
+        "map_icon": [
+          "icon_union_army",
+          "icon_confed_army",
+          "icon_flagbearer_union",
+          "icon_flagbearer_confed",
+          "icon_khergit_horseman_b"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "callers acw check_party_icon -> 6 call sites",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_scripts.py 51433-51489 check_party_icon"
+      ],
+      "overlaps": [
+        "acw.besieged_map_smoke_and_caravan_spacing",
+        "bi.culture_lord_map_icons",
+        "cbl.map_icons_by_party_type_and_ships"
+      ]
+    },
+    {
+      "id": "acw.tavern_musicians_ambience",
+      "name": "Tavern ambience: seated musicians playing banjo/fiddle, patrons sitting and drinking",
+      "category": "settlements-villages",
+      "summary": "Taverns get seated musicians who play a banjo or fiddle tune, and patrons who sit, some with a drinking mug, instead of standing around.",
+      "mechanics": "Tuple `dedal_tavern_animations` (module_mission_templates.py 5117, credited '#dedal') in mst town_default, ti_on_agent_spawn while $talk_context = tc_tavern_talk: musicians (tavern_musicians_begin..end) holding itm_dedal_banjo / itm_dedal_fiddle get stand + current animation anim_lute_sitting / anim_lyre_sitting and agent_play_sound snd_dedal_tavern_banjo / _fiddle, animation progress randomised; walkers (walkers_begin..end) with a mug item get anim_sitting_drinking_low, others anim_sitting_low. menu:town 'Visit the tavern' adds the musicians with override instrument items.",
+      "hooks": [
+        "mst:town_default/t0:cond",
+        "menu:town/opt:town_tavern:conseq"
+      ],
+      "scripts": [],
+      "menus": [
+        "menu_town"
+      ],
+      "presentations": [],
+      "mission_templates": [
+        "mst_town_default"
+      ],
+      "dialogs": [],
+      "slots": [],
+      "globals": [
+        "talk_context"
+      ],
+      "resources": {
+        "item": [
+          "itm_dedal_banjo",
+          "itm_dedal_fiddle",
+          "itm_dedal_kufel",
+          "itm_dedal_kufel_indian"
+        ],
+        "anim": [
+          "anim_lute_sitting",
+          "anim_lyre_sitting",
+          "anim_sitting_drinking_low",
+          "anim_sitting_low"
+        ],
+        "sound": [
+          "snd_dedal_tavern_banjo",
+          "snd_dedal_tavern_fiddle"
+        ]
+      },
+      "native_relation": "new",
+      "confidence": "confirmed",
+      "evidence": [
+        "grep dedal --mods acw -> menu:town/opt:town_tavern:conseq (override itm_dedal_banjo), mst:town_default/t0:cond",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 5117-5170 dedal_tavern_animations"
+      ],
+      "overlaps": []
+    },
+    {
+      "id": "acw.custom_battle_historical_scenarios",
+      "name": "Custom battles: 35 historical battlefields, 38 playable generals, per-battle time of day and fog",
+      "category": "qol-ui",
+      "summary": "The custom-battle screen offers 35 historical battlefields (Manassas to Bentonville) and 38 historical generals with biographies; each battlefield loads at its historical time of day, some with fog, with artillery, colour-guards, war cry and bugles active.",
+      "mechanics": "Native presentation game_custom_battle_designer (module_presentations.py ~380-810) extended: combo label of quick_battle_troops (trp_quick_battle_troop_1 .. trp_quick_battle_troops_end, 38 entries) with biography text; scene combo filled from civil_war_custom_battle_scenes_begin = scn_civ_custom_battle_manassas .. scn_civ_custom_battle_end (35 scenes) and other scene categories (random, camp, town, castle, village, plus a debug 'Scene ID' browser of all edit scenes). mst quick_battle_battle/quick_battle_siege append custom_flagbearers + common_vader_deathcam_custom + custom_battle_ai (madsci_custom_ai: the enemy team is ordered to charge about 1-2 s in, unless $g_quick_battle_game_type = 1) + custom_weather (madsci_weather: scene_set_day_time / set_fog_distance per scene in its condition block) + cannons_custom + EG3_Warcry_custom + bugle_calls_custom.",
+      "hooks": [
+        "prsnt:game_custom_battle_designer",
+        "mst:quick_battle_battle/t21:cond",
+        "mst:quick_battle_siege/t24:cond"
+      ],
+      "scripts": [],
+      "menus": [],
+      "presentations": [
+        "prsnt_game_custom_battle_designer"
+      ],
+      "mission_templates": [
+        "mst_quick_battle_battle",
+        "mst_quick_battle_siege"
+      ],
+      "dialogs": [],
+      "slots": [
+        "faction:41",
+        "faction:42",
+        "faction:47",
+        "faction:48"
+      ],
+      "globals": [
+        "g_quick_battle_troop",
+        "g_quick_battle_map",
+        "g_custom_battle_designer_scene_type",
+        "madsci_timer"
+      ],
+      "resources": {
+        "scene": [
+          "scn_civ_custom_battle_manassas .. scn_civ_custom_battle_end (35)"
+        ],
+        "troop": [
+          "trp_quick_battle_troop_1 .. (38)"
+        ]
+      },
+      "native_relation": "modifies-native",
+      "confidence": "confirmed",
+      "evidence": [
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_presentations.py 397-482 (combo_label of 38 generals, create_combo_button_overlay with the listbox alternative commented out), 801-807 civil_war_custom_battle_scenes loop",
+        "src = ACW Revived 4.0.18/_module_system_source/acwr module system/module_mission_templates.py 3196-3320 madsci_weather; 10388 and 10485 quick-battle bundle lists",
+        "grep set_fog_distance --mods acw --kinds mst -> quick_battle_battle/t21:cond, quick_battle_siege/t24:cond",
+        "FAQ.txt: without WSE2 not all custom battle maps are reachable (no scroll bar)"
+      ],
+      "overlaps": [
+        "cbl.custom_field_battle_scenes",
+        "laigle.size_aware_battlefields",
+        "tld.region_tracking_and_battle_scenes"
+      ]
+    }
+  ]
+}

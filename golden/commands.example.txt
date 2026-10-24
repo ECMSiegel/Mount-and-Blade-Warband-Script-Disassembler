@@ -1,0 +1,14 @@
+modules
+dis native game_start
+dis native game_start --raw
+explain native game_start
+callers native game_start
+callees native game_start
+tree native game_start --depth 3
+roots native game_start
+global native $g_player_troop
+slot native troop 1
+grep change_screen_equip_other
+text "Welcome"
+opcheck
+similar native initialize_banner_info
