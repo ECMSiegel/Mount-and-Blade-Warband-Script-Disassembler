@@ -46,8 +46,19 @@ def disassemble(statements, indent="  "):
     return out
 
 
+def _missing(fname):
+    """Clean error for a module folder that lacks the table (no traceback)."""
+    path = os.path.join(MODULE, fname)
+    if os.path.isfile(path):
+        return None
+    print("error: %s not found; set WB_MODULES_DIR (and WB_MODULE) to a module folder" % path)
+    return 1
+
+
 def main(argv):
     if len(argv) >= 3 and argv[1] == "--trigger":
+        if _missing("simple_triggers.txt"):
+            return 1
         doc = wbasm.load_simple_triggers(os.path.join(MODULE, "simple_triggers.txt"))
         if not re.fullmatch(r"-?\d+", argv[2]):
             print("no such trigger: %s" % argv[2])
@@ -66,6 +77,8 @@ def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
+    if _missing("scripts.txt"):
+        return 1
     doc = wbasm.load_scripts(os.path.join(MODULE, "scripts.txt"))
     scr = doc.by_name(argv[1])
     if scr is None:

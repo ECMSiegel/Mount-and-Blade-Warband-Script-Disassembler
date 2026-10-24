@@ -24,6 +24,18 @@ class BadRegistry(unittest.TestCase):
                            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"), capture_output=True, text=True)
         self.assertEqual((r.returncode, r.stdout.startswith("error: "), "Traceback" in r.stderr), (1, True, False), r)
 
+    def test_missing_module_folder_is_a_clean_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, WB_MODULES_DIR=os.path.join(tmp, "nowhere"),
+                       WB_REGISTRY=os.path.join(tmp, "none.json"), PYTHONDONTWRITEBYTECODE="1")
+            for args in (["x"], ["--trigger", "0"]):
+                r = subprocess.run([sys.executable, os.path.join(REPO, "wbdis.py")] + args,
+                                   env=env, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 1, (args, r.stdout, r.stderr))
+                self.assertNotIn("Traceback", r.stderr, args)
+                self.assertTrue(r.stdout.startswith("error: "), (args, r.stdout))
+                self.assertIn("not found", r.stdout, args)
+
     def check(self, script, args, env, name):
         r = subprocess.run([sys.executable, os.path.join(REPO, script)] + args,
                            env=env, capture_output=True, text=True)

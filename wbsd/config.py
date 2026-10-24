@@ -61,9 +61,11 @@ def _main_slug():
         for e in mods:
             if e.get("role") == "main":
                 return e["slug"]
-    except IsADirectoryError:
-        raise ValueError('%s: is a folder, not a module registry file' % REGISTRY)
     except OSError:
+        # Opening a folder raises IsADirectoryError on POSIX but PermissionError
+        # on Windows, so ask the filesystem rather than trusting the error type.
+        if os.path.isdir(REGISTRY):
+            raise ValueError('%s: is a folder, not a module registry file' % REGISTRY)
         return None          # no registry file: no main module
     except (ValueError, KeyError, TypeError, AttributeError) as e:
         raise ValueError('%s: not a valid module registry (expected {"modules": [ {"slug": ..., '
