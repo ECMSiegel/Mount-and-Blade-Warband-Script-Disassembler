@@ -1,139 +1,189 @@
-# Mount & Blade Warband Script Disassembler
+# Mount & Blade: Warband Script Disassembler
 
-Look inside any Mount & Blade: Warband mod, even without its source code: see how its features work, compare mods, and bring features into your own mod safely.
+**Explore Warband’s compiled scripts without the original source.**
+
+Find the logic behind a feature, trace its dependencies, and compare implementations across mods. This Python toolkit reads the compiled `.txt` files shipped with Warband modules and turns numeric instructions into named operations, call graphs, and reports.
 
 [![tests](https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler/actions/workflows/tests.yml/badge.svg)](https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler/actions/workflows/tests.yml)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![MIT](https://img.shields.io/badge/licence-MIT-green)
 
-## What can I do with it?
+**For modders:** [Quick start](#quick-start) · [Modding workflows](#modding-workflows) · [Command reference](docs/REFERENCE.md)
 
-- **Find the script behind a feature.** Which script makes caravans travel? `wbsd grep`, `wbsd text`, `wbsd explain`
-- **See which mods copied from each other.** Mods that share identical scripts share ancestry. `wbsd lineage`, `wbsd similar`
-- **Get a shopping list before you copy a feature.** Everything it needs, and what would clash in your mod. `wbsd closure ... --into`
-- **Copy a feature into your mod, with a safety check.** The tool proves nothing existing was changed and the new code is actually reachable. `wbport` + `wbsd verify-port`
-- **Browse a catalogue of features.** 311 records from 15 public mods. [examples/atlas](examples/atlas/README.md), `wbsd features`
-- **Read a game log for you.** Spots script errors and missing files. `wbsd check-log`
+**For technical reviewers:** [Engineering highlights](#engineering-highlights) · [Evidence and limitations](#evidence-and-limitations) · [Project authorship](#project-authorship)
 
-## How this was made
+## See what it answers
 
-This was built by someone with no programming background, just by describing what they wanted to do in Warband to AI coding agents. The agents wrote the code, the tests and the docs. Nothing was kept on trust: every change was checked against the output of the original tool, and reviewed by separate agents before it stayed. The author used this approach to build a large Warband mod of their own. You can do the same. You do not need to read code: the files in [skills/](skills) are the step-by-step procedures the agents follow, and you can read them like a checklist.
+“Which parts of the mod depend on this variable?”
 
-## Two ways to use it
+```sh
+wbsd global native '$g_talk_troop'
+```
 
-### (a) With an AI coding agent (easiest)
+Excerpt from the [worked example](docs/RECIPES.md):
 
-Open this repo in an agent such as Claude Code or Codex, copy the skills in, and ask in plain words.
+```text
+$g_talk_troop (global #115): 7 writer blocks, 906 reader blocks
+ WRITERS:
+   dlg:0:dlga_start:close_window:cond "{!}Warning:_This_line_is_never_displayed._It_is_just_for_sto"
+   dlg:1929:dlga_member_chat:sacrificed_messenger_1:cond "Yes_{sir/madam}?"
+   script:npc_decision_checklist_party_ai
+```
 
-- Claude Code: copy the folders in `skills/` into `.claude/skills/`
-- Codex or OpenCode: copy the folders in `skills/` into `.agents/skills/`
+Before changing a shared variable, you can identify the scripts and dialogue blocks that use it. The full report lists readers too; each block ID can be inspected with `wbsd dis` or `wbsd explain`. Counts depend on the module version.
 
-Example requests:
+## Quick start
 
-- "Audit the mod in folder X and add it to the atlas."
-- "Find how mod X does caravans."
-- "Port the feature X from mod A into my mod in folder B."
+You need **Python 3.9+**, a local copy of **Mount & Blade: Warband** with its `Native` module, and Git if you use the clone command below. The toolkit has no third-party runtime dependencies. An AI coding agent is optional.
 
-The four skills are `atlas-add` (register a mod), `atlas-audit` (write up its features), `atlas-port` (copy one feature into your mod) and `port-batch` (many ports onto one mod, in waves). You can also type `/atlas-add` and so on. Setup (steps 1 to 5 below) still applies; the agent can do those for you if you ask.
+### 1. Get the toolkit
 
-### (b) Yourself
+```sh
+git clone https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler.git
+cd Mount-and-Blade-Warband-Script-Disassembler
+```
 
-You do not need an agent. The `wbsd` command, reports and the example atlas are ordinary tools. Writing atlas records and porting are mostly judgement work, but you can do both by hand: [docs/ATLAS.md](docs/ATLAS.md) and [docs/PORTING.md](docs/PORTING.md). A by-hand port is a short Python script using `wbport`, checked with `wbsd verify-port`; there is no one-command port.
+Alternatively, use GitHub’s **Code → Download ZIP**, extract it, and open a terminal in the extracted folder.
 
-1. **Install Python 3.9 or newer.** Nothing else is needed; the tool uses only what Python ships with.
-2. **Clone this repo** (download it with git) and open a terminal in that folder.
-3. **Install it:** `pip install -e .` This adds the `wbsd`, `wbdis` and `wb-build-tables` commands. It must be an editable install, because the tables and caches live in your clone. (Without installing, `python3 wbsd/wbsd.py ...` works too.)
-4. **Build the opcode tables:** `wb-build-tables --download` Opcodes are the little instructions scripts are made of. This fetches TaleWorlds' public header files; nothing is redistributed here. If you already have a Module System, `wb-build-tables <that folder>` works too.
-5. **Point it at your mods.** It looks for Steam's `Modules` folder by itself: macOS Steam, then `%ProgramFiles(x86)%\Steam\...`, `%ProgramFiles%\Steam\...`, `~/.steam/steam/...`, `~/.local/share/Steam/...`. Anywhere else, set `WB_MODULES_DIR` to your `Modules` folder (the one holding `Native/`).
-6. **Try it:**
+### 2. Install in a virtual environment
 
-        wbsd explain native game_start
+**Windows PowerShell:**
 
-        == EXPLAIN script:game_start in Native
-        statements: 675   params: 0   returns: -
-        direct callees (39): script:update_party_creation_random_limits, ...
-        closure: 114 blocks (this + recursive callees)
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e .
+.venv\Scripts\wb-build-tables.exe --download
+.venv\Scripts\wbsd.exe explain native game_start
+```
 
-   That says what the script that starts a new game does. The first run on a mod builds a cache in `.cache/` (about a second for Native, longer for big mods).
+**macOS / Linux:**
 
-Three worked examples: [docs/RECIPES.md](docs/RECIPES.md).
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/wb-build-tables --download
+.venv/bin/wbsd explain native game_start
+```
 
-## Words you'll see
+Use an editable install (`-e .`): generated tables and caches live in your checkout. `--download` fetches Module System headers from a pinned public source and builds the operation-name tables locally; it reads the headers as text without executing them. To use headers you already have, replace `--download` with the quoted path to your Module System folder. See [provenance](docs/PROVENANCE.md).
 
-- **Module / mod:** one folder under `Modules/`, a game or add-on such as Native.
-- **Module System:** the Python source modders use to build a mod. Most mods do not ship it.
-- **Compiled files:** the `.txt` files (`scripts.txt`, `triggers.txt`, ...) the game actually reads. This tool reads those.
-- **Script:** a named routine of game logic that other scripts, menus and triggers can call.
-- **Trigger:** logic that runs on a timer or an event.
-- **Global:** a named variable shared by the whole game.
-- **Slot:** a numbered storage cell attached to a troop, party, faction and so on.
-- **Closure:** a feature plus everything it calls or depends on.
-- **Atlas:** a catalogue of features found in mods, one record per feature.
-- **Port:** copying a feature from one mod into another.
+The final command reports the calls and dependencies of the script that starts a new game. Example output, abbreviated:
 
-# Reference
+```text
+== EXPLAIN script:game_start in Native
+statements: 675   params: 0   returns: -
+direct callees (39): script:update_party_creation_random_limits, ...
+closure: 114 blocks (this + recursive callees)
+```
 
-## Why this exists
+Here, *closure* means the script plus the blocks reached by following its calls. The first query builds a local cache; later queries reuse it.
 
-Every Warband mod ships its logic as compiled script files, not as the Module System source it came from. The established tools each cover a different job, and none analyses those compiled scripts across several mods. This one reads the files, names every operation, and answers questions across all the mods you point it at.
+### 3. Point it at your installation
 
-| Tool | What it is for |
+The tool checks common Steam locations on Windows, macOS, and Linux. If Native is missing, set `WB_MODULES_DIR` to the folder **containing `Native`**, then rerun the final command above:
+
+```powershell
+# Windows PowerShell — replace this example path
+$env:WB_MODULES_DIR = 'D:\SteamLibrary\steamapps\common\MountBlade Warband\Modules'
+```
+
+```sh
+# macOS / Linux — replace this example path
+export WB_MODULES_DIR='/path/to/MountBlade Warband/Modules'
+```
+
+Native is registered by default through `modules.example.json`. To add another mod, copy that file to `modules.json` if you do not already have one, then add an entry with its folder path and a short `slug`. Use the slug in commands. [Configuration reference →](docs/REFERENCE.md)
+
+The examples below use `wbsd` as shorthand. With the environment above, use `.venv\Scripts\wbsd.exe` on Windows or `.venv/bin/wbsd` on macOS/Linux.
+
+## Modding workflows
+
+| I want to… | Start here |
 |---|---|
-| W.R.E.C.K. | compile a module from Module System source |
-| Morgh's editor | edit items, troops and similar game data |
-| OpenBRF | view and edit meshes and other resources |
-| this repo | read, search and compare the compiled scripts of many mods; plan ports between them |
+| Read a script as named operations | `wbsd dis native game_start` |
+| Find who calls it | `wbsd callers native game_start` |
+| Find entry points that lead to it | `wbsd roots native game_start` |
+| Find readers and writers of a global | `wbsd global native '$g_talk_troop'` |
+| Compare a feature’s dependencies with another mod | `wbsd closure DONOR SCRIPT --into TARGET --hooks` |
+| Find similar scripts, including renamed candidates | `wbsd similar MOD SCRIPT` |
+| Explore documented features | [Example feature atlas](examples/atlas/README.md) |
 
-## What only this does
+`DONOR`, `TARGET`, and `MOD` are registered module slugs; `SCRIPT` is a script name. Keep the single quotes around `$g_talk_troop` so your shell does not expand it.
 
-**Plan a port with `closure --into`.** Name a feature in one mod and a target mod. You get everything the feature drags in, and what would clash in the target ([Recipe B](docs/RECIPES.md)):
+**Planning a port?** The closure report identifies script differences, missing resources, and possible slot collisions. Porting still requires judgement and a Python port script; there is no one-command feature transplant. Start with the [worked port-analysis example](docs/RECIPES.md), then the [porting guide](docs/PORTING.md). Work on a separate copy of the target mod and respect the source mod’s permissions.
 
-    wbsd closure vc add_jetty_system --into native --hooks
+**Prefer an agent-assisted workflow?** The optional [skills](skills) cover registering mods, auditing features, and planning and applying ports. The same CLI and reports are usable by hand. See the [atlas guide](docs/ATLAS.md) for the catalogue format and workflow.
 
-    blocks in closure: 67
-    entry points the feature hangs off in the donor (2):
-       script:game_start
-    SCRIPTS:
-       abort_quest         327 stmts  DIFFERS in target (65% similar) -> merge conflict
-       add_jetty_system     16 stmts  ABSENT in target (must be rebuilt)
-       add_log_entry        80 stmts  identical in target
+<details>
+<summary>Terms used in reports</summary>
 
-- **Lineage and similar.** `lineage` shows which mods share identical scripts; `similar` finds a renamed copy of a script by what it does.
-- **Call graphs and cross-references.** Callers, callees, trees, entry points, and every reader and writer of a global, slot or resource.
-- **A byte-exact parser.** `wbasm` reads a module file and writes it back identical to the byte, so nothing is lost in translation.
-- **A port harness.** `wbport` is a safety wrapper for port scripts: backups, round-trip checks, idempotent helpers, nothing written if a check fails. `wbsd verify-port` then proves the result is append-only and reachable (a static call path; guards are not evaluated).
-- **A feature atlas.** [examples/atlas/](examples/atlas/README.md) holds 311 records across 15 public mods, plus a fresh audit made with the shipped skills.
+- **Module:** a game/mod folder, such as `Native`.
+- **Module System:** the source framework used to build Warband modules; it is not required to inspect a mod’s compiled scripts.
+- **Trigger:** logic invoked by a timer or event.
+- **Global:** a variable shared across game logic.
+- **Slot:** a numbered storage cell attached to a troop, party, faction, or other game object.
+- **Atlas:** a catalogue of investigated mod features.
 
-## Commands and configuration
+</details>
 
-`wbsd help` prints the full command list; every command, flag and environment variable (`WB_MODULES_DIR`, `WB_REGISTRY`, `WB_ATLAS_DIR`, `WB_CACHE_DIR`, ...) is in [docs/REFERENCE.md](docs/REFERENCE.md). The registry file `modules.json` (git-ignored) lists the modules `wbsd` knows; copy `modules.example.json` and add entries. `.cache/` is safe to delete; it is rebuilt when a module's `.txt` files change.
+## Engineering highlights
 
-## Safety model
+The engineering problem is to make compiled game logic inspectable while preserving its representation and identifying dependencies across independently built modules.
 
-- Byte-exact round trip: `wbasm` writes a parsed file back identical to the byte. The tests check this on Native for `scripts.txt`, `simple_triggers.txt`, `menus.txt`, `triggers.txt`, `tableau_materials.txt`, `conversation.txt`, `mission_templates.txt` and `presentations.txt`.
-- `wbport` refuses a target inside the Modules folder, backs each table up once, and writes nothing if any check fails.
-- Scripts are append-only: new scripts go at the end, so existing script indexes never shift.
-- Module folders are used read-only. Caches and reports go under this repo (`.cache/`, `out/`), never into a module folder.
+```text
+Compiled module files → parsed blocks and operands → named operations and indexes
+                                                   ↓
+                              disassembly · call graphs · comparisons · port reports
+```
 
-## Performance
+| Component | Responsibility | Implementation / evidence |
+|---|---|---|
+| Parser and serializer | Preserve supported tables byte for byte through an unedited round trip | [wbasm.py](wbasm.py), [format notes](docs/FORMAT.md) |
+| Analysis CLI | Resolve names, trace calls, and find references across modules | [wbsd](wbsd), [worked queries](docs/RECIPES.md) |
+| Cache and query optimization | Reuse parsed modules and reference indexes, and avoid unnecessary analysis | [benchmark methodology](docs/PERFORMANCE.md), [profiling notes](docs/PROFILE.md) |
+| Port harness | Translate named operands, back up target tables, and validate edits before writing | [wbport.py](wbport.py), [porting guide](docs/PORTING.md) |
+| Test fixtures | Exercise parsing, CLI queries, and port failure cases without redistributing game data | [test documentation](tests/README.md), [CI workflow](.github/workflows/tests.yml) |
 
-Caching and a few query changes cut most commands by 50 to 98 percent with byte-identical output. For example `modules` went from 4.9 s to 0.12 s and `explain` from 2.1 s to 0.7 s. Method: [docs/PERFORMANCE.md](docs/PERFORMANCE.md). Where the time goes: [docs/PROFILE.md](docs/PROFILE.md).
+### Recorded performance
 
-## Tests
+The documented paired comparison used warm caches, an untimed warm-up, and three alternating rounds; these are recorded results, not a guarantee for another machine or module set.
 
-The tests pass without any game data (those that need it are skipped). CI runs on Ubuntu and Windows with Python 3.9, 3.12, 3.13 and 3.14. Run them with `python3 -m unittest discover -s tests`; `python3 tools/hollow_check.py tests` flags tests that can never fail; details in [tests/README.md](tests/README.md).
+| Command | Before | After |
+|---|---:|---:|
+| `modules` | 4.90 s | 0.12 s |
+| `explain main game_start` | 2.11 s | 0.72 s |
+| `similar main game_start` | 6.77 s | 2.48 s |
 
-## More documentation
+The benchmark notes report byte-identical output across 17 comparison commands and include cache-invalidation checks and measurements with individual optimizations removed. [Read the method and trade-offs →](docs/PERFORMANCE.md)
 
-- [docs/REFERENCE.md](docs/REFERENCE.md): all commands and settings.
-- [docs/RECIPES.md](docs/RECIPES.md): three worked examples.
-- [docs/PORTING.md](docs/PORTING.md): how to port a feature between mods (`wbport`, `verify-port`, `check-log`).
-- [docs/FORMAT.md](docs/FORMAT.md): the compiled bytecode format.
-- [docs/ATLAS.md](docs/ATLAS.md): the feature atlas; [examples/atlas/](examples/atlas/README.md): a worked example.
-- [CHANGELOG.md](CHANGELOG.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+## Evidence and limitations
 
-## Provenance and licence
+- **Inspection and editing are distinct.** Analysis reads module data and uses local caches. The port harness edits a target copy; by default, it refuses targets inside the configured game Modules folder.
+- **Round trips protect representation.** Byte-preserving serialization and pre-write checks catch structural problems. They do not establish that edited gameplay is correct.
+- **Reachability is static.** `verify-port` checks structural properties, including append-only script changes and call paths. It does not evaluate runtime guards or replace an in-game playtest.
+- **Similarity is a lead, not attribution.** Shared scripts can reflect common Native code or another shared source. Similarity alone does not establish authorship or copying direction.
+- **Test coverage depends on available data.** CI is configured for Ubuntu and Windows with Python 3.9, 3.12, 3.13, and 3.14. Fixture tests run without game data; tests requiring real modules or generated tables are skipped when those inputs are absent.
 
-The opcode names, ids, signatures, operand tags, trigger-event codes and key codes come from TaleWorlds' Mount & Blade: Warband Module System, which TaleWorlds publishes for modders. This repository does not redistribute those tables. `wbsd/build_tables.py` generates them from the Module System headers (your own copy, or fetched with `--download`), writing two local, git-ignored files (`wbsd/opref_data.py`, `wbsd/header_tables.py`). The headers are read as text; nothing in them is run. Until they exist, `wbsd` prints a short "run build_tables first" message and the tests that need them are skipped. The repo includes the author's corrections in `wbsd/table_overlay.py`; see [docs/PROVENANCE.md](docs/PROVENANCE.md).
+Run the suite from the repository root using your environment’s Python:
 
-The MIT licence covers this repo's own code and docs. The Module System itself remains TaleWorlds'. See [LICENSE](LICENSE).
+```sh
+python -m unittest discover -s tests -v
+```
+
+See [tests/README.md](tests/README.md) for data-dependent checks and configuration. A passing fixture suite is not evidence that every third-party mod is supported.
+
+## Project authorship
+
+This project grew out of the author’s Warband modding work. The author described the desired workflows and directed AI coding agents, which wrote the implementation, tests, and documentation. It is an AI-assisted development project, with its technical approach and evidence available for inspection in this repository.
+
+For a technical review, start with the [parser](wbasm.py), [performance experiments](docs/PERFORMANCE.md), and [fixture tests](tests/README.md). These make the implementation choices and the limits of the checks concrete.
+
+## Documentation and licence
+
+- [Command reference](docs/REFERENCE.md) — commands, flags, and environment variables.
+- [Worked examples](docs/RECIPES.md) — variable references, port planning, and script similarity.
+- [Porting guide](docs/PORTING.md) — target copies, remapping, validation, and logs.
+- [Feature atlas](docs/ATLAS.md) and [example catalogue](examples/atlas/README.md).
+- [Compiled format](docs/FORMAT.md), [provenance](docs/PROVENANCE.md), [changelog](CHANGELOG.md), and [contributing](CONTRIBUTING.md).
+
+The [MIT licence](LICENSE) covers this repository’s own code and documentation. TaleWorlds’ Module System remains TaleWorlds’ material. Operation tables are generated locally from Module System headers and are not redistributed here; see [provenance](docs/PROVENANCE.md) for the source and generation process.
