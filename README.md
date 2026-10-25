@@ -174,7 +174,7 @@ See [tests/README.md](tests/README.md) for data-dependent checks and configurati
 
 ## Project authorship
 
-This project grew out of the author’s Warband modding work. The author described the desired workflows and directed AI coding agents, which wrote the implementation, tests, and documentation. It is an AI-assisted development project, with its technical approach and evidence available for inspection in this repository.
+This project grew out of my Warband modding work. I described the workflows I needed and directed AI coding agents, which wrote the implementation, tests, and documentation. I’ve documented the technical approach and supporting evidence in this repository so you can inspect how it works and what has been checked.
 
 For a technical review, start with the [parser](wbasm.py), [performance experiments](docs/PERFORMANCE.md), and [fixture tests](tests/README.md). These make the implementation choices and the limits of the checks concrete.
 
