@@ -4,6 +4,72 @@
 
 Find the logic behind a feature, trace its dependencies, and compare implementations across mods. This Python toolkit reads the compiled `.txt` files shipped with Warband modules and turns numeric instructions into named operations, call graphs, and reports.
 
+## Quick start
+
+You need **Python 3.9+**, a local copy of **Mount & Blade: Warband** with its `Native` module, and Git if you use the clone command below. The toolkit has no third-party runtime dependencies. An AI coding agent is optional.
+
+### 1. Get the toolkit
+
+```sh
+git clone https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler.git
+cd Mount-and-Blade-Warband-Script-Disassembler
+```
+
+Alternatively, use GitHub’s **Code → Download ZIP**, extract it, and open a terminal in the extracted folder.
+
+### 2. Install and run your first query
+
+Run the commands for your operating system, one line at a time, from the downloaded folder.
+
+**Windows PowerShell:**
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e .
+.venv\Scripts\wb-build-tables.exe --download
+.venv\Scripts\wbsd.exe explain native game_start
+```
+
+**macOS / Linux:**
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/wb-build-tables --download
+.venv/bin/wbsd explain native game_start
+```
+
+Use an editable install (`-e .`): generated tables and caches live in your checkout. `--download` fetches Module System headers from a pinned public source and builds the operation-name tables locally; it reads the headers as text without executing them. To use headers you already have, replace `--download` with the quoted path to your Module System folder. See [provenance](docs/PROVENANCE.md).
+
+If setup worked, the final command prints a report beginning with `EXPLAIN script:game_start in Native`. It shows the calls and dependencies of the script that starts a new game. Example output, abbreviated:
+
+```text
+== EXPLAIN script:game_start in Native
+statements: 675   params: 0   returns: -
+direct callees (39): script:update_party_creation_random_limits, ...
+closure: 114 blocks (this + recursive callees)
+```
+
+Here, *closure* means the script plus the blocks reached by following its calls. The first query builds a local cache; later queries reuse it.
+
+### 3. If the tool cannot find Warband
+
+The tool checks common Steam locations on Windows, macOS, and Linux. If Native is missing, set `WB_MODULES_DIR` to the folder **containing `Native`**, then rerun the final command above:
+
+```powershell
+# Windows PowerShell — replace this example path
+$env:WB_MODULES_DIR = 'D:\SteamLibrary\steamapps\common\MountBlade Warband\Modules'
+```
+
+```sh
+# macOS / Linux — replace this example path
+export WB_MODULES_DIR='/path/to/MountBlade Warband/Modules'
+```
+
+Native is registered by default through `modules.example.json`. To add another mod, copy that file to `modules.json` if you do not already have one, then add an entry with its folder path and a short `slug`. Use the slug in commands. [Configuration reference →](docs/REFERENCE.md)
+
+The examples below use `wbsd` as shorthand. With the environment above, use `.venv\Scripts\wbsd.exe` on Windows or `.venv/bin/wbsd` on macOS/Linux.
+
 [![tests](https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler/actions/workflows/tests.yml/badge.svg)](https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler/actions/workflows/tests.yml)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![MIT](https://img.shields.io/badge/licence-MIT-green)
@@ -31,70 +97,6 @@ $g_talk_troop (global #115): 7 writer blocks, 906 reader blocks
 ```
 
 Before changing a shared variable, you can identify the scripts and dialogue blocks that use it. The full report lists readers too; each block ID can be inspected with `wbsd dis` or `wbsd explain`. Counts depend on the module version.
-
-## Quick start
-
-You need **Python 3.9+**, a local copy of **Mount & Blade: Warband** with its `Native` module, and Git if you use the clone command below. The toolkit has no third-party runtime dependencies. An AI coding agent is optional.
-
-### 1. Get the toolkit
-
-```sh
-git clone https://github.com/ECMSiegel/Mount-and-Blade-Warband-Script-Disassembler.git
-cd Mount-and-Blade-Warband-Script-Disassembler
-```
-
-Alternatively, use GitHub’s **Code → Download ZIP**, extract it, and open a terminal in the extracted folder.
-
-### 2. Install in a virtual environment
-
-**Windows PowerShell:**
-
-```powershell
-py -3 -m venv .venv
-.venv\Scripts\python.exe -m pip install -e .
-.venv\Scripts\wb-build-tables.exe --download
-.venv\Scripts\wbsd.exe explain native game_start
-```
-
-**macOS / Linux:**
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/wb-build-tables --download
-.venv/bin/wbsd explain native game_start
-```
-
-Use an editable install (`-e .`): generated tables and caches live in your checkout. `--download` fetches Module System headers from a pinned public source and builds the operation-name tables locally; it reads the headers as text without executing them. To use headers you already have, replace `--download` with the quoted path to your Module System folder. See [provenance](docs/PROVENANCE.md).
-
-The final command reports the calls and dependencies of the script that starts a new game. Example output, abbreviated:
-
-```text
-== EXPLAIN script:game_start in Native
-statements: 675   params: 0   returns: -
-direct callees (39): script:update_party_creation_random_limits, ...
-closure: 114 blocks (this + recursive callees)
-```
-
-Here, *closure* means the script plus the blocks reached by following its calls. The first query builds a local cache; later queries reuse it.
-
-### 3. Point it at your installation
-
-The tool checks common Steam locations on Windows, macOS, and Linux. If Native is missing, set `WB_MODULES_DIR` to the folder **containing `Native`**, then rerun the final command above:
-
-```powershell
-# Windows PowerShell — replace this example path
-$env:WB_MODULES_DIR = 'D:\SteamLibrary\steamapps\common\MountBlade Warband\Modules'
-```
-
-```sh
-# macOS / Linux — replace this example path
-export WB_MODULES_DIR='/path/to/MountBlade Warband/Modules'
-```
-
-Native is registered by default through `modules.example.json`. To add another mod, copy that file to `modules.json` if you do not already have one, then add an entry with its folder path and a short `slug`. Use the slug in commands. [Configuration reference →](docs/REFERENCE.md)
-
-The examples below use `wbsd` as shorthand. With the environment above, use `.venv\Scripts\wbsd.exe` on Windows or `.venv/bin/wbsd` on macOS/Linux.
 
 ## Modding workflows
 
